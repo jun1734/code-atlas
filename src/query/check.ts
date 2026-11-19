@@ -214,8 +214,14 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
     layer.set(m, Math.max(0, ...below.map((x) => layer.get(x)! + 1)));
   }
 
-  // 4. 흐름을 거스르는 import와 허용 목록.
-  const allowlist = new Set(readAllowlist(meta.repoRoot, config.allowlist));
+  // 4. 흐름을 거스르는 import와 허용 목록. 허용은 (가져다 쓰는 쪽, 대상) 쌍이에요.
+  const allowlist = config.allowlist.map((source) => {
+    const modules = new Set(source.from.modules ?? []);
+    const fromFiles = (source.from.files ?? []).map(globToRegExp);
+    const targets = new Set(readAllowlist(meta.repoRoot, source));
+    return (i: FileImport) =>
+      targets.has(i.to) && (modules.has(mod(i.from)) || fromFiles.some((re) => re.test(i.from)));
+  });
   const backwardImports: BackwardImportItem[] = imports
     .filter((i) => position.get(mod(i.from))! > position.get(mod(i.to))!)
     .map((i) => ({
@@ -223,7 +229,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
       to: i.to,
       fromModule: mod(i.from),
       toModule: mod(i.to),
-      allowed: allowlist.has(i.to),
+      allowed: allowlist.some((allows) => allows(i)),
       confidence: i.confidence,
       source: i.source,
     }));

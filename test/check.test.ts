@@ -94,3 +94,24 @@ describe('modular_sample check', () => {
     assert.deepEqual(await mcp.call('check', {}), answer);
   });
 });
+
+describe('allowlist_sample check (허용은 가져다 쓰는 쪽과 대상의 쌍)', () => {
+  let fx: IndexedFixture;
+  before(() => {
+    fx = indexFixture('allowlist_sample');
+  });
+  after(() => fx?.dispose());
+
+  it('허용 목록의 출발 모듈이 가져오면 허용, 다른 모듈이 같은 대상을 거꾸로 가져오면 새 위반이다', () => {
+    const answer = fx.ask('check');
+    assert.deepEqual(
+      answer.backwardImports.items.map((b: any) => [b.from, b.fromModule, b.to, b.allowed]),
+      [
+        ['lib/common/frame.dart', 'common', 'lib/features/menu/menu_page.dart', true],
+        ['lib/util/fmt.dart', 'util', 'lib/features/menu/menu_page.dart', false],
+      ],
+    );
+    assert.equal(answer.summary.allowed, 1);
+    assert.equal(answer.summary.new, 1);
+  });
+});

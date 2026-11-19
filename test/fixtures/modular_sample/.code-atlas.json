@@ -7,6 +7,7 @@
   "shared": ["shared"],
   "composers": ["app"],
   "allowlist": {
+    "from": { "modules": ["shared"] },
     "file": "tool/boundaries.dart",
     "block": "const sharedMayImport = \\{([\\s\\S]*?)\\};",
     "item": "'([^']+)'"

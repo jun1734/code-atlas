@@ -30,8 +30,8 @@ export interface RepoConfig {
   shared: string[];
   /** 다른 모듈을 모아 조립하는 모듈. 이 모듈이 가져다 쓰는 것은 리뷰 후보가 아니에요. */
   composers: string[];
-  /** 흐름을 거슬러도 된다고 적어 둔 import 대상 파일 목록의 위치. 없으면 null. */
-  allowlist: AllowlistSource | null;
+  /** 흐름을 거슬러도 된다고 적어 둔 (가져다 쓰는 쪽, 대상 파일) 목록들의 위치. 없으면 빈 배열. */
+  allowlist: AllowlistSource[];
   /** 다른 모듈에서 가져다 써도 되는 파일(화면, provider 등). 파일 이름이나 그 파일이 정의한 심볼로 골라요. */
   openToOtherModules: { files: string[]; symbols: SymbolMatcher[] };
   /** 쓰이지 않는 공개 이름 검사. `private`에 맞는 이름은 공개가 아니에요. `ignore`는 일부러 빼는 이름(진입점 등). */
@@ -43,8 +43,13 @@ export interface RepoConfig {
  * 거기서 `item` 정규식의 첫 묶음마다 항목 하나(저장소 뿌리 기준 경로)를 읽어요.
  * 테스트 코드 안의 상수처럼, 저장소가 이미 쓰는 목록을 그대로 읽으려는 거예요.
  * 설정에 `items`로 목록을 바로 적어도 돼요.
+ *
+ * 허용은 (가져다 쓰는 쪽, 대상) 쌍이에요. `from`이 이 목록의 대상을 가져다 써도 되는 쪽(모듈 이름이나 파일 glob)이고,
+ * 다른 모듈이 같은 대상을 거꾸로 가져오면 새 위반이에요. 가져다 쓰는 쪽마다 목록이 다르면 `allowlist`를 배열로 적어요.
  */
 export interface AllowlistSource {
+  /** 이 목록의 대상을 가져다 써도 되는 쪽. 모듈 이름(`modules`)이나 파일 glob(`files`, 저장소 뿌리 기준) 중 하나라도 맞으면 돼요. */
+  from: { modules?: string[]; files?: string[] };
   file?: string;
   block?: string;
   item?: string;
@@ -56,7 +61,7 @@ const DEFAULTS: Omit<RepoConfig, 'path'> = {
   modules: [{ path: '{module}/**' }],
   shared: [],
   composers: [],
-  allowlist: null,
+  allowlist: [],
   openToOtherModules: { files: [], symbols: [] },
   unused: { private: '_*', ignore: ['main'] },
 };
@@ -85,7 +90,7 @@ export function loadRepoConfig(repoRoot: string, explicitPath?: string): RepoCon
     modules: raw.modules ?? DEFAULTS.modules,
     shared: raw.shared ?? DEFAULTS.shared,
     composers: raw.composers ?? DEFAULTS.composers,
-    allowlist: raw.allowlist ?? DEFAULTS.allowlist,
+    allowlist: allowlistOf(raw.allowlist),
     openToOtherModules: {
       files: raw.openToOtherModules?.files ?? [],
       symbols: raw.openToOtherModules?.symbols ?? [],
@@ -97,9 +102,22 @@ export function loadRepoConfig(repoRoot: string, explicitPath?: string): RepoCon
   };
 }
 
-/** 허용 목록 항목(저장소 뿌리 기준 경로)을 읽어요. 목록 파일이 없으면 오류예요. */
-export function readAllowlist(repoRoot: string, source: AllowlistSource | null): string[] {
-  if (!source) return [];
+/** 설정의 `allowlist`(객체 하나 또는 배열)를 배열로 맞추고, 가져다 쓰는 쪽(`from`)이 적혔는지 봐요. */
+function allowlistOf(raw: unknown): AllowlistSource[] {
+  if (raw === undefined || raw === null) return [];
+  const sources = (Array.isArray(raw) ? raw : [raw]) as AllowlistSource[];
+  for (const s of sources) {
+    if (!s.from?.modules?.length && !s.from?.files?.length) {
+      throw new Error(
+        `허용 목록에 가져다 쓰는 쪽(from.modules 또는 from.files)이 없어요. 허용은 (가져다 쓰는 쪽, 대상) 쌍이에요: ${JSON.stringify(s)}`,
+      );
+    }
+  }
+  return sources;
+}
+
+/** 허용 목록 하나의 대상(저장소 뿌리 기준 경로)을 읽어요. 목록 파일이 없으면 오류예요. */
+export function readAllowlist(repoRoot: string, source: AllowlistSource): string[] {
   const items = [...(source.items ?? [])];
   if (source.file) {
     const file = join(repoRoot, source.file);

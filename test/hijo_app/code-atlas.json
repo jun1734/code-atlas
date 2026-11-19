@@ -8,6 +8,7 @@
   "shared": ["common", "design_system", "hijo_facts", "main"],
   "composers": ["main", "entry"],
   "allowlist": {
+    "from": { "modules": ["common"] },
     "file": "test/architecture/import_boundaries_test.dart",
     "block": "const commonMayImport = \\{([\\s\\S]*?)\\};",
     "item": "'(lib/[^']+)'"
