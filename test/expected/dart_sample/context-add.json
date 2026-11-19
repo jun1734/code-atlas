@@ -3,7 +3,7 @@
   "status": "ambiguous",
   "candidates": [
     {
-      "key": "scip-dart pub dart_sample 1.0.0 `lib/src/cart.dart`/Cart#add().",
+      "key": "scip-dart pub dart_sample 1.0.0 lib/src/`cart.dart`/Cart#add().",
       "name": "add",
       "qualifiedName": "Cart.add",
       "kind": "method",
@@ -12,7 +12,7 @@
       "source": "scip-dart"
     },
     {
-      "key": "scip-dart pub dart_sample 1.0.0 `lib/src/cart.dart`/Wishlist#add().",
+      "key": "scip-dart pub dart_sample 1.0.0 lib/src/`cart.dart`/Wishlist#add().",
       "name": "add",
       "qualifiedName": "Wishlist.add",
       "kind": "method",

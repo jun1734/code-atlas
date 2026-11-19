@@ -62,7 +62,7 @@ CI(`.github/workflows/ci.yml`)는 Linux(ubuntu)와 Windows 양쪽에서 같은 �
 
 ## 플랫폼 메모
 
-- **Windows**: scip-dart 1.8.1은 Windows에서 경로와 심볼 문자열에 `\`를 넣어요(`` `lib\src\a.dart`/add(). ``). 그대로 두면 같은 심볼의 열쇠가 OS마다 달라져서, Dart 어댑터가 `/`로 바꿔요.
+- **Windows**: scip-dart 1.8.1은 같은 심볼을 OS마다 다르게 적어요. Linux는 ``lib/src/`a.dart`/add().``(경로 칸마다 기술자 하나), Windows는 `` `lib\src\a.dart`/add(). ``(경로 통째로 기술자 하나, 구분자 `\`)예요. 그대로 두면 같은 심볼의 열쇠가 OS마다 달라져서, Dart 어댑터가 Windows 꼴을 Linux 꼴로 바꿔요. CI의 Linux 잡이 처음에 이 차이를 잡았어요.
 - **경로 인자 함정**: scip-dart에 패키지 경로를 `./`로 주면 패키지 전체를 "중첩 패키지"로 보고 파일을 0개 색인해요(오류 없이 빈 색인). 어댑터는 항상 절대 경로를 줘요.
 - scip-dart 1.8.1이 색인 메타데이터에 적는 버전은 `1.7.0`이에요(그쪽 버전 상수가 갱신되지 않았어요). 동작과는 상관없어요.
 

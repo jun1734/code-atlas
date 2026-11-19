@@ -33,11 +33,20 @@ function requirePackageConfig(pkgRoot: string): void {
   throw new Error(`패키지 설정이 없어요: ${pkgRoot}\n먼저 그 폴더에서 ${tool} pub get 을 돌려요.`);
 }
 
+/** SCIP 기술자 이름: 단순한 이름은 그대로, 나머지는 backtick으로 감싸요(scip-dart가 Linux에서 쓰는 꼴). */
+const descriptorName = (segment: string) => (/^[\w+$-]+$/.test(segment) ? segment : `\`${segment}\``);
+
 /**
- * scip-dart는 Windows에서 경로와 심볼에 '\'를 넣어요('`lib\src\a.dart`/').
- * 심볼 열쇠가 OS마다 달라지지 않게 '/'로 바꿔요. Dart 식별자에는 '\'가 없어요.
+ * scip-dart는 같은 심볼을 OS마다 다르게 적어요.
+ *   Linux:   lib/src/`cart.dart`/Cart#add().     (경로 칸마다 기술자 하나)
+ *   Windows: `lib\src\cart.dart`/Cart#add().     (경로 통째로 기술자 하나, 구분자 '\')
+ * 심볼 열쇠가 OS마다 같도록 Windows 꼴을 Linux 꼴로 바꾸고, 경로의 '\'도 '/'로 바꿔요.
+ * Dart 식별자와 패키지 이름에는 '\'가 없어서, '\'가 든 backtick 이름은 경로뿐이에요.
  */
-const toSlash = (s: string) => s.replaceAll('\\', '/');
+const toLinuxForm = (s: string) =>
+  s
+    .replace(/`([^`]*\\[^`]*)`/g, (_, path: string) => path.split('\\').map(descriptorName).join('/'))
+    .replaceAll('\\', '/');
 
 export const dartAdapter: LanguageAdapter = {
   name: 'scip-dart',
@@ -57,7 +66,7 @@ export const dartAdapter: LanguageAdapter = {
       const out = join(workDir, `dart-${i}.scip`);
       // 경로는 절대 경로로 줘요. './'로 주면 scip-dart 1.8.1이 패키지 전체를 '중첩 패키지'로 보고 0개를 색인해요.
       runOrThrow('dart', ['pub', 'global', 'run', 'scip_dart', '-o', out, pkgRoot], pkgRoot);
-      appendFacts(facts, scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toSlash }));
+      appendFacts(facts, scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm }));
     }
     return facts;
   },

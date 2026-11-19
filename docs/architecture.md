@@ -47,7 +47,7 @@ interface Facts {
 }
 
 interface SymbolFact {
-  key: string;            // 예: 'scip-dart pub dart_sample 1.0.0 `lib/src/cart.dart`/Cart#total().'
+  key: string;            // 예: 'scip-dart pub dart_sample 1.0.0 lib/src/`cart.dart`/Cart#total().'
   name: string;           // 'total'
   qualifiedName: string;  // 'Cart.total' (바깥 타입을 붙인 이름. 파일·폴더는 넣지 않아요)
   kind: SymbolKind;       // function, method, class, field, variable, constant, getter, …
