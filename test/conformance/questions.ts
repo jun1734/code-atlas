@@ -9,6 +9,7 @@
 //   Cart(Labeled를 섞고 Totaled를 구현),
 //   GiftCart(Cart를 상속), Wishlist. Cart와 Wishlist에는 이름이 같은 메서드 add가 있어요.
 // - 다시 내보내는 파일(barrel)이 위 이름을 모두 내보내고, 앱 진입점과 테스트는 barrel만 가져다 써요.
+//   앱 진입점과 테스트는 barrel을 거쳐 Cart를 만들고(생성자 호출) 타입으로도 써요.
 // - 앱 진입점과 테스트에 각각 main이 있어요(이름이 같은 함수).
 // - receipt 함수가 생성된 파일, 빌드 산출물 폴더, git이 무시하는 폴더에 하나씩 있어요. 셋 다 색인에서 빠져야 해요.
 //

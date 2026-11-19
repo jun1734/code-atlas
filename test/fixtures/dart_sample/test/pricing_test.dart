@@ -6,4 +6,5 @@ void main() {
   discountPercent += 5;
   final container = ProviderContainer();
   if (container.read(cartProvider).total() != shippingFee) throw StateError('total');
+  if (Cart().total() < 0) throw StateError('cart');
 }

@@ -23,7 +23,7 @@ describe('dart_sample search', () => {
   });
 
   it('이름 일부로 대소문자를 가리지 않고 찾고, 많이 쓰이는 것이 먼저 나온다', () => {
-    // Cart와 cartProvider는 사용처가 3개씩(같으면 경로순), GiftCart는 1개예요.
+    // Cart는 사용처가 6개, cartProvider는 3개, GiftCart는 1개예요.
     assert.deepEqual(names(fx.ask('search', 'CART')), [
       'Cart @ lib/src/cart.dart',
       'cartProvider @ lib/src/providers.dart',

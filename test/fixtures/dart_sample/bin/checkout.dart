@@ -9,4 +9,6 @@ void main() {
   print(tax(500) + withTax(500));
   print(cart.total() + container.read(totalProvider));
   print(GiftCart().label);
+  final Cart spare = Cart();
+  spare.add(1);
 }

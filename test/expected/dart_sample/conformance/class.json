@@ -14,13 +14,35 @@
     "source": "scip-dart"
   },
   "uses": {
-    "total": 3,
+    "total": 6,
     "byRole": {
-      "app": 3,
-      "test": 0
+      "app": 5,
+      "test": 1
     },
     "truncated": false,
     "items": [
+      {
+        "path": "bin/checkout.dart",
+        "line": 12,
+        "column": 9,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "bin/checkout.dart",
+        "line": 12,
+        "column": 22,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
       {
         "path": "lib/src/cart.dart",
         "line": 28,
@@ -51,6 +73,17 @@
         "kind": "call",
         "kindConfidence": "inferred",
         "in": "cartProvider",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "line": 9,
+        "column": 7,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
         "confidence": "precise",
         "source": "scip-dart"
       }
