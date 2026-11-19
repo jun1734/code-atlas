@@ -1,0 +1,6 @@
+name: trace_sample
+description: code-atlas trace 테스트용 예제. 버튼에서 저장 함수까지 가는 길이 여럿이고, 참조로만 이어진 곳과 이어지지 않은 곳이 있어요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

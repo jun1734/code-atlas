@@ -126,6 +126,136 @@ export class Graph {
     }
     return [...seen.values()].sort((a, b) => a.distance - b.distance || (a.node < b.node ? -1 : a.node > b.node ? 1 : 0));
   }
+
+  /** 이 노드와 그 안에 정의된 심볼(멤버, 멤버의 멤버 …). 심볼 하나를 출발점·도착점으로 삼을 때 써요. */
+  members(id: NodeId): NodeId[] {
+    const children = new Map<NodeId, NodeId[]>();
+    for (const n of this.nodes.values()) {
+      if (!n.symbol?.parentKey) continue;
+      const parent = nodeId({ symbol: n.symbol.parentKey });
+      const list = children.get(parent);
+      if (list) list.push(n.id);
+      else children.set(parent, [n.id]);
+    }
+    const found = new Set<NodeId>();
+    const queue = [id];
+    while (queue.length > 0) {
+      const cur = queue.pop()!;
+      if (found.has(cur)) continue;
+      found.add(cur);
+      queue.push(...(children.get(cur) ?? []));
+    }
+    return [...found].sort();
+  }
+
+  /**
+   * starts에서 targets까지 out 방향(쓰는 쪽 → 쓰이는 쪽)으로 가는 단순 경로(같은 노드를 두 번 지나지 않음)를 짧은 것부터 찾아요.
+   * 경로는 targets에 처음 닿는 곳에서 끝나고, 중간에 다른 출발점을 지나지 않아요(그 출발점에서 시작하는 더 짧은 경로가 따로 있어요).
+   * 두 노드 사이에 간선이 여럿이면 하나만 대표로 골라요: 정밀한 관계, 종류가 정밀한 관계, 적힌 자리(경로, 줄, 열) 순.
+   * 순서는 길이, 같은 길이면 지나는 노드 id의 사전 순이라 다시 돌려도 같아요.
+   */
+  paths(starts: NodeId[], targets: NodeId[], options: PathOptions): PathSearch {
+    const startSet = new Set(starts);
+    const targetSet = new Set(targets);
+    // 도착점까지 남은 가장 짧은 거리. 남은 길이로 닿을 수 없는 노드는 들어가지 않아요(가지치기).
+    const toTarget = new Map<NodeId, number>();
+    for (const r of this.reach(targets, 'in', options.maxDepth)) toTarget.set(r.node, r.distance);
+    // 노드마다 다음 노드(id 순)와 대표 간선. 한 번 만들어 두고 여러 길이에서 다시 써요.
+    const nextCache = new Map<NodeId, [NodeId, EdgeRow][]>();
+    const nextOf = (u: NodeId): [NodeId, EdgeRow][] => {
+      let list = nextCache.get(u);
+      if (!list) {
+        const best = new Map<NodeId, EdgeRow>();
+        for (const e of this.out(u)) {
+          const v = nodeId(e.to);
+          const prev = best.get(v);
+          if (!prev || compareEdges(e, prev) < 0) best.set(v, e);
+        }
+        list = [...best.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+        nextCache.set(u, list);
+      }
+      return list;
+    };
+    const found: GraphPath[] = [];
+    let capped = false;
+    const onPath = new Set<NodeId>();
+    const nodes: NodeId[] = [];
+    const edges: EdgeRow[] = [];
+    // 길이가 정확히 remaining만큼 남은 경로를 id 순으로 따라가요. 그러면 찾는 순서가 곧 답의 순서예요.
+    const walk = (u: NodeId, remaining: number): void => {
+      for (const [v, e] of nextOf(u)) {
+        if (capped) return;
+        if (onPath.has(v)) continue;
+        if (targetSet.has(v)) {
+          if (remaining !== 1) continue;
+          if (found.length >= options.cap) {
+            capped = true;
+            return;
+          }
+          found.push({ nodes: [...nodes, v], edges: [...edges, e] });
+          continue;
+        }
+        if (startSet.has(v)) continue;
+        const d = toTarget.get(v);
+        if (d === undefined || d > remaining - 1) continue;
+        onPath.add(v);
+        nodes.push(v);
+        edges.push(e);
+        walk(v, remaining - 1);
+        onPath.delete(v);
+        nodes.pop();
+        edges.pop();
+      }
+    };
+    const sortedStarts = [...startSet].filter((s) => !targetSet.has(s)).sort();
+    for (let length = 1; length <= options.maxDepth && !capped; length++) {
+      for (const s of sortedStarts) {
+        if (capped) break;
+        const d = toTarget.get(s);
+        if (d === undefined || d > length) continue;
+        onPath.add(s);
+        nodes.push(s);
+        walk(s, length);
+        onPath.delete(s);
+        nodes.pop();
+      }
+    }
+    return { paths: found, capped };
+  }
+}
+
+/** 두 지점 사이 경로 하나. edges[i]가 nodes[i]에서 nodes[i + 1]로 가요. */
+export interface GraphPath {
+  nodes: NodeId[];
+  edges: EdgeRow[];
+}
+
+/** paths()의 결과. paths는 짧은 순, 같은 길이면 지나는 노드 id의 사전 순이에요. */
+export interface PathSearch {
+  paths: GraphPath[];
+  /** 상한(cap)에 닿아 더 세지 않았으면 true. 그때 paths.length는 cap이고 실제 경로는 더 있어요. */
+  capped: boolean;
+}
+
+export interface PathOptions {
+  /** 경로의 가장 긴 길이(간선 수). */
+  maxDepth: number;
+  /** 이만큼 찾으면 멈춰요. 경로 수가 폭발하는 큰 그래프를 막아요. */
+  cap: number;
+}
+
+const RANK: Record<Confidence, number> = { precise: 0, inferred: 1 };
+
+/** 같은 두 노드 사이 간선 중 대표를 고르는 순서. */
+function compareEdges(a: EdgeRow, b: EdgeRow): number {
+  return (
+    RANK[a.confidence] - RANK[b.confidence] ||
+    RANK[a.kindConfidence] - RANK[b.kindConfidence] ||
+    (a.at.path < b.at.path ? -1 : a.at.path > b.at.path ? 1 : 0) ||
+    a.at.line - b.at.line ||
+    a.at.column - b.at.column ||
+    (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : 0)
+  );
 }
 
 function push(map: Map<NodeId, EdgeRow[]>, key: NodeId, edge: EdgeRow): void {

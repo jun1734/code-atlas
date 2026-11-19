@@ -220,8 +220,30 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
 - `graph.in(id)` / `graph.out(id)`: 이 노드를 쓰는 간선 / 이 노드가 쓰는 간선. `graph.node(id)`는 이름, 정의 파일, 역할(app/test), 정의(`DefinitionRow`)를 줘요. `graph.fileNodes(path)`는 파일과 그 파일이 정의한 심볼의 노드예요.
 - `graph.reach(starts, 'in' | 'out', maxDepth)`: 너비 우선으로 거리별 도착점(`Reached`)을 줘요. 같은 거리라면 정밀한 길을 먼저 골라요. 길에 추정 관계가 하나라도 있으면 그 도착점은 `inferred`예요. 결과 순서는 거리, 그 안에서 id 순이라 다시 돌려도 같아요.
+- `graph.members(id)`: 그 노드와 그 안에 정의된 심볼(멤버, 멤버의 멤버 …). 이름 하나를 출발점·도착점으로 삼을 때 써요(trace).
+- `graph.paths(starts, targets, { maxDepth, cap })`: 출발점들에서 도착점들까지 out 방향의 단순 경로(같은 노드를 두 번 지나지 않음)를 길이 순으로 찾아요. 같은 길이면 지나는 노드 id의 사전 순이에요(길이별로 깊이 우선을 id 순으로 돌아 찾는 순서가 곧 답의 순서라 다시 돌려도 같아요). 경로는 도착점에 처음 닿는 곳에서 끝나고 중간에 다른 출발점을 지나지 않아요. 두 노드 사이 간선이 여럿이면 대표 하나(정밀한 관계, 종류가 정밀한 관계, 적힌 자리 순)만 써요. 도착점까지 남은 거리(`reach(targets, 'in')`)로 가지를 치고, `cap`개를 찾으면 멈춰 `capped: true`를 줘요.
 - 사용처 수는 `GraphStore.useCounts()`(심볼 열쇠 → 수). "많이 쓰이는 이름"(impact)과 검색 정렬(search)이 이 수를 써요.
 - 모듈은 `src/modules.ts`의 `moduleResolver(loadRepoConfig(...))`로 노드의 `path`에서 얻어요.
+
+## 질의: trace
+
+`src/query/trace.ts`. 두 지점 사이 경로(`trace <from> --to <to>`). "이 버튼이 어떻게 저 함수까지 가나"에 답해요.
+
+- 지점: 물은 글이 색인된 파일 경로면 그 파일 노드와 그 파일이 정의한 심볼 전부(`fileNodes`), 아니면 context와 같은 이름 찾기(`findSymbols`)로 심볼 하나와 그 멤버 전부(`members`)예요. 클래스를 주면 그 메서드 안의 호출에서 출발하고, 클래스를 도착점으로 주면 그 멤버에 닿아도 도착이에요. 도착점에 든 노드는 출발점에서 빼요(둘이 같으면 오류).
+- 중간에 클래스에 닿아도 그 멤버로 들어가지 않아요. 만들기만 해서 메서드가 불린다고 보지 않아요(Flutter의 `build`처럼 프레임워크가 부르는 길은 아직 안 나와요).
+- `follow`: `calls`(기본)는 `Graph.load(store, { kinds: ['call'] })`, `all`은 모든 종류(참조, 읽기, 쓰기, 상속, 구현, import)로 그래프를 올려요.
+- `depth`(기본 10): 경로의 가장 긴 길이(구간 수). `limit`: 경로를 앞에서부터 몇 개 줄지. 경로는 `graph.paths`로 찾고 상한 `PATH_CAP`(1000)에서 세기를 멈춰요. 멈췄으면 `paths.capped: true`이고 `total`은 그때까지 센 수(실제는 더 많음)예요.
+- 순서: 짧은 것부터, 같은 길이면 지나는 노드 id 순(파일 `f:`가 심볼 `s:`보다 앞). 같은 질문은 늘 같은 답이에요.
+- 답: `query`(`from`, `to`), `follow`, `depth`, `status`, `from`·`to`(지점: `name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`), `paths`(`Page` + `capped`).
+  - 경로 하나: `length`, `nodes`(지나는 지점), `steps`(구간: `from`, `to`, `kind`, `at` 적힌 자리, `confidence`, `kindConfidence`, `source`), 그리고 경로 전체의 `confidence`·`kindConfidence`·`source`.
+- 상태: `found`, `no_path`(`paths`는 빈 목록, `reverse`: to에서 from으로는 이어지는지, `shortestBeyondDepth`: depth 밖에 경로가 있으면 그 가장 짧은 길이), `ambiguous`(`candidates.from`/`candidates.to`: 여럿에 맞은 쪽만), `not_found`(`notFound`: `['from']`, `['to']` 또는 둘 다). 찾지 못한 쪽이 있으면 모호한 쪽보다 먼저 알려요.
+
+### 추정 관계의 표시
+
+구간마다 두 믿음이 따로 붙어요. 경로의 `confidence`·`kindConfidence`는 구간 가운데 가장 낮은 것이라, 경로 하나만 보고도 추정을 거쳤는지 알아요.
+
+- `confidence`: 그 관계가 있다는 것(어디서 무엇을 쓰는지)의 믿음. 정밀 어댑터(scip-dart)의 관계는 `precise`, 추정 어댑터(Tree-sitter, 뒤 티켓)의 관계는 `inferred`예요. `inferred` 구간은 이름으로 이은 것이라 다른 같은 이름일 수 있어요.
+- `kindConfidence`: 그 관계의 종류(`kind`)의 믿음. Dart에서 `call`·`read`·`write`·`reference`는 문법으로 가려 `inferred`, `import`와 상속·구현은 `precise`예요. 그래서 Dart의 `follow: calls` 경로는 늘 `kindConfidence: inferred`예요: 관계는 정밀하지만, 그것이 "호출"이라는 것은 문법으로 가린 추정이에요(예: 함수를 값으로 넘기는 곳은 `read`로 가려져 호출 경로에서 빠져요).
 
 ## 질의 실행기와 바깥 껍데기
 
