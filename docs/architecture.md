@@ -181,7 +181,8 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요.
 
 - `src/repo-config.ts`: `loadRepoConfig(repoRoot, explicitPath?)`가 저장소 뿌리의 `.code-atlas.json`(명령줄 `--config`, MCP `config` 인자로 다른 파일)을 읽어 `RepoConfig`를 돌려줘요. 파일이 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나)이에요. `readAllowlist(repoRoot, source)`는 허용 목록 하나의 대상 파일을 읽어요.
-- `src/modules.ts`: `moduleResolver(config)`가 `(path) => 모듈 이름 | null` 함수를 만들어요. `null`은 어느 규칙에도 맞지 않는 파일(검사 밖)이에요. `globToRegExp`, `nameGlobToRegExp`도 여기 있어요.
+- `src/modules.ts`: `moduleResolver(config)`가 `(path) => 모듈 이름 | null` 함수(`ModuleOf`)를 만들어요. `null`은 어느 규칙에도 맞지 않는 파일(검사 밖)이에요. 질의는 `repoModules(store, configPath)`(설정 읽기 + `moduleResolver`)를 써요. `globToRegExp`, `nameGlobToRegExp`도 여기 있어요.
+- 설정 파일을 고르는 질의 인자는 `CONFIG_PARAM`(`src/repo-config.ts`) 하나를 check, impact, clusters가 같이 써요.
 
 `.code-atlas.json` 형식(칸은 모두 선택, 빠지면 기본값):
 
@@ -220,7 +221,7 @@ hijo_app의 설정 예는 `test/hijo_app/code-atlas.json`이에요(허용 목록
 - `modules`: 모듈 그래프(간선 무게 = 모듈 사이 import 수)의 강연결 요소를 위상 순서로 세우고, 서로 도는 묶음 안에서는 흐름을 거스르는 import 수가 가장 적은 순서를 부분집합 DP로 찾아요(묶음이 22개를 넘으면 받은 순서로 두고 `summary.minimal: false`). 위가 가져다 쓰는 쪽이에요. 층(`layer`)은 흐름을 거스르는 간선을 뺀 뒤 맨 아래에서의 가장 긴 거리예요.
 - `backwardImports`: 그 순서에서 아래 모듈이 위 모듈을 가져다 쓰는 import. 허용은 (가져다 쓰는 쪽, 대상) 쌍이에요: 가져다 쓰는 파일이나 그 모듈이 허용 목록의 `from`에 맞고 대상이 그 목록에 있으면 `allowed: true`, 아니면 새 위반이에요. 다른 모듈이 같은 대상을 거꾸로 가져오면 새 위반이에요.
 - `reviewCandidates`: 다른 모듈의 파일을 가져다 쓰되, 대상 모듈이 `shared`가 아니고, 가져다 쓰는 쪽이 `composers`가 아니고, 대상 파일이 `openToOtherModules`(파일 glob, 또는 그 파일이 정의한 심볼의 이름·종류)에 맞지 않는 것. 판정이 아니라 리뷰 후보예요.
-- `unusedPublicNames`: 검사 안 파일의 최상위 선언 가운데, 이름이 `unused.private`에 맞지 않고, 그것과 그 안의 것(생성자, 멤버) 어느 것도 어디서도(테스트 포함) 쓰이지 않은 것. 멤버 하나하나는 보지 않아요: 프레임워크가 부르는 재정의(`build` 등)를 아직 가려내지 못해요. 정의가 없는 사용처 열쇠는 열쇠에서 바깥 타입(`C#`)을 잘라 올라가요.
+- `unusedPublicNames`: 검사 안 파일의 최상위 선언 가운데, 이름이 `unused.private`에 맞지 않고, 그것과 그 안의 것(생성자, 멤버) 어느 것도 어디서도(테스트 포함) 쓰이지 않은 것. 멤버 하나하나는 보지 않아요: 프레임워크가 부르는 재정의(`build` 등)를 아직 가려내지 못해요. 쓰인 열쇠에서 정의의 바깥 심볼(`parentKey`) 사슬을 따라 올라가며(`ancestry`, "그래프 탐색") 모두 쓰인 것으로 쳐요. 열쇠 문법(`#` 등)은 풀지 않아요. 이름 없는 생성자는 어댑터가 이미 클래스 열쇠로 합쳐요.
 - 목록(`cycles`, `backwardImports`, `reviewCandidates`, `unusedPublicNames`)은 `Page`예요(`limit`). 묶음 안의 `files`·`imports`도 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`, 모양은 `Page`와 같음)이에요. 항목의 `confidence`는 그 항목을 이룬 import 가운데 가장 낮은 것, `source`는 낸 색인기들이에요. `modules`는 모듈 수만큼이라 자르지 않아요. `summary`에 각 개수와 허용(`allowed`)·새 위반(`new`) 수가 있어요.
 
 hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run verify:hijo`(`test/hijo_app/`). 무거워서 기본 `npm test`에는 넣지 않았어요.
@@ -229,12 +230,12 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 `src/query/impact.ts`. 이름이나 파일을 바꾸면 영향 받는 곳이에요. 그래프를 올려(`Graph.load`) 출발점에서 `graph.reach(starts, 'in', depth)`로 쓰는 쪽을 거슬러 올라가요.
 
-- 출발점: 물은 글이 색인된 파일 경로면 `graph.fileNodes(path)`(파일과 그 파일이 정의한 이름). 아니면 context처럼 `findSymbols`(key → qualifiedName → name)로 찾고, 여럿이면 `ambiguous`와 후보, 없으면 `not_found`. 찾은 심볼에 그 안에 정의된 것(멤버, 생성자: `parentKey` 사슬이 그 심볼에 닿는 것)을 더해요. 클래스를 바꾸면 멤버를 쓰는 곳도 영향 받으니까요.
+- 출발점: 물은 글이 색인된 파일 경로면 `graph.fileNodes(path)`(파일과 그 파일이 정의한 이름). 아니면 context와 같은 해석기(`resolvePoint`, "지점 풀기")로 찾고, 여럿이면 `ambiguous`와 후보, 없으면 `not_found`. 찾은 심볼에 그 안에 정의된 것(멤버, 생성자: `graph.members`)을 더해요. 클래스를 바꾸면 멤버를 쓰는 곳도 영향 받으니까요.
 - 영향 받는 곳(`affected`, `Page`): 도착점마다 하나. 사용처를 감싸는 심볼이고, 파일 최상위에서 쓰면(import 등) 그 파일(`kind: 'file'`)이에요. 칸은 `distance`(직접 쓰면 1), `module`(저장소 설정의 모듈, 규칙 밖이면 `null`), `role`, 심볼이면 `line`·`uses`(사용처 수)·`hot`, 그리고 `via`(바꾼 쪽으로 한 단계 다가가며 쓰는 것의 이름, 관계 종류, 적힌 자리). `confidence`는 reach가 준 길의 신뢰도(길에 추정 관계가 하나라도 있으면 `inferred`), `source`는 `via` 관계를 낸 색인기예요. 순서는 거리, 경로, 줄(파일 노드가 먼저), 이름.
 - `modules`: 모듈별 묶음(`affected`, 가장 가까운 거리 `nearest`, 그 가운데 테스트 `tests`). 가까운 모듈부터, 같으면 많은 것, 이름 순, 모듈 밖(`null`)은 뒤. 모듈 수만큼이라 자르지 않아요.
-- `tests`(`Page`): 영향 받는 곳이 든 테스트 파일(`role: 'test'`)과 가장 가까운 거리. 그 파일의 항목 가운데 하나라도 정밀하면 `precise`.
+- `tests`(`Page`): 영향 받는 곳이 든 테스트 파일(`role: 'test'`)과 가장 가까운 거리. `confidence`·`source`는 모든 질의와 같은 규칙(`sourcedOf`)이라 그 파일의 항목 가운데 가장 낮은 믿음(하나라도 추정이면 `inferred`)과 출처 모두예요.
 - `summary`: `depth`, `affected`, 거리별 개수 `byDistance`, `moreBeyondDepth`(depth 다음 단계에도 닿는 곳이 있는지: reach를 한 단계 더 돌려 봐요), 모듈 수, 테스트 파일 수, 이번 hot 기준 `hotUses`.
-- 모듈은 check와 같은 `moduleResolver(loadRepoConfig(repoRoot, config))`예요(`--config`, MCP `config`).
+- 모듈은 check와 같은 `repoModules(store, config)`예요(`--config`, MCP `config`).
 
 **많이 쓰이는 이름(hot)의 기준:** `GraphStore.useCounts()`의 사용처 수(어느 종류의 관계든, 테스트 포함, 같은 줄에 여러 번이면 여러 번)가 **20 이상**이면 `hot: true`예요(`DEFAULT_HOT_USES`). 인자 `hot`으로 저장소마다 바꿔요. 물은 심볼은 `target.uses`·`target.hot`, 파일을 물으면 `target.hotNames`(그 파일이 정의한 hot 이름)로 나와요. 20은 "한 화면에 다 못 보는 정도"로 잡은 값이에요. 이름을 바꿀 때 손으로 고치기 힘들고 리뷰가 커지는 경계예요.
 
@@ -247,7 +248,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   - 1단계(노드 옮기기)는 노드를 id 순으로 훑고, 모듈성 증가량이 가장 큰 이웃 묶음으로 옮겨요. 같으면 번호가 작은 묶음, 제자리보다 크지 않으면 그대로예요. 2단계는 묶음을 노드 하나로 접어요. 더 옮길 것이 없을 때까지 되풀이해요.
   - 난수를 쓰지 않아서 같은 색인이면 늘 같은 묶음이 나와요.
   - Louvain은 이어지지 않은 묶음을 낼 수 있어요(V. A. Traag, L. Waltman, N. J. van Eck, "From Louvain to Leiden: guaranteeing well-connected communities", *Sci. Rep.* 9, 5233 (2019)). 그래서 마지막에 묶음마다 이어진 조각으로 나눠요. Leiden의 다듬기 단계는 하지 않았어요.
-- **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`moduleResolver(loadRepoConfig(...))`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`)이고, `size`가 이름 수예요.
+- **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`repoModules`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`)이고, `size`가 이름 수예요.
 - `summary`: 셈한 이름 수(`names`), 묶음 수(`clusters`), 혼자 남은 이름 수(`singletons`, 목록에 안 나옴), 여러 모듈에 걸친 묶음 수(`crossModule`), 나눈 결과의 모듈성(`modularity`, 소수 셋째 자리).
 - 모듈 기준은 check와 같은 저장소 설정이에요(`--config`, MCP `config`).
 
@@ -259,16 +260,24 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
 - `graph.in(id)` / `graph.out(id)`: 이 노드를 쓰는 간선 / 이 노드가 쓰는 간선. `graph.node(id)`는 이름, 정의 파일, 역할(app/test), 정의(`DefinitionRow`)를 줘요. `graph.fileNodes(path)`는 파일과 그 파일이 정의한 심볼의 노드예요.
 - `graph.reach(starts, 'in' | 'out', maxDepth)`: 너비 우선으로 거리별 도착점(`Reached`)을 줘요. 같은 거리라면 정밀한 길을 먼저 골라요. 길에 추정 관계가 하나라도 있으면 그 도착점은 `inferred`예요. 결과 순서는 거리, 그 안에서 id 순이라 다시 돌려도 같아요.
-- `graph.members(id)`: 그 노드와 그 안에 정의된 심볼(멤버, 멤버의 멤버 …). 이름 하나를 출발점·도착점으로 삼을 때 써요(trace).
+- `graph.members(id)`: 그 노드와 그 안에 정의된 심볼(멤버, 멤버의 멤버 …). 이름 하나를 출발점·도착점으로 삼을 때 써요(impact, trace).
+- `ancestry(key, parentOf)`: 열쇠에서 바깥 심볼(`parentKey`) 사슬을 따라 올라간 열쇠들(자기 자신이 먼저). 부모 사슬을 오르는 곳은 모두 이것을 써요. `graph.topLevel(id)`(clusters: 노드를 감싸는 최상위 선언)와 check의 쓰인 이름이에요.
 - `graph.paths(starts, targets, { maxDepth, cap })`: 출발점들에서 도착점들까지 out 방향의 단순 경로(같은 노드를 두 번 지나지 않음)를 길이 순으로 찾아요. 같은 길이면 지나는 노드 id의 사전 순이에요(길이별로 깊이 우선을 id 순으로 돌아 찾는 순서가 곧 답의 순서라 다시 돌려도 같아요). 경로는 도착점에 처음 닿는 곳에서 끝나고 중간에 다른 출발점을 지나지 않아요. 두 노드 사이 간선이 여럿이면 대표 하나(정밀한 관계, 종류가 정밀한 관계, 적힌 자리 순)만 써요. 도착점까지 남은 거리(`reach(targets, 'in')`)로 가지를 치고, `cap`개를 찾으면 멈춰 `capped: true`를 줘요.
 - 사용처 수는 `GraphStore.useCounts()`(심볼 열쇠 → 수). "많이 쓰이는 이름"(impact, 기준은 "질의: impact")과 검색 정렬(search)이 이 수를 써요.
-- 모듈은 `src/modules.ts`의 `moduleResolver(loadRepoConfig(...))`로 노드의 `path`에서 얻어요.
+- 모듈은 `src/modules.ts`의 `repoModules(store, config)`로 노드의 `path`에서 얻어요.
+
+## 지점 풀기와 서술
+
+`src/query/point.ts`. context, impact, trace가 같은 것을 써요.
+
+- `resolvePoint(store, query)`: 물은 글이 색인된 파일 경로와 정확히 맞으면(`\`는 `/`로) `file`, 아니면 이름(`findSymbols`: key → qualifiedName → name)으로 `symbol`, 여럿이면 `ambiguous`(후보), 없으면 `not_found`.
+- `Point`와 `pointOfSymbol`, `pointOfFile`, `pointOfNode`: 답에 지점을 적는 꼴(`name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`). trace의 지점과 impact의 항목, clusters의 대표 이름이 이것으로 적혀요. `locationOf`는 적힌 자리에서 경로·줄·열만 남겨요.
 
 ## 질의: trace
 
 `src/query/trace.ts`. 두 지점 사이 경로(`trace <from> --to <to>`). "이 버튼이 어떻게 저 함수까지 가나"에 답해요.
 
-- 지점: 물은 글이 색인된 파일 경로면 그 파일 노드와 그 파일이 정의한 심볼 전부(`fileNodes`), 아니면 context와 같은 이름 찾기(`findSymbols`)로 심볼 하나와 그 멤버 전부(`members`)예요. 클래스를 주면 그 메서드 안의 호출에서 출발하고, 클래스를 도착점으로 주면 그 멤버에 닿아도 도착이에요. 도착점에 든 노드는 출발점에서 빼요(둘이 같으면 오류).
+- 지점: 물은 글이 색인된 파일 경로면 그 파일 노드와 그 파일이 정의한 심볼 전부(`fileNodes`), 아니면 context와 같은 해석기(`resolvePoint`)로 찾은 심볼 하나와 그 멤버 전부(`members`)예요. 클래스를 주면 그 메서드 안의 호출에서 출발하고, 클래스를 도착점으로 주면 그 멤버에 닿아도 도착이에요. 도착점에 든 노드는 출발점에서 빼요(둘이 같으면 오류).
 - 중간에 클래스에 닿아도 그 멤버로 들어가지 않아요. 만들기만 해서 메서드가 불린다고 보지 않아요(Flutter의 `build`처럼 프레임워크가 부르는 길은 아직 안 나와요).
 - `follow`: `calls`(기본)는 `Graph.load(store, { kinds: ['call'] })`, `all`은 모든 종류(참조, 읽기, 쓰기, 상속, 구현, import)로 그래프를 올려요.
 - `depth`(기본 10): 경로의 가장 긴 길이(구간 수). `limit`: 경로를 앞에서부터 몇 개 줄지. 경로는 `graph.paths`로 찾고 상한 `PATH_CAP`(1000)에서 세기를 멈춰요. 멈췄으면 `paths.capped: true`이고 `total`은 그때까지 센 수(실제는 더 많음)예요.
@@ -293,7 +302,7 @@ src/mcp.ts ─┘   QUERIES, checkArgs             └─▶ src/answer.ts   (�
 ```
 
 - `src/queries.ts`: 질의 목록 `QUERIES`와 실행기 `askQuery(def, rawArgs, { repo, db? })`. 인자를 `def.params`대로 검사하고(`checkArgs`), 색인을 열고(`openIndex`), `def.run`의 몸통에 봉투를 씌워요(`envelope`).
-- `src/answer.ts`: 답의 계약을 지키는 도우미. `IndexInfo`(봉투), `Page`/`page()`(잘린 목록), `Sourced`(항목의 `confidence`·`source`), `DEFAULT_LIMIT`, `formatAnswer`.
+- `src/answer.ts`: 답의 계약을 지키는 도우미. `IndexInfo`(봉투), `Page`/`InnerList`와 `cut()`·`page()`(잘린 목록), `Sourced`(항목의 `confidence`·`source`)와 `sourcedOf()`·`lowest()`·`joinSources()`(여럿을 묶은 항목의 표시: 가장 낮은 믿음과 출처 모두), `compareText()`(답의 순서를 정하는 코드포인트 비교, 로캘과 무관), `DEFAULT_LIMIT`, `formatAnswer`.
 - `src/locate.ts`: `defaultDb(repo)`(저장소마다 `~/.code-atlas/` 아래 파일 하나), `openIndex(target)`, 바깥에 그대로 보일 오류 `UserError`.
 - `src/cli.ts`: `index`, `mcp`, 그리고 `QUERIES`의 질의마다 명령 하나. `Param`의 `positional`은 위치 인자, 나머지는 `--이름` 옵션이에요.
 - `src/mcp.ts`: 공식 MCP SDK(`McpServer`, stdio). `QUERIES`의 질의마다 도구 하나, 입력 스키마는 `Param`에서 만든 zod에 `repo`를 더한 것. 오류는 `isError` 결과로 돌려줘요.

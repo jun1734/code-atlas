@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import type { SymbolKind } from './facts.ts';
+import type { Param } from './queries.ts';
 
 /** 저장소 뿌리에서 찾는 설정 파일 이름. */
 export const CONFIG_FILE = '.code-atlas.json';
@@ -133,3 +134,10 @@ export function readAllowlist(repoRoot: string, source: AllowlistSource): string
   }
   return items;
 }
+
+/** 저장소 설정을 고르는 질의 인자(check, impact, clusters가 같이 써요). 명령줄 `--config`, MCP `config`. */
+export const CONFIG_PARAM: Param = {
+  name: 'config',
+  type: 'string',
+  description: '저장소 설정 파일 경로(모듈 기준). 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
+};

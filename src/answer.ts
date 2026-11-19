@@ -65,6 +65,36 @@ export function cut<T>(all: T[], limit: number): List<T> {
   return page(all.slice(0, limit), all.length);
 }
 
+/** 여럿 가운데 가장 낮은 믿음: 하나라도 추정(inferred)이면 inferred, 비었거나 모두 정밀이면 precise. */
+export function lowest(confidences: Iterable<Confidence>): Confidence {
+  for (const c of confidences) if (c === 'inferred') return 'inferred';
+  return 'precise';
+}
+
+/** 여러 출처(쉼표로 이은 색인기 이름일 수 있음)를 겹치지 않게 모아 이름순으로 이어요. */
+export function joinSources(sources: Iterable<string>): string {
+  const all = new Set<string>();
+  for (const s of sources) for (const one of s.split(',')) if (one !== '') all.add(one);
+  return [...all].sort(compareText).join(',');
+}
+
+/**
+ * 여러 관계·항목을 묶은 항목의 표시. 규칙은 모든 질의에서 하나예요:
+ * 믿음은 가장 낮은 것(하나라도 추정이면 추정), 출처는 낸 색인기 모두.
+ */
+export function sourcedOf(parts: Iterable<Sourced>): Sourced {
+  const list = [...parts];
+  return { confidence: lowest(list.map((p) => p.confidence)), source: joinSources(list.map((p) => p.source)) };
+}
+
+/**
+ * 답의 순서를 정하는 글 비교. 코드포인트(UTF-16 단위) 순이라 OS·로캘과 상관없이 같은 답이 나와요.
+ * localeCompare는 로캘마다 다르게 세울 수 있어서 쓰지 않아요.
+ */
+export function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /** 색인 파일의 기록과 지금 저장소 상태로 봉투를 만들어요. */
 export function indexInfo(store: GraphStore): IndexInfo {
   const meta = store.meta();

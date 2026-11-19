@@ -1,6 +1,7 @@
 // 모듈: 파일 경로를 저장소 설정의 규칙에 맞춰 모듈 이름으로 바꿔요.
 // check(흐름을 거스르는 import, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 이 함수를 써요.
-import type { ModuleRule, RepoConfig } from './repo-config.ts';
+import type { GraphStore } from './graph/store.ts';
+import { loadRepoConfig, type ModuleRule, type RepoConfig } from './repo-config.ts';
 
 const escape = (s: string) => s.replace(/[.+^$()|[\]\\]/g, '\\$&');
 
@@ -70,4 +71,13 @@ export function moduleResolver(config: Pick<RepoConfig, 'modules'>): ModuleOf {
     cache.set(path, found);
     return found;
   };
+}
+
+/**
+ * 색인한 저장소의 설정을 읽고 "파일 경로 → 모듈" 함수를 만들어요. check, impact, clusters가 모두 이것을 써요.
+ * configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)이에요.
+ */
+export function repoModules(store: GraphStore, configPath?: string): { config: RepoConfig; moduleOf: ModuleOf } {
+  const config = loadRepoConfig(store.meta().repoRoot, configPath);
+  return { config, moduleOf: moduleResolver(config) };
 }

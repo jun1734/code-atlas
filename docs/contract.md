@@ -76,12 +76,12 @@
        { name: 'depth', type: 'integer', min: 1, default: 3, description: '…' },
        { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '…' },
      ],
-     run: (store, args) => impact(store, args.target as string, args.depth as number, args.limit as number),
+     run: (store, args) => impact(store, args.target as string, { depth: args.depth as number, limit: args.limit as number }),
    };
    ```
 
    - `run`은 몸통만 돌려줘요(`index`는 넣지 않아요). 목록은 `page(items, total)`로, 항목에는 `confidence`와 `source`를 붙여요.
-   - `params`는 명령줄 옵션(`--depth 3`, 위치 인자 하나)과 MCP 입력 스키마(zod)가 둘 다 여기서 만들어져요. 인자 검사(필수, 정수, 가장 작은 값)는 `checkArgs`가 해요. 타입은 지금 `string`과 `integer`뿐이고, 더 필요하면 `Param.type`과 `checkArgs`, `src/mcp.ts`의 `schemaOf`, 이 문서를 같이 고쳐요.
+   - `params`는 명령줄 옵션(`--depth 3`, 위치 인자 하나)과 MCP 입력 스키마(zod)가 둘 다 여기서 만들어져요. 인자 검사(필수, 정수, 가장 작은 값, 고를 수 있는 값 `choices`)는 `checkArgs`가 해요. `choices`는 MCP 입력 스키마에서 enum이 돼요. 인자가 여럿이면 질의 함수는 옵션 객체로 받아요(위치 인자를 늘어놓지 않아요). 저장소 설정 인자는 `CONFIG_PARAM`을 그대로 넣어요. 타입은 지금 `string`과 `integer`뿐이고, 더 필요하면 `Param.type`과 `checkArgs`, `src/mcp.ts`의 `schemaOf`, 이 문서를 같이 고쳐요.
    - `repo`, `db`는 실행기가 따로 받아요. `params`에 넣지 않아요.
    - 이름 있는 인자는 질의끼리 이름이 같아도 돼요(명령줄은 모든 질의의 옵션을 글로 받아요).
 2. `src/queries.ts`의 `QUERIES`에 한 줄 더해요: `export const QUERIES: QueryDef[] = [contextQuery, impactQuery];`

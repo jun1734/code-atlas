@@ -148,6 +148,17 @@ export class Graph {
     return [...found].sort();
   }
 
+  /** 이 노드를 감싸는 최상위 선언(멤버면 바깥 타입으로 올라가요). 그래프에 없는 바깥 심볼에서 멈춰요. 심볼이 아니면 undefined. */
+  topLevel(id: NodeId): NodeInfo | undefined {
+    const node = this.nodes.get(id);
+    if (!node?.symbol) return undefined;
+    const parentOf = (key: string) => {
+      const parent = this.nodes.get(nodeId({ symbol: key }))?.symbol?.parentKey;
+      return parent && this.nodes.get(nodeId({ symbol: parent }))?.symbol ? parent : null;
+    };
+    return this.nodes.get(nodeId({ symbol: ancestry(node.symbol.key, parentOf).at(-1)! }));
+  }
+
   /**
    * starts에서 targets까지 out 방향(쓰는 쪽 → 쓰이는 쪽)으로 가는 단순 경로(같은 노드를 두 번 지나지 않음)를 짧은 것부터 찾아요.
    * 경로는 targets에 처음 닿는 곳에서 끝나고, 중간에 다른 출발점을 지나지 않아요(그 출발점에서 시작하는 더 짧은 경로가 따로 있어요).
@@ -222,6 +233,21 @@ export class Graph {
     }
     return { paths: found, capped };
   }
+}
+
+/**
+ * 심볼 열쇠에서 바깥 심볼(정의의 parentKey) 사슬을 따라 올라간 열쇠들. 자기 자신이 먼저, 맨 바깥이 끝이에요.
+ * parentOf가 null·undefined를 주는 곳(최상위 선언, 정의를 모르는 열쇠)에서 멈춰요. 열쇠 문법은 풀지 않아요.
+ * 부모 사슬을 오르는 곳(clusters의 최상위 선언, check의 쓰인 이름)은 모두 이것을 써요.
+ */
+export function ancestry(key: string, parentOf: (key: string) => string | null | undefined): string[] {
+  const chain = [key];
+  const seen = new Set(chain);
+  for (let p = parentOf(key); p && !seen.has(p); p = parentOf(p)) {
+    chain.push(p);
+    seen.add(p);
+  }
+  return chain;
 }
 
 /** 두 지점 사이 경로 하나. edges[i]가 nodes[i]에서 nodes[i + 1]로 가요. */
