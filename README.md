@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), `context`(명령줄과 MCP 서버). 앞으로 붙을 것(impact, check, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(scip-dart), `context`와 `check`(명령줄과 MCP 서버). 앞으로 붙을 것(impact, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -29,7 +29,14 @@ node src/cli.ts context withTax --repo path/to/repo
 node src/cli.ts context Cart.add --repo path/to/repo   # 같은 이름이 여럿이면 바깥 타입을 붙여요
 node src/cli.ts context withTax --repo path/to/repo --limit 20
 node src/cli.ts context lib/src/cart.dart --repo path/to/repo  # 파일: 정의하는 이름, 가져다 쓰는 파일, 쓰이는 파일
+
+# 구조 검사: 서로 물린 파일 묶음, 모듈 사이에서 흐름을 거스르는 import(최소 개수, 허용 목록/새 위반)와 층,
+# 다른 기능 모듈에서 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름
+node src/cli.ts check --repo path/to/repo
+node src/cli.ts check --repo path/to/repo --config path/to/code-atlas.json
 ```
+
+check의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.
 
 - 답은 JSON이에요. `status`는 `found`, `ambiguous`(후보 목록 `candidates`), `not_found` 중 하나예요.
 - 사용처는 앱 코드가 먼저, 테스트가 뒤에 와요. 항목마다 `role`(`app`/`test`), `kind`(`read`, `write`, `call`, `extends`, `implements`, `reference`), `kindConfidence`가 붙고, `uses.byRole`에 역할별 전체 개수가 있어요.
@@ -115,6 +122,12 @@ Dart 예제(`test/fixtures/dart_sample`)는 Riverpod provider를 묻는 질문 �
 모든 도구 프로세스는 네트워크 차단 장치(`test/no-network.ts`)를 단 채로 돌아서, 네트워크를 쓰려 하면 테스트가 실패해요.
 
 CI(`.github/workflows/ci.yml`)는 Linux(ubuntu)와 Windows 양쪽에서 같은 검사를 돌려요.
+
+hijo_app(커밋 7ba0197)의 check 답이 지금의 코드 지도(hijo_app `scripts/code-map/build.mjs`)와 같은지는 따로 봐요(Flutter SDK 필요, 1분쯤). 저장소를 임시 폴더로 clone해서 쓰니 원래 저장소는 바뀌지 않아요.
+
+```sh
+HIJO_APP_REPO=C:/hijo/hijo_app npm run verify:hijo
+```
 
 ## 플랫폼 메모
 

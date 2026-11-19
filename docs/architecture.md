@@ -85,7 +85,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 - 관계 종류: SCIP 역할의 `Import`/`WriteAccess`/`ReadAccess`를 따르고, 아무것도 없으면 `reference`예요(`kindConfidence: 'precise'`). 어댑터가 뒤에서 더 가를 수 있어요.
 - 타입의 `SymbolInformation.relationships` 중 `is_implementation`은 `supertypes`가 돼요.
 - 파일 자체를 가리키는 심볼(`` …/`lib/a.dart`/ ``)에 대한 occurrence(import/export 지시문)는 파일→파일 `import` 관계가 돼요.
-- `local N` 심볼(지역 변수)은 넣지 않아요.
+- `local N` 심볼(지역 변수)은 넣지 않아요. scip-dart 1.8.1은 비공개 선언(`_`로 시작하는 클래스, 함수 등)도 `local` 심볼로 적어서 그것들은 그래프에 없어요(그 멤버는 있어요).
 - 파일의 `role`은 `app`으로 두고, 어댑터가 고쳐요.
 
 ### Dart 어댑터가 더 하는 일
@@ -102,6 +102,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
   - `write` (`inferred`): 값(`.`으로 끝나는 열쇠)이나 메서드 뒤에 대입 연산자(`=`, `+=`, `??=` 등)나 `++`/`--`가 오거나, 앞에 `++`/`--`가 있어요.
   - `read` (`inferred`): 그 밖의 값·메서드(함수를 값으로 넘기는 tear-off 포함).
   - `reference` (`inferred`): 그 밖의 타입 언급(타입 표기, `find.byType(X)` 등).
+- **`part of` 빼기** (`src/adapters/dart.ts`의 `dropPartOf`): `part of 'a.dart';` 지시문은 scip-dart가 a.dart로 가는 import처럼 적지만 넣지 않아요. part 파일은 a.dart와 한 라이브러리라 기대는 방향이 아니고, a.dart의 `part` 지시문이 이미 이어 줘요. 넣으면 라이브러리마다 서로 물린 파일 묶음이 생겨요.
 
 ## 그래프 스키마
 
@@ -125,6 +126,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
   - `definedIn(path)`: 파일이 정의하는 심볼.
   - `importsOf(path)`, `importersOf(path)`: 파일이 가져오는(다시 내보내는) 파일, 파일을 가져오는 파일.
   - `usersOf(path)`: 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 이름으로 이어서 barrel을 거친 곳도 나와요.
+  - `filePaths()`, `definitions()`(정의 전부와 바로 바깥 심볼 `parentKey`), `referencedKeys()`(사용처가 있는 열쇠): 저장소 전체를 훑는 검사(check)용.
 - `open`은 스키마 버전이 다른 옛 색인을 비우고 새로 만들어요. 그러면 다음 넣기가 처음부터 색인이 돼요.
 
 ### 증분 반영
@@ -161,6 +163,54 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 - 파일: `status: 'found'`, `file`(`path`, `language`, `role`), `defines`(정의하는 이름), `imports`(가져오거나 다시 내보내는 파일), `importedBy`(가져오는 파일), `usedBy`(이름을 쓰는 파일과 `uses` 수, barrel을 거친 것 포함). 넷 다 `Page`예요.
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 - 없음: `status: 'not_found'`.
+
+## 저장소 설정과 모듈
+
+모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요.
+
+- `src/repo-config.ts`: `loadRepoConfig(repoRoot, explicitPath?)`가 저장소 뿌리의 `.code-atlas.json`(명령줄 `--config`, MCP `config` 인자로 다른 파일)을 읽어 `RepoConfig`를 돌려줘요. 파일이 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나)이에요. `readAllowlist(repoRoot, source)`는 허용 목록 항목을 읽어요.
+- `src/modules.ts`: `moduleResolver(config)`가 `(path) => 모듈 이름 | null` 함수를 만들어요. `null`은 어느 규칙에도 맞지 않는 파일(검사 밖)이에요. `globToRegExp`, `nameGlobToRegExp`도 여기 있어요.
+
+`.code-atlas.json` 형식(칸은 모두 선택, 빠지면 기본값):
+
+```jsonc
+{
+  // 앞에서부터 처음 맞는 규칙이 모듈을 정해요. glob: `*` 한 칸 안, `**` 여러 칸, `{module}` 한 칸을 모듈 이름으로 잡음.
+  "modules": [
+    { "path": "lib/features/{module}/**" },
+    { "path": "lib/shared/**", "module": "shared" },
+    { "path": "lib/**", "module": "app" }
+  ],
+  "shared": ["shared"],          // 모두가 쓰라고 둔 모듈: 다른 모듈이 가져다 써도 리뷰 후보가 아님
+  "composers": ["app"],          // 조립하는 모듈: 이 모듈이 가져다 쓰는 것은 리뷰 후보가 아님
+  "allowlist": {                 // 흐름을 거슬러도 된다고 적어 둔 import 대상 파일 목록
+    "file": "tool/boundaries.dart",                         // 저장소 뿌리 기준
+    "block": "const sharedMayImport = \\{([\\s\\S]*?)\\};", // 선택: 이 정규식의 첫 묶음만 읽음
+    "item": "'([^']+)'",                                    // 항목마다 첫 묶음 = 경로(없으면 줄마다 하나)
+    "items": []                                             // 선택: 목록을 바로 적기
+  },
+  "openToOtherModules": {        // 다른 모듈에서 가져다 써도 되는 파일(화면, provider 등)
+    "files": ["**/*_page.dart"],
+    "symbols": [{ "kinds": ["class"], "name": "*Page" }, { "kinds": ["variable"], "name": "*Provider" }]
+  },
+  "unused": { "private": "_*", "ignore": ["main"] } // 비공개 이름 모양, 일부러 뺄 이름(진입점 등)
+}
+```
+
+hijo_app의 설정 예는 `test/hijo_app/code-atlas.json`이에요(허용 목록을 `import_boundaries_test.dart`의 `commonMayImport`에서 읽어요).
+
+## 질의: check
+
+`src/query/check.ts`. 저장소 설정으로 검사 안 파일(모듈 규칙에 맞는 파일)을 고르고, 그 사이의 import(`importsOf`), 정의(`definitions`), 쓰인 열쇠(`referencedKeys`)로 답해요.
+
+- `cycles`: 검사 안 파일의 강연결 요소(Tarjan) 가운데 둘 이상인 것. 큰 것부터, 같으면 첫 파일 이름순.
+- `modules`: 모듈 그래프(간선 무게 = 모듈 사이 import 수)의 강연결 요소를 위상 순서로 세우고, 서로 도는 묶음 안에서는 흐름을 거스르는 import 수가 가장 적은 순서를 부분집합 DP로 찾아요(묶음이 22개를 넘으면 받은 순서로 두고 `summary.minimal: false`). 위가 가져다 쓰는 쪽이에요. 층(`layer`)은 흐름을 거스르는 간선을 뺀 뒤 맨 아래에서의 가장 긴 거리예요.
+- `backwardImports`: 그 순서에서 아래 모듈이 위 모듈을 가져다 쓰는 import. 대상이 허용 목록에 있으면 `allowed: true`, 아니면 새 위반이에요.
+- `reviewCandidates`: 다른 모듈의 파일을 가져다 쓰되, 대상 모듈이 `shared`가 아니고, 가져다 쓰는 쪽이 `composers`가 아니고, 대상 파일이 `openToOtherModules`(파일 glob, 또는 그 파일이 정의한 심볼의 이름·종류)에 맞지 않는 것. 판정이 아니라 리뷰 후보예요.
+- `unusedPublicNames`: 검사 안 파일의 최상위 선언 가운데, 이름이 `unused.private`에 맞지 않고, 그것과 그 안의 것(생성자, 멤버) 어느 것도 어디서도(테스트 포함) 쓰이지 않은 것. 멤버 하나하나는 보지 않아요: 프레임워크가 부르는 재정의(`build` 등)를 아직 가려내지 못해요. 정의가 없는 사용처 열쇠는 열쇠에서 바깥 타입(`C#`)을 잘라 올라가요.
+- 목록(`cycles`, `backwardImports`, `reviewCandidates`, `unusedPublicNames`)은 `Page`예요(`limit`). 항목의 `confidence`는 그 항목을 이룬 import 가운데 가장 낮은 것, `source`는 낸 색인기들이에요. `modules`는 모듈 수만큼이라 자르지 않아요. `summary`에 각 개수와 허용(`allowed`)·새 위반(`new`) 수가 있어요.
+
+hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run verify:hijo`(`test/hijo_app/`). 무거워서 기본 `npm test`에는 넣지 않았어요.
 
 ## 질의 실행기와 바깥 껍데기
 
