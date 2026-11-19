@@ -212,6 +212,19 @@ hijo_app의 설정 예는 `test/hijo_app/code-atlas.json`이에요(허용 목록
 
 hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run verify:hijo`(`test/hijo_app/`). 무거워서 기본 `npm test`에는 넣지 않았어요.
 
+## 질의: clusters
+
+`src/query/clusters.ts`. 서로 촘촘히 엮인 이름들의 묶음이에요. 폴더 구조(모듈)와 실제 결합이 어긋난 곳을 찾는 데 써요. 정답이 하나인 문제가 아니라서, 예제 저장소(`test/fixtures/cluster_sample`)는 두 덩어리가 뚜렷한 작은 저장소로 잡았어요.
+
+- **그래프**: `Graph.load(store)`의 노드(`allNodes`)와 나가는 간선(`out`)에서 만들어요. 노드는 앱 코드(`role: 'app'`)의 최상위 선언이에요. 멤버(메서드, 필드, 생성자)는 바깥 타입으로 접고, 이름 공간과 테스트 코드, 파일 노드(import 간선)는 빼요. 간선은 방향을 지운 무게 있는 간선이고, 무게는 두 선언 사이의 관계 수(종류 무관)예요. 한 선언 안의 관계(자기 고리)는 셈하지 않아요.
+- **알고리즘: Louvain 방법**(모듈성 최대화). V. D. Blondel, J.-L. Guillaume, R. Lambiotte, E. Lefebvre, "Fast unfolding of communities in large networks", *J. Stat. Mech.* (2008) P10008. 라이브러리 없이 직접 구현했어요(들인 부품이 없어 라이선스 걱정이 없어요). 해상도(γ)는 1이에요.
+  - 1단계(노드 옮기기)는 노드를 id 순으로 훑고, 모듈성 증가량이 가장 큰 이웃 묶음으로 옮겨요. 같으면 번호가 작은 묶음, 제자리보다 크지 않으면 그대로예요. 2단계는 묶음을 노드 하나로 접어요. 더 옮길 것이 없을 때까지 되풀이해요.
+  - 난수를 쓰지 않아서 같은 색인이면 늘 같은 묶음이 나와요.
+  - Louvain은 이어지지 않은 묶음을 낼 수 있어요(V. A. Traag, L. Waltman, N. J. van Eck, "From Louvain to Leiden: guaranteeing well-connected communities", *Sci. Rep.* 9, 5233 (2019)). 그래서 마지막에 묶음마다 이어진 조각으로 나눠요. Leiden의 다듬기 단계는 하지 않았어요.
+- **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`moduleResolver(loadRepoConfig(...))`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 맨 배열이에요.
+- `summary`: 셈한 이름 수(`names`), 묶음 수(`clusters`), 혼자 남은 이름 수(`singletons`, 목록에 안 나옴), 여러 모듈에 걸친 묶음 수(`crossModule`), 나눈 결과의 모듈성(`modularity`, 소수 셋째 자리).
+- 모듈 기준은 check와 같은 저장소 설정이에요(`--config`, MCP `config`).
+
 ## 그래프 탐색
 
 `src/graph/traverse.ts`. impact, trace, clusters가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.

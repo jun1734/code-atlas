@@ -49,6 +49,7 @@
 
 ### 아직 계약 밖인 것
 
+- check의 `cycles.files`와 clusters 묶음의 `names`·`files`는 잘리지 않는 맨 배열이에요. 묶음 목록 자체는 `Page`라 `limit`으로 잘려요.
 - context의 후보 목록(`candidates`)은 잘리지 않는 맨 배열이에요. 이름 하나에 맞는 후보는 몇 개뿐이라 그대로 뒀어요. 후보가 많아질 수 있는 질의(search 등)는 `Page`로 내요.
 
 ## 질의 붙이는 법
