@@ -39,6 +39,9 @@
    - `confidence`: `precise`(컴파일러 수준 색인기) 또는 `inferred`(이름으로 이은 추정). `inferred`면 직접 확인해요.
    - `source`: 그 항목을 낸 색인기(예: `scip-dart`).
    - `Page<T>`의 `T`는 `Sourced`(이 두 칸)를 가져야 해서 타입이 빠뜨림을 막아요.
+   - 항목은 답의 목록(배열)에 든 객체와 답이 가리키는 심볼(context의 `symbol`, impact의 `target`, trace의 `from`·`to`와 경로의 `nodes`)이에요. 항목 안의 설명 객체(위치 `definition`·`at`, impact의 `via`, clusters의 `representative`)와 안쪽 목록(`InnerList`)은 바깥 항목의 표시를 따라요.
+   - 예외 둘. **집계**: impact와 check의 `modules[]`(모듈별 개수와 층), `summary`는 여러 항목을 센 것이라 표시가 없어요. 그 안의 항목은 각 목록(`affected`, `backwardImports` 등)에서 표시와 함께 봐요. **파일 지점**: 파일 자체를 가리키는 것(context의 `file`, impact의 파일 `target`, trace의 `kind: "file"` 지점)은 색인기가 짐작한 것이 아니라 저장소에 있는 파일이라 표시가 없어요. 파일에서 나가고 들어오는 관계(`imports`, `affected`의 파일 항목, 경로의 `steps`)에는 표시가 있어요.
+   - `test/contract.test.ts`의 "답의 항목마다 정밀/추정과 출처가 붙는다"가 모든 질의의 답을 훑어 이 규칙과 예외를 봐요.
 4. **모호하면 고르지 않아요.** 이름이 여럿에 맞으면 `status: "ambiguous"`와 후보 목록을 돌려줘요. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 5. **저장소를 골라 물어요.** 저장소마다 따로 색인해요(색인 파일은 `~/.code-atlas/<저장소이름>-<경로해시>.db`, `CODE_ATLAS_HOME`으로 폴더를 바꿔요). 명령줄은 `--repo`(또는 `--db`), MCP는 도구 인자 `repo`로 골라요. MCP에서 `repo`가 없으면 서버를 띄운 저장소(`code-atlas mcp --repo`, 없으면 서버의 작업 폴더)예요.
 6. **오류는 답이 아니에요.** 색인이 없거나, 인자가 틀렸거나, 색인의 스키마 버전이 다르면 답 대신 고칠 방법을 담은 메시지를 내요.

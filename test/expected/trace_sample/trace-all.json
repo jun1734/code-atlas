@@ -83,7 +83,9 @@
             "path": "lib/ui/order_button.dart",
             "line": 9,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "OrderService.quickOrder",
@@ -91,7 +93,9 @@
             "path": "lib/app/order_service.dart",
             "line": 15,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#quickOrder()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#quickOrder().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "writeRow",
@@ -99,7 +103,9 @@
             "path": "lib/data/db.dart",
             "line": 3,
             "column": 6,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow().",
+            "confidence": "precise",
+            "source": "scip-dart"
           }
         ],
         "steps": [
@@ -281,7 +287,9 @@
             "path": "lib/ui/order_button.dart",
             "line": 9,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "OrderService.placeOrder",
@@ -289,7 +297,9 @@
             "path": "lib/app/order_service.dart",
             "line": 9,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#placeOrder()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#placeOrder().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "OrderRepository.save",
@@ -297,7 +307,9 @@
             "path": "lib/data/order_repository.dart",
             "line": 4,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`order_repository.dart`/OrderRepository#save()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`order_repository.dart`/OrderRepository#save().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "writeRow",
@@ -305,7 +317,9 @@
             "path": "lib/data/db.dart",
             "line": 3,
             "column": 6,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow().",
+            "confidence": "precise",
+            "source": "scip-dart"
           }
         ],
         "steps": [
@@ -362,7 +376,9 @@
             "path": "lib/ui/order_button.dart",
             "line": 9,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "OrderService.placeOrder",
@@ -370,7 +386,9 @@
             "path": "lib/app/order_service.dart",
             "line": 9,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#placeOrder()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#placeOrder().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "OrderService.validate",
@@ -378,7 +396,9 @@
             "path": "lib/app/order_service.dart",
             "line": 17,
             "column": 8,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#validate()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#validate().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "logAudit",
@@ -386,7 +406,9 @@
             "path": "lib/data/audit.dart",
             "line": 4,
             "column": 6,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`audit.dart`/logAudit()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`audit.dart`/logAudit().",
+            "confidence": "precise",
+            "source": "scip-dart"
           },
           {
             "name": "writeRow",
@@ -394,7 +416,9 @@
             "path": "lib/data/db.dart",
             "line": 3,
             "column": 6,
-            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow()."
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow().",
+            "confidence": "precise",
+            "source": "scip-dart"
           }
         ],
         "steps": [

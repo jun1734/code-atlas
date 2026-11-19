@@ -273,7 +273,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - `follow`: `calls`(기본)는 `Graph.load(store, { kinds: ['call'] })`, `all`은 모든 종류(참조, 읽기, 쓰기, 상속, 구현, import)로 그래프를 올려요.
 - `depth`(기본 10): 경로의 가장 긴 길이(구간 수). `limit`: 경로를 앞에서부터 몇 개 줄지. 경로는 `graph.paths`로 찾고 상한 `PATH_CAP`(1000)에서 세기를 멈춰요. 멈췄으면 `paths.capped: true`이고 `total`은 그때까지 센 수(실제는 더 많음)예요.
 - 순서: 짧은 것부터, 같은 길이면 지나는 노드 id 순(파일 `f:`가 심볼 `s:`보다 앞). 같은 질문은 늘 같은 답이에요.
-- 답: `query`(`from`, `to`), `follow`, `depth`, `status`, `from`·`to`(지점: `name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`), `paths`(`Page` + `capped`).
+- 답: `query`(`from`, `to`), `follow`, `depth`, `status`, `from`·`to`(지점: `name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`. 파일 지점에는 표시가 없어요: 계약의 예외), `paths`(`Page` + `capped`).
   - 경로 하나: `length`, `nodes`(지나는 지점), `steps`(구간: `from`, `to`, `kind`, `at` 적힌 자리, `confidence`, `kindConfidence`, `source`), 그리고 경로 전체의 `confidence`·`kindConfidence`·`source`.
 - 상태: `found`, `no_path`(`paths`는 빈 목록, `reverse`: to에서 from으로는 이어지는지, `shortestBeyondDepth`: depth 밖에 경로가 있으면 그 가장 짧은 길이), `ambiguous`(`candidates.from`/`candidates.to`: 여럿에 맞은 쪽만), `not_found`(`notFound`: `['from']`, `['to']` 또는 둘 다). 찾지 못한 쪽이 있으면 모호한 쪽보다 먼저 알려요.
 

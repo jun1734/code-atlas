@@ -15,7 +15,10 @@ const FOLLOW_KINDS: Record<Follow, RelationKind[] | undefined> = { calls: ['call
 /** 경로 수를 세다 멈추는 상한. 큰 저장소에서 경로 수가 폭발하는 것을 막아요. */
 export const PATH_CAP = 1000;
 
-/** 경로에 나오는 지점 하나. 심볼이면 key로 context에 다시 물을 수 있어요. 파일이면 name이 경로예요. */
+/**
+ * 경로에 나오는 지점 하나. 심볼이면 key로 context에 다시 물을 수 있고, 정의를 낸 색인기의 표시(confidence, source)가 붙어요.
+ * 파일이면 name이 경로이고 표시가 없어요(파일 지점은 계약의 예외: 색인기의 추정이 아니라 저장소의 파일이에요).
+ */
 export interface TraceNode {
   name: string;
   kind: string;
@@ -23,6 +26,8 @@ export interface TraceNode {
   line?: number;
   column?: number;
   key?: string;
+  confidence?: Confidence;
+  source?: string;
 }
 
 /** 경로의 구간 하나: from이 to를 쓰는 관계 하나. */
@@ -80,7 +85,8 @@ function resolve(store: GraphStore, graph: Graph, query: string): Resolved {
 }
 
 function symbolNode(s: SymbolRow): TraceNode {
-  return { name: s.qualifiedName, kind: s.kind, path: s.definition.path, line: s.definition.line, column: s.definition.column, key: s.key };
+  const d = s.definition;
+  return { name: s.qualifiedName, kind: s.kind, path: d.path, line: d.line, column: d.column, key: s.key, confidence: s.confidence, source: s.source };
 }
 
 function describe(graph: Graph, id: NodeId): TraceNode {

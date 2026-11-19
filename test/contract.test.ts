@@ -24,10 +24,53 @@ function assertIndex(answer: any, fx: IndexedFixture, stale: boolean): void {
   assert.equal(answer.index.stale, stale);
 }
 
-/** 답 안의 모든 항목(심볼, 사용처, 후보, 파일 목록). */
-function itemsOf(answer: any): any[] {
-  const lists = ['uses', 'defines', 'imports', 'importedBy', 'usedBy'].flatMap((name) => answer[name]?.items ?? []);
-  return [...(answer.symbol ? [answer.symbol] : []), ...lists, ...(answer.candidates ?? [])];
+/** 계약의 항목 규칙(docs/contract.md 약속 3)을 보는 질문. 모든 질의와 파일·심볼 지점을 고루 넣어요. */
+const ITEM_QUESTIONS: string[][] = [
+  ['context', 'withTax'],
+  ['context', 'add'],
+  ['context', 'Cart'],
+  ['context', 'lib/src/pricing.dart'],
+  ['impact', 'withTax'],
+  ['impact', 'lib/src/pricing.dart'],
+  ['impact', 'add'],
+  ['check'],
+  ['trace', 'Cart.total', '--to', 'withTax'],
+  ['trace', 'lib/src/cart.dart', '--to', 'lib/src/pricing.dart', '--follow', 'all'],
+  ['trace', 'main', '--to', 'withTax'],
+  ['search', 'cart'],
+  ['clusters'],
+];
+
+/**
+ * 답에서 항목인데 정밀/추정(confidence)이나 출처(source)가 없는 곳의 경로를 모아요.
+ * 항목: 목록(배열)에 든 객체, 답이 가리키는 심볼(symbol, target, trace의 from·to).
+ * 예외(계약 문서에 적은 것): 집계(impact·check의 modules[]), 파일 지점(context의 file, impact의 파일 target,
+ * trace의 파일 노드). 항목 안의 설명 객체(definition, at, via, representative)는 바깥 항목의 표시를 따라요.
+ */
+function unmarked(answer: any): string[] {
+  const bad: string[] = [];
+  const isFilePoint = (o: any) => o.kind === 'file' || ('language' in o && !('kind' in o));
+  const need = (o: any, path: string) => {
+    if (!['precise', 'inferred'].includes(o.confidence) || typeof o.source !== 'string') bad.push(path);
+  };
+  const walk = (value: any, path: string, key: string) => {
+    if (Array.isArray(value)) {
+      value.forEach((v, i) => {
+        if (v && typeof v === 'object' && !Array.isArray(v) && key !== 'modules' && !(key === 'nodes' && isFilePoint(v))) {
+          need(v, `${path}[${i}]`);
+        }
+        walk(v, `${path}[${i}]`, key);
+      });
+    } else if (value && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) walk(v, `${path}.${k}`, k);
+    }
+  };
+  for (const k of ['symbol', 'target', 'from', 'to']) {
+    const o = answer[k];
+    if (o && typeof o === 'object' && !isFilePoint(o)) need(o, k);
+  }
+  walk(answer, '', '');
+  return bad;
 }
 
 describe('답의 계약 (명령줄과 MCP)', () => {
@@ -89,14 +132,10 @@ describe('답의 계약 (명령줄과 MCP)', () => {
     assert.deepEqual([whole.uses.total, whole.uses.truncated, whole.uses.items.length], [4, false, 4]);
   });
 
-  it('답의 항목마다 정밀/추정과 출처가 붙는다', async () => {
-    for (const query of ['withTax', 'add', 'Cart', 'lib/src/pricing.dart']) {
-      const items = itemsOf(await mcp.call('context', { query }));
-      assert.ok(items.length > 0, query);
-      for (const item of items) {
-        assert.ok(['precise', 'inferred'].includes(item.confidence), JSON.stringify(item));
-        assert.equal(typeof item.source, 'string');
-      }
+  it('답의 항목마다 정밀/추정과 출처가 붙는다(모든 질의, 예외는 집계와 파일 지점뿐)', () => {
+    for (const q of ITEM_QUESTIONS) {
+      const answer = first.ask(...q);
+      assert.deepEqual(unmarked(answer), [], `${q.join(' ')}\n${JSON.stringify(answer, null, 1).slice(0, 2000)}`);
     }
   });
 
