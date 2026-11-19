@@ -2,18 +2,19 @@
 // 다른 모듈에서 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름.
 // 어느 파일이 어느 모듈인지, 무엇이 공용·조립 모듈이고 허용 목록이 어디 있는지는 저장소 설정(repo-config.ts)이 정해요.
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced } from '../answer.ts';
-import type { Confidence, SymbolKind } from '../facts.ts';
+import { compareText, cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced, sourcedOf } from '../answer.ts';
+import type { SymbolKind } from '../facts.ts';
 import type { GraphStore, Location } from '../graph/store.ts';
+import { ancestry } from '../graph/traverse.ts';
+import { globToRegExp, nameGlobToRegExp, repoModules } from '../modules.ts';
+import type { QueryDef } from '../queries.ts';
+import { CONFIG_PARAM, readAllowlist } from '../repo-config.ts';
 
 /** 파일 하나에서 다른 파일로 가는 import(같은 쌍의 관계를 묶은 것). */
 interface FileImport extends Sourced {
   from: string;
   to: string;
 }
-import { globToRegExp, moduleResolver, nameGlobToRegExp } from '../modules.ts';
-import type { QueryDef } from '../queries.ts';
-import { loadRepoConfig, readAllowlist } from '../repo-config.ts';
 
 export interface CycleItem extends Sourced {
   /** 묶음의 파일, 경로순. */
@@ -74,13 +75,6 @@ export interface CheckBody {
   reviewCandidates: Page<ReviewCandidateItem>;
   /** 검사 안 파일의 최상위 공개 이름 가운데 어디서도(테스트 포함) 쓰이지 않는 것. */
   unusedPublicNames: Page<UnusedNameItem>;
-}
-
-/** 여러 import에서 나온 항목의 표시: 가장 낮은 신뢰도와 낸 색인기들. */
-function sourcedOf(rows: FileImport[]): Sourced {
-  const confidence: Confidence = rows.some((r) => r.confidence === 'inferred') ? 'inferred' : 'precise';
-  const sources = new Set(rows.flatMap((r) => r.source.split(',')));
-  return { confidence, source: [...sources].sort().join(',') };
 }
 
 /** Tarjan 강연결 요소. 묶음은 의존되는 쪽(간선이 닿는 쪽)부터 나와요. */
@@ -155,9 +149,8 @@ function bestOrder(group: string[], weight: (a: string, b: string) => number): s
 
 /** 색인과 저장소 설정으로 구조를 검사해요. configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)을 써요. */
 export function check(store: GraphStore, limit: number, configPath?: string): CheckBody {
-  const meta = store.meta();
-  const config = loadRepoConfig(meta.repoRoot, configPath);
-  const moduleOf = moduleResolver(config);
+  const { config, moduleOf } = repoModules(store, configPath);
+  const repoRoot = store.meta().repoRoot;
 
   // 1. 검사 안 파일과 그 사이의 import.
   const files = store.filePaths().filter((p) => moduleOf(p) !== null);
@@ -167,7 +160,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
       .importsOf(from)
       .filter((t) => t.path !== from && inScope.has(t.path))
       .map((t) => ({ from, to: t.path, confidence: t.confidence, source: t.source }))
-      .sort((a, b) => a.to.localeCompare(b.to)),
+      .sort((a, b) => compareText(a.to, b.to)),
   );
   const importsOf = new Map<string, string[]>();
   for (const i of imports) (importsOf.get(i.from) ?? importsOf.set(i.from, []).get(i.from)!).push(i.to);
@@ -177,14 +170,14 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   // 안쪽 목록(파일, import)도 같은 limit으로 잘라요. 순서는 자르기 전 전체로 정해요.
   const cycles: CycleItem[] = stronglyConnected(files, (f) => importsOf.get(f) ?? [])
     .filter((g) => g.length > 1)
-    .map((group) => [...group].sort())
-    .sort((a, b) => b.length - a.length || a[0]!.localeCompare(b[0]!))
+    .map((group) => [...group].sort(compareText))
+    .sort((a, b) => b.length - a.length || compareText(a[0]!, b[0]!))
     .map((sorted) => {
       const inGroup = new Set(sorted);
       const inner = imports.filter((i) => inGroup.has(i.from) && inGroup.has(i.to));
       return {
         files: cut(sorted, limit),
-        modules: [...new Set(sorted.map(mod))].sort(),
+        modules: [...new Set(sorted.map(mod))].sort(compareText),
         imports: cut(
           inner.map((i) => [i.from, i.to] as [string, string]),
           limit,
@@ -194,7 +187,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
     });
 
   // 3. 모듈 사이 간선과 순서. 가져다 쓰는 쪽이 위예요.
-  const moduleNames = [...new Set(files.map(mod))].sort();
+  const moduleNames = [...new Set(files.map(mod))].sort(compareText);
   const edges = new Map<string, typeof imports>();
   for (const i of imports) {
     const a = mod(i.from);
@@ -220,7 +213,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   const allowlist = config.allowlist.map((source) => {
     const modules = new Set(source.from.modules ?? []);
     const fromFiles = (source.from.files ?? []).map(globToRegExp);
-    const targets = new Set(readAllowlist(meta.repoRoot, source));
+    const targets = new Set(readAllowlist(repoRoot, source));
     return (i: FileImport) =>
       targets.has(i.to) && (modules.has(mod(i.from)) || fromFiles.some((re) => re.test(i.from)));
   });
@@ -256,21 +249,17 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
     (candidates.get(i.to) ?? candidates.set(i.to, []).get(i.to)!).push(i);
   }
   const reviewCandidates: ReviewCandidateItem[] = [...candidates]
-    .map(([target, rows]) => ({ target, module: mod(target), from: rows.map((r) => r.from).sort(), ...sourcedOf(rows) }))
-    .sort((a, b) => b.from.length - a.from.length || a.target.localeCompare(b.target));
+    .map(([target, rows]) => ({ target, module: mod(target), from: rows.map((r) => r.from).sort(compareText), ...sourcedOf(rows) }))
+    .sort((a, b) => b.from.length - a.from.length || compareText(a.target, b.target));
 
   // 6. 쓰이지 않는 공개 이름: 검사 안 파일의 최상위 선언 가운데, 그것도 그 안의 것(생성자, 멤버)도 쓰인 적이 없는 것.
   // 멤버 하나하나는 보지 않아요. 프레임워크가 부르는 재정의(build 등)를 그래프가 아직 가려내지 못해서요.
+  // 쓰인 열쇠에서 정의의 바깥 심볼(parentKey) 사슬을 따라 올라가며 모두 쓰인 것으로 쳐요. 열쇠 문법은 풀지 않아요
+  // (이름 없는 생성자는 어댑터가 이미 클래스 열쇠로 합쳐요).
   const parentOf = new Map(definitions.map((d) => [d.key, d.parentKey]));
-  // 정의가 없는 사용처 열쇠(선언하지 않은 기본 생성자 `C#<constructor>().` 등)는 심볼 열쇠에서 바깥 타입(`C#`)을 잘라 올라가요.
-  const up = (k: string): string | null => {
-    if (parentOf.has(k)) return parentOf.get(k)!;
-    const hash = k.lastIndexOf('#', k.length - 2);
-    return hash > 0 ? k.slice(0, hash + 1) : null;
-  };
   const used = new Set<string>();
   for (const key of store.referencedKeys()) {
-    for (let k: string | null = key; k && !used.has(k); k = up(k)) used.add(k);
+    for (const k of ancestry(key, (k) => parentOf.get(k))) used.add(k);
   }
   const isPrivate = nameGlobToRegExp(config.unused.private);
   const ignore = new Set(config.unused.ignore);
@@ -315,12 +304,8 @@ export const checkQuery: QueryDef = {
     '다른 기능 모듈의 화면도 provider도 아닌 것을 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름. ' +
     '리팩터링 전후나 리뷰 때 모듈 경계가 무너졌는지 볼 때 불러요. 모듈 기준은 저장소 뿌리의 .code-atlas.json이 정해요.',
   params: [
-    {
-      name: 'config',
-      type: 'string',
-      description: '저장소 설정 파일 경로. 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
-    },
-    { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '목록마다 앞에서부터 몇 개까지 줄지.' },
+    CONFIG_PARAM,
+    { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '목록마다(묶음 안의 파일·import 포함) 앞에서부터 몇 개까지 줄지.' },
   ],
   run: (store, args) => check(store, args.limit as number, args.config as string | undefined),
 };
