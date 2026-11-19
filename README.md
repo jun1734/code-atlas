@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `search`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(impact, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `impact`, `search`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -35,6 +35,11 @@ node src/cli.ts context lib/src/cart.dart --repo path/to/repo  # 파일: 정의�
 node src/cli.ts check --repo path/to/repo
 node src/cli.ts check --repo path/to/repo --config path/to/code-atlas.json
 
+# 영향 범위: 이름이나 파일을 바꾸면 영향 받는 곳(거리별, 모듈별 묶음, 걸린 테스트 파일)
+node src/cli.ts impact withTax --repo path/to/repo
+node src/cli.ts impact lib/src/cart.dart --repo path/to/repo --depth 2 --limit 50
+node src/cli.ts impact withTax --repo path/to/repo --hot 50   # 사용처가 50개 이상인 이름에 hot 표시(기본 20)
+
 # 검색: 정확한 이름을 몰라도 시작점 찾기(이름 일부, 대소문자 무시, 낙타 표기 조각). 많이 쓰이는 것이 먼저.
 # 결과의 key를 그대로 context에 넘겨요.
 node src/cli.ts search cartProv --repo path/to/repo
@@ -44,7 +49,7 @@ node src/cli.ts search total --kind function,method --language dart --folder lib
 node src/cli.ts clusters --repo path/to/repo
 ```
 
-check의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.
+check와 impact의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.
 
 - 답은 JSON이에요. `status`는 `found`, `ambiguous`(후보 목록 `candidates`), `not_found` 중 하나예요.
 - 사용처는 앱 코드가 먼저, 테스트가 뒤에 와요. 항목마다 `role`(`app`/`test`), `kind`(`read`, `write`, `call`, `extends`, `implements`, `reference`), `kindConfidence`가 붙고, `uses.byRole`에 역할별 전체 개수가 있어요.
