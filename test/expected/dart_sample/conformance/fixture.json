@@ -1,0 +1,5 @@
+{
+  "pricingFile": "lib/src/pricing.dart",
+  "barrelFile": "lib/dart_sample.dart",
+  "generatedFile": "lib/src/receipt.g.dart"
+}

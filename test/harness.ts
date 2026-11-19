@@ -67,7 +67,12 @@ export function indexFixture(name: string): IndexedFixture {
   };
 }
 
+/** `test/expected/<fixture>/<file>`의 경로. */
+export function expectedPath(fixture: string, file: string): string {
+  return join(root, 'test', 'expected', fixture, file);
+}
+
 /** `test/expected/<fixture>/<file>`의 정답 JSON. */
 export function expected(fixture: string, file: string): any {
-  return JSON.parse(readFileSync(join(root, 'test', 'expected', fixture, file), 'utf8'));
+  return JSON.parse(readFileSync(expectedPath(fixture, file), 'utf8'));
 }

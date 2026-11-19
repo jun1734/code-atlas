@@ -1,0 +1,37 @@
+{
+  "query": "totalProvider",
+  "status": "found",
+  "symbol": {
+    "name": "totalProvider",
+    "qualifiedName": "totalProvider",
+    "kind": "variable",
+    "definition": {
+      "path": "lib/src/providers.dart",
+      "line": 7,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 1,
+    "byRole": {
+      "app": 1,
+      "test": 0
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "line": 10,
+        "column": 39,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "query": "Labeled",
+  "status": "found",
+  "symbol": {
+    "name": "Labeled",
+    "qualifiedName": "Labeled",
+    "kind": "mixin",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 9,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 1,
+    "byRole": {
+      "app": 1,
+      "test": 0
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "lib/src/cart.dart",
+        "line": 13,
+        "column": 17,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "Cart",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

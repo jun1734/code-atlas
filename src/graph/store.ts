@@ -4,16 +4,17 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { Confidence, Facts, RelationKind, SymbolKind } from '../facts.ts';
+import type { Confidence, Facts, FileRole, RelationKind, SymbolKind } from '../facts.ts';
 
-const SCHEMA_VERSION = '1';
+const SCHEMA_VERSION = '2';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS files (
   id INTEGER PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,
-  language TEXT NOT NULL
+  language TEXT NOT NULL,
+  role TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS symbols (
   id INTEGER PRIMARY KEY,
@@ -44,10 +45,13 @@ CREATE TABLE IF NOT EXISTS relations (
   to_symbol_key TEXT,
   to_file_id INTEGER REFERENCES files(id),
   confidence TEXT NOT NULL,
+  kind_confidence TEXT NOT NULL,
   source TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS relations_to_symbol ON relations(to_symbol_key);
 CREATE INDEX IF NOT EXISTS relations_to_file ON relations(to_file_id);
+CREATE INDEX IF NOT EXISTS relations_from_file ON relations(from_file_id);
+CREATE INDEX IF NOT EXISTS symbols_file ON symbols(file_id);
 `;
 
 export interface IndexMeta {
@@ -76,10 +80,35 @@ export interface SymbolRow {
 }
 
 export interface UseRow extends Location {
+  /** 사용처가 있는 파일의 역할(앱 코드인지 테스트인지). */
+  role: FileRole;
   kind: RelationKind;
+  /** kind를 색인기가 알려 줬으면(또는 색인기의 사실로 확인했으면) precise, 문법으로 가렸으면 inferred. */
+  kindConfidence: Confidence;
   /** 사용처를 감싸는 심볼의 이름. 파일 최상위면 없음. */
   in?: string;
   confidence: Confidence;
+  source: string;
+}
+
+/** 사용처를 고르는 조건. 뒤의 질의(impact는 테스트 파일만, trace는 호출만)가 그래프에서 다시 물을 때 써요. */
+export interface UseFilter {
+  roles?: FileRole[];
+  kinds?: RelationKind[];
+}
+
+export interface FileRow {
+  path: string;
+  language: string;
+  role: FileRole;
+}
+
+/** 다른 파일과의 연결(가져오기, 쓰기). 여러 관계를 묶은 것이라 하나라도 추정이면 inferred예요. */
+export interface FileLink {
+  path: string;
+  role: FileRole;
+  confidence: Confidence;
+  /** 관계를 낸 색인기들(쉼표로 이어요). */
   source: string;
 }
 
@@ -134,10 +163,10 @@ export class GraphStore {
       putMeta.run('indexedAt', meta.indexedAt);
 
       const fileIds = new Map<string, number>();
-      const putFile = db.prepare('INSERT INTO files(path, language) VALUES (?, ?)');
+      const putFile = db.prepare('INSERT INTO files(path, language, role) VALUES (?, ?, ?)');
       for (const f of facts.files) {
         if (fileIds.has(f.path)) continue;
-        fileIds.set(f.path, Number(putFile.run(f.path, f.language).lastInsertRowid));
+        fileIds.set(f.path, Number(putFile.run(f.path, f.language, f.role).lastInsertRowid));
       }
       const fileId = (path: string) => {
         const id = fileIds.get(path);
@@ -167,8 +196,8 @@ export class GraphStore {
       }
 
       const putRelation = db.prepare(
-        `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_file_id, confidence, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_file_id, confidence, kind_confidence, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const r of facts.relations) {
         const toPath = 'path' in r.to ? r.to.path : null;
@@ -183,6 +212,7 @@ export class GraphStore {
           'symbolKey' in r.to ? r.to.symbolKey : null,
           toPath === null ? null : (fileIds.get(toPath) ?? null),
           r.confidence,
+          r.kindConfidence,
           r.source,
         );
       }
@@ -210,52 +240,187 @@ export class GraphStore {
     for (const column of ['key', 'qualified_name', 'name']) {
       const rows = this.db
         .prepare(
-          `SELECT s.key, s.name, s.qualified_name AS qualifiedName, s.kind, f.path, s.line, s.col, s.confidence, s.source
+          `SELECT ${SYMBOL_COLUMNS}
            FROM symbols s JOIN files f ON f.id = s.file_id
            WHERE s.${column} = ? AND s.kind NOT IN ('file', 'parameter')
            ORDER BY f.path, s.line, s.col`,
         )
-        .all(query) as { key: string; name: string; qualifiedName: string; kind: SymbolKind; path: string; line: number; col: number; confidence: Confidence; source: string }[];
-      if (rows.length > 0) {
-        return rows.map((r) => ({
-          key: r.key,
-          name: r.name,
-          qualifiedName: r.qualifiedName,
-          kind: r.kind,
-          definition: toLocation(r.path, r.line, r.col),
-          confidence: r.confidence,
-          source: r.source,
-        }));
-      }
+        .all(query) as unknown as SymbolSqlRow[];
+      if (rows.length > 0) return rows.map(toSymbolRow);
     }
     return [];
   }
 
-  /** 심볼의 사용처 전체 개수와 앞에서부터 limit개. */
-  usesOf(key: string, limit: number): { total: number; items: UseRow[] } {
-    const total = Number(
-      (this.db.prepare('SELECT COUNT(*) AS n FROM relations WHERE to_symbol_key = ?').get(key) as { n: number }).n,
-    );
+  /**
+   * 심볼의 사용처. 전체 개수, 역할별 개수, 앞에서부터 limit개.
+   * 앱 코드의 사용처가 먼저, 테스트의 사용처가 뒤에 와요(각각 경로, 줄, 열 순).
+   * filter로 역할(app/test)이나 관계 종류(call 등)를 고를 수 있어요. 개수도 고른 것만 세요.
+   */
+  usesOf(key: string, limit: number, filter: UseFilter = {}): { total: number; byRole: Record<FileRole, number>; items: UseRow[] } {
+    const where = ['r.to_symbol_key = ?'];
+    const params: (string | number)[] = [key];
+    if (filter.roles) {
+      where.push(`f.role IN (${filter.roles.map(() => '?').join(', ')})`);
+      params.push(...filter.roles);
+    }
+    if (filter.kinds) {
+      where.push(`r.kind IN (${filter.kinds.map(() => '?').join(', ')})`);
+      params.push(...filter.kinds);
+    }
+    const from = `FROM relations r JOIN files f ON f.id = r.from_file_id WHERE ${where.join(' AND ')}`;
+    const counts = this.db.prepare(`SELECT f.role AS role, COUNT(*) AS n ${from} GROUP BY f.role`).all(...params) as { role: FileRole; n: number }[];
+    const byRole: Record<FileRole, number> = { app: 0, test: 0 };
+    for (const c of counts) byRole[c.role] = Number(c.n);
     const rows = this.db
       .prepare(
-        `SELECT f.path, r.line, r.col, r.kind, r.confidence, r.source, s.qualified_name AS inName
-         FROM relations r
-         JOIN files f ON f.id = r.from_file_id
-         LEFT JOIN symbols s ON s.key = r.from_symbol_key
-         WHERE r.to_symbol_key = ?
-         ORDER BY f.path, r.line, r.col
+        `SELECT f.path, f.role, r.line, r.col, r.kind, r.kind_confidence AS kindConfidence, r.confidence, r.source,
+                (SELECT s.qualified_name FROM symbols s WHERE s.key = r.from_symbol_key) AS inName
+         ${from}
+         ORDER BY CASE f.role WHEN 'app' THEN 0 ELSE 1 END, f.path, r.line, r.col
          LIMIT ?`,
       )
-      .all(key, limit) as { path: string; line: number; col: number; kind: RelationKind; confidence: Confidence; source: string; inName: string | null }[];
+      .all(...params, limit) as {
+      path: string;
+      role: FileRole;
+      line: number;
+      col: number;
+      kind: RelationKind;
+      kindConfidence: Confidence;
+      confidence: Confidence;
+      source: string;
+      inName: string | null;
+    }[];
     return {
-      total,
+      total: byRole.app + byRole.test,
+      byRole,
       items: rows.map((r) => ({
         ...toLocation(r.path, r.line, r.col),
+        role: r.role,
         kind: r.kind,
+        kindConfidence: r.kindConfidence,
         ...(r.inName ? { in: r.inName } : {}),
         confidence: r.confidence,
         source: r.source,
       })),
     };
   }
+
+  /** 경로가 정확히 맞는 파일. 없으면 null. */
+  findFile(path: string): FileRow | null {
+    const row = this.db.prepare('SELECT path, language, role FROM files WHERE path = ?').get(path) as FileRow | undefined;
+    return row ? { path: row.path, language: row.language, role: row.role } : null;
+  }
+
+  /** 파일이 정의하는 이름(파일과 매개변수는 빼요). 위치 순. */
+  definedIn(path: string): SymbolRow[] {
+    const rows = this.db
+      .prepare(
+        `SELECT ${SYMBOL_COLUMNS}
+         FROM symbols s JOIN files f ON f.id = s.file_id
+         WHERE f.path = ? AND s.kind NOT IN ('file', 'parameter')
+         ORDER BY s.line, s.col`,
+      )
+      .all(path) as unknown as SymbolSqlRow[];
+    return rows.map(toSymbolRow);
+  }
+
+  /** 이 파일이 가져오거나 다시 내보내는 저장소 안의 파일(import 관계). */
+  importsOf(path: string): FileLink[] {
+    return this.links(
+      `SELECT t.path, t.role, r.confidence, r.source
+       FROM relations r JOIN files f ON f.id = r.from_file_id JOIN files t ON t.id = r.to_file_id
+       WHERE r.kind = 'import' AND f.path = ?`,
+      path,
+    );
+  }
+
+  /** 이 파일을 가져오거나 다시 내보내는 파일(import 관계). */
+  importersOf(path: string): FileLink[] {
+    return this.links(
+      `SELECT f.path, f.role, r.confidence, r.source
+       FROM relations r JOIN files f ON f.id = r.from_file_id JOIN files t ON t.id = r.to_file_id
+       WHERE r.kind = 'import' AND t.path = ?`,
+      path,
+    );
+  }
+
+  /**
+   * 이 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 어느 파일을 거쳐 가져왔든(barrel 포함) 이름으로 이어져요.
+   * 앱 코드가 먼저, 테스트가 뒤에 와요.
+   */
+  usersOf(path: string): (FileLink & { uses: number })[] {
+    const rows = this.db
+      .prepare(
+        `SELECT u.path, u.role, MIN(r.confidence) AS minConfidence, MAX(r.confidence) AS maxConfidence,
+                GROUP_CONCAT(DISTINCT r.source) AS sources, COUNT(*) AS n
+         FROM relations r
+         JOIN symbols s ON s.key = r.to_symbol_key
+         JOIN files d ON d.id = s.file_id
+         JOIN files u ON u.id = r.from_file_id
+         WHERE d.path = ? AND u.id != d.id
+         GROUP BY u.id
+         ORDER BY CASE u.role WHEN 'app' THEN 0 ELSE 1 END, u.path`,
+      )
+      .all(path) as unknown as LinkSqlRow[];
+    return rows.map((r) => ({ ...toLink(r), uses: Number(r.n) }));
+  }
+
+  /** 파일 사이 관계를 파일별로 묶어요. 앱 코드가 먼저, 테스트가 뒤에 와요. */
+  private links(sql: string, path: string): FileLink[] {
+    const rows = this.db
+      .prepare(
+        `SELECT path, role, MIN(confidence) AS minConfidence, MAX(confidence) AS maxConfidence,
+                GROUP_CONCAT(DISTINCT source) AS sources
+         FROM (${sql})
+         GROUP BY path
+         ORDER BY CASE role WHEN 'app' THEN 0 ELSE 1 END, path`,
+      )
+      .all(path) as unknown as LinkSqlRow[];
+    return rows.map(toLink);
+  }
+}
+
+const SYMBOL_COLUMNS = 's.key, s.name, s.qualified_name AS qualifiedName, s.kind, f.path, s.line, s.col, s.confidence, s.source';
+
+interface SymbolSqlRow {
+  key: string;
+  name: string;
+  qualifiedName: string;
+  kind: SymbolKind;
+  path: string;
+  line: number;
+  col: number;
+  confidence: Confidence;
+  source: string;
+}
+
+function toSymbolRow(r: SymbolSqlRow): SymbolRow {
+  return {
+    key: r.key,
+    name: r.name,
+    qualifiedName: r.qualifiedName,
+    kind: r.kind,
+    definition: toLocation(r.path, r.line, r.col),
+    confidence: r.confidence,
+    source: r.source,
+  };
+}
+
+interface LinkSqlRow {
+  path: string;
+  role: FileRole;
+  /** 'inferred' < 'precise'(글자 순)라서 MIN이 inferred면 하나라도 추정이에요. */
+  minConfidence: Confidence;
+  maxConfidence: Confidence;
+  sources: string;
+  n?: number;
+}
+
+function toLink(r: LinkSqlRow): FileLink {
+  return {
+    path: r.path,
+    role: r.role,
+    confidence: r.minConfidence,
+    source: r.sources.split(',').sort().join(','),
+  };
 }

@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { appendFacts, emptyFacts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
 import { run, runOrThrow } from '../run.ts';
 import { scipToFacts } from '../scip/to-facts.ts';
+import { refineDartFacts } from './dart-refine.ts';
 
 /** 시험한 scip-dart 버전. README와 CI도 이 버전을 깔아요. */
 const SCIP_DART_VERSION = '1.8.1';
@@ -48,6 +49,15 @@ const toLinuxForm = (s: string) =>
     .replace(/`([^`]*\\[^`]*)`/g, (_, path: string) => path.split('\\').map(descriptorName).join('/'))
     .replaceAll('\\', '/');
 
+/** 저장소 기준 경로의 소스 글. 없으면 null. */
+function readSource(root: string, path: string): string | null {
+  try {
+    return readFileSync(join(root, path), 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 export const dartAdapter: LanguageAdapter = {
   name: 'scip-dart',
   language: 'dart',
@@ -66,7 +76,8 @@ export const dartAdapter: LanguageAdapter = {
       const out = join(workDir, `dart-${i}.scip`);
       // 경로는 절대 경로로 줘요. './'로 주면 scip-dart 1.8.1이 패키지 전체를 '중첩 패키지'로 보고 0개를 색인해요.
       runOrThrow('dart', ['pub', 'global', 'run', 'scip_dart', '-o', out, pkgRoot], pkgRoot);
-      appendFacts(facts, scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm }));
+      const raw = scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm });
+      appendFacts(facts, refineDartFacts(raw, { pathPrefix: pkg, readText: (path) => readSource(repo.root, path) }));
     }
     return facts;
   },

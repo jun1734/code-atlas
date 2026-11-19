@@ -1,0 +1,25 @@
+{
+  "query": "Wishlist.add",
+  "status": "found",
+  "symbol": {
+    "name": "add",
+    "qualifiedName": "Wishlist.add",
+    "kind": "method",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 33,
+      "column": 8
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 0,
+    "byRole": {
+      "app": 0,
+      "test": 0
+    },
+    "truncated": false,
+    "items": []
+  }
+}

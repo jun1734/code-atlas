@@ -1,0 +1,59 @@
+{
+  "query": "discountPercent",
+  "status": "found",
+  "symbol": {
+    "name": "discountPercent",
+    "qualifiedName": "discountPercent",
+    "kind": "variable",
+    "definition": {
+      "path": "lib/src/pricing.dart",
+      "line": 8,
+      "column": 5
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 3,
+    "byRole": {
+      "app": 2,
+      "test": 1
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "line": 5,
+        "column": 3,
+        "role": "app",
+        "kind": "write",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/cart.dart",
+        "line": 16,
+        "column": 53,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "Cart.add",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "line": 6,
+        "column": 3,
+        "role": "test",
+        "kind": "write",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

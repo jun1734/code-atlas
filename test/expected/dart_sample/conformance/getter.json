@@ -1,0 +1,37 @@
+{
+  "query": "label",
+  "status": "found",
+  "symbol": {
+    "name": "label",
+    "qualifiedName": "Labeled.label",
+    "kind": "getter",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 10,
+      "column": 14
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 1,
+    "byRole": {
+      "app": 1,
+      "test": 0
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "line": 11,
+        "column": 20,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

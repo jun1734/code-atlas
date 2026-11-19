@@ -27,6 +27,7 @@ interface ScipSymbolInformation {
   kind?: string;
   displayName?: string;
   enclosingSymbol?: string;
+  relationships?: { symbol?: string; isImplementation?: boolean }[];
 }
 
 interface ScipDocument {
@@ -127,7 +128,8 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
   const fileKeys = new Map<string, string>(); // 파일 심볼 → 경로
   const defsByFile = new Map<string, SymbolFact[]>();
   for (const doc of docs) {
-    facts.files.push({ path: doc.path, language: opts.language });
+    // 테스트 파일인지는 언어 관례라서 어댑터가 고쳐요.
+    facts.files.push({ path: doc.path, language: opts.language, role: 'app' });
     const infos = new Map<string, ScipSymbolInformation>();
     for (const info of doc.symbols ?? []) if (info.symbol) infos.set(norm(info.symbol), info);
     const defs: SymbolFact[] = [];
@@ -146,6 +148,11 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
       if (!names || !range) continue;
       const info = infos.get(key);
       const parentKey = info?.enclosingSymbol ? norm(info.enclosingSymbol) : parentFromDescriptors(key, parsed);
+      // 타입의 isImplementation 관계는 상속·구현한 타입이에요. 메서드의 것(재정의한 메서드)은 넣지 않아요.
+      const supertypes =
+        last?.suffix === 'type'
+          ? (info?.relationships ?? []).filter((r) => r.isImplementation && r.symbol).map((r) => norm(r.symbol!))
+          : [];
       defs.push({
         key,
         name: info?.displayName || names.name,
@@ -155,6 +162,7 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
         range,
         enclosingRange: toRange(occ.enclosingRange),
         parentKey,
+        ...(supertypes.length > 0 ? { supertypes } : {}),
         confidence: 'precise',
         source: opts.source,
       });
@@ -183,6 +191,7 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
         from: { path: doc.path, range, ...(enclosing ? { symbolKey: enclosing.key } : {}) },
         to: target !== null ? { path: target } : { symbolKey: key },
         confidence: 'precise',
+        kindConfidence: 'precise',
         source: opts.source,
       };
       facts.relations.push(relation);
