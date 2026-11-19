@@ -34,6 +34,11 @@ node src/cli.ts context lib/src/cart.dart --repo path/to/repo  # 파일: 정의�
 # 다른 기능 모듈에서 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름
 node src/cli.ts check --repo path/to/repo
 node src/cli.ts check --repo path/to/repo --config path/to/code-atlas.json
+
+# 검색: 정확한 이름을 몰라도 시작점 찾기(이름 일부, 대소문자 무시, 낙타 표기 조각). 많이 쓰이는 것이 먼저.
+# 결과의 key를 그대로 context에 넘겨요.
+node src/cli.ts search cartProv --repo path/to/repo
+node src/cli.ts search total --kind function,method --language dart --folder lib/src --repo path/to/repo
 ```
 
 check의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.

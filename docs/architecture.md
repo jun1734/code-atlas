@@ -164,6 +164,16 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 - 없음: `status: 'not_found'`.
 
+## 질의: search
+
+`src/query/search.ts`. 정확한 이름을 몰라도 시작점을 찾아요. 그래프 탐색은 쓰지 않아요.
+
+- 후보는 `GraphStore.searchCandidates({ kinds?, languages?, folder? })`: 정의된 심볼(파일, 매개변수 제외)과 정의 파일의 `language`·`role`을 SQL로 거른 것이에요. 폴더는 `f.path LIKE '<폴더>/%'`라 그 아래 파일 전부가 맞고, 앞부분만 같은 다른 폴더는 맞지 않아요.
+- 이름 맞추기는 질의가 해요. 대소문자를 가리지 않고 이름(`name`) 안에 들어 있으면 맞아요. 아니면 낙타 표기 조각: 질의를 대문자마다 조각으로 쪼개(`cartProv` → cart, prov / `GC` → g, c) 이름의 낱말(`cartProvider` → cart, Provider; `_`, 숫자, 대문자 묶음도 낱말 경계) 머리에 차례로 맞춰요. 건너뛰는 낱말이 있어도 돼요. 질의에 점(`.`)이 있으면 `qualifiedName`에서 이름 일부로 찾아요. 질의가 없으면 조건에 맞는 심볼 전부예요.
+- 정렬: 사용처 수(`GraphStore.useCounts()`, context의 `uses.total`과 같은 수)가 많은 순, 같으면 경로·줄·열 순.
+- 답: `query`, 실제로 건 `filters`(`kind`, `language`, `folder`), `results`(`Page`). 항목은 `key`, `name`, `qualifiedName`, `kind`, `definition`, `language`, `role`, `uses`, `confidence`, `source`예요. `key`는 context에 그대로 넘기면 그 심볼 하나를 찾아요(context가 `key`부터 찾아요).
+- 모르는 `kind`는 쓸 수 있는 종류를 담은 오류(`UserError`)예요. 임베딩 기반 의미 검색은 하지 않아요.
+
 ## 저장소 설정과 모듈
 
 모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요.
