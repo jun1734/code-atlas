@@ -6,6 +6,7 @@ import type { GraphStore } from './graph/store.ts';
 import { openIndex, type Target, UserError } from './locate.ts';
 import { checkQuery } from './query/check.ts';
 import { contextQuery } from './query/context.ts';
+import { impactQuery } from './query/impact.ts';
 
 /** 질의가 받는 인자 하나. 명령줄 옵션과 MCP 입력 스키마가 여기서 만들어져요. */
 export interface Param {
@@ -35,7 +36,7 @@ export interface QueryDef {
 }
 
 /** 명령줄과 MCP에 붙는 질의 전부. */
-export const QUERIES: QueryDef[] = [contextQuery, checkQuery];
+export const QUERIES: QueryDef[] = [contextQuery, checkQuery, impactQuery];
 
 /** 바깥에서 받은 인자(명령줄은 글, MCP는 JSON 값)를 질의의 Param대로 검사해요. */
 export function checkArgs(def: QueryDef, raw: Record<string, unknown>): Args {

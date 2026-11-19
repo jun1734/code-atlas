@@ -1,0 +1,192 @@
+{
+  "query": "withVat",
+  "status": "found",
+  "config": ".code-atlas.json",
+  "target": {
+    "name": "withVat",
+    "qualifiedName": "withVat",
+    "kind": "function",
+    "definition": {
+      "path": "lib/core/money.dart",
+      "line": 4,
+      "column": 5
+    },
+    "confidence": "precise",
+    "source": "scip-dart",
+    "uses": 1,
+    "hot": false
+  },
+  "summary": {
+    "depth": 3,
+    "affected": 5,
+    "byDistance": {
+      "1": 1,
+      "2": 2,
+      "3": 2
+    },
+    "moreBeyondDepth": false,
+    "modules": 4,
+    "tests": 2,
+    "hotUses": 20
+  },
+  "modules": [
+    {
+      "module": "cart",
+      "affected": 1,
+      "nearest": 1,
+      "tests": 0
+    },
+    {
+      "module": null,
+      "affected": 2,
+      "nearest": 2,
+      "tests": 2
+    },
+    {
+      "module": "checkout",
+      "affected": 1,
+      "nearest": 2,
+      "tests": 0
+    },
+    {
+      "module": "app",
+      "affected": 1,
+      "nearest": 3,
+      "tests": 0
+    }
+  ],
+  "affected": {
+    "total": 5,
+    "truncated": false,
+    "items": [
+      {
+        "name": "Cart.total",
+        "kind": "method",
+        "path": "lib/features/cart/cart.dart",
+        "line": 8,
+        "distance": 1,
+        "module": "cart",
+        "role": "app",
+        "uses": 2,
+        "hot": false,
+        "via": {
+          "name": "withVat",
+          "relation": "call",
+          "at": {
+            "path": "lib/features/cart/cart.dart",
+            "line": 8,
+            "column": 18
+          }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "name": "checkoutLine",
+        "kind": "function",
+        "path": "lib/features/checkout/checkout.dart",
+        "line": 4,
+        "distance": 2,
+        "module": "checkout",
+        "role": "app",
+        "uses": 2,
+        "hot": false,
+        "via": {
+          "name": "Cart.total",
+          "relation": "call",
+          "at": {
+            "path": "lib/features/checkout/checkout.dart",
+            "line": 4,
+            "column": 50
+          }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "name": "main",
+        "kind": "function",
+        "path": "test/cart_test.dart",
+        "line": 3,
+        "distance": 2,
+        "module": null,
+        "role": "test",
+        "uses": 0,
+        "hot": false,
+        "via": {
+          "name": "Cart.total",
+          "relation": "call",
+          "at": {
+            "path": "test/cart_test.dart",
+            "line": 5,
+            "column": 15
+          }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "name": "runApp",
+        "kind": "function",
+        "path": "lib/app.dart",
+        "line": 4,
+        "distance": 3,
+        "module": "app",
+        "role": "app",
+        "uses": 0,
+        "hot": false,
+        "via": {
+          "name": "checkoutLine",
+          "relation": "call",
+          "at": {
+            "path": "lib/app.dart",
+            "line": 6,
+            "column": 10
+          }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "name": "main",
+        "kind": "function",
+        "path": "test/checkout_test.dart",
+        "line": 4,
+        "distance": 3,
+        "module": null,
+        "role": "test",
+        "uses": 0,
+        "hot": false,
+        "via": {
+          "name": "checkoutLine",
+          "relation": "call",
+          "at": {
+            "path": "test/checkout_test.dart",
+            "line": 5,
+            "column": 10
+          }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "tests": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "test/cart_test.dart",
+        "distance": 2,
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/checkout_test.dart",
+        "distance": 3,
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

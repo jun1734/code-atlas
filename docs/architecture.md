@@ -212,6 +212,19 @@ hijo_app의 설정 예는 `test/hijo_app/code-atlas.json`이에요(허용 목록
 
 hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run verify:hijo`(`test/hijo_app/`). 무거워서 기본 `npm test`에는 넣지 않았어요.
 
+## 질의: impact
+
+`src/query/impact.ts`. 이름이나 파일을 바꾸면 영향 받는 곳이에요. 그래프를 올려(`Graph.load`) 출발점에서 `graph.reach(starts, 'in', depth)`로 쓰는 쪽을 거슬러 올라가요.
+
+- 출발점: 물은 글이 색인된 파일 경로면 `graph.fileNodes(path)`(파일과 그 파일이 정의한 이름). 아니면 context처럼 `findSymbols`(key → qualifiedName → name)로 찾고, 여럿이면 `ambiguous`와 후보, 없으면 `not_found`. 찾은 심볼에 그 안에 정의된 것(멤버, 생성자: `parentKey` 사슬이 그 심볼에 닿는 것)을 더해요. 클래스를 바꾸면 멤버를 쓰는 곳도 영향 받으니까요.
+- 영향 받는 곳(`affected`, `Page`): 도착점마다 하나. 사용처를 감싸는 심볼이고, 파일 최상위에서 쓰면(import 등) 그 파일(`kind: 'file'`)이에요. 칸은 `distance`(직접 쓰면 1), `module`(저장소 설정의 모듈, 규칙 밖이면 `null`), `role`, 심볼이면 `line`·`uses`(사용처 수)·`hot`, 그리고 `via`(바꾼 쪽으로 한 단계 다가가며 쓰는 것의 이름, 관계 종류, 적힌 자리). `confidence`는 reach가 준 길의 신뢰도(길에 추정 관계가 하나라도 있으면 `inferred`), `source`는 `via` 관계를 낸 색인기예요. 순서는 거리, 경로, 줄(파일 노드가 먼저), 이름.
+- `modules`: 모듈별 묶음(`affected`, 가장 가까운 거리 `nearest`, 그 가운데 테스트 `tests`). 가까운 모듈부터, 같으면 많은 것, 이름 순, 모듈 밖(`null`)은 뒤. 모듈 수만큼이라 자르지 않아요.
+- `tests`(`Page`): 영향 받는 곳이 든 테스트 파일(`role: 'test'`)과 가장 가까운 거리. 그 파일의 항목 가운데 하나라도 정밀하면 `precise`.
+- `summary`: `depth`, `affected`, 거리별 개수 `byDistance`, `moreBeyondDepth`(depth 다음 단계에도 닿는 곳이 있는지: reach를 한 단계 더 돌려 봐요), 모듈 수, 테스트 파일 수, 이번 hot 기준 `hotUses`.
+- 모듈은 check와 같은 `moduleResolver(loadRepoConfig(repoRoot, config))`예요(`--config`, MCP `config`).
+
+**많이 쓰이는 이름(hot)의 기준:** `GraphStore.useCounts()`의 사용처 수(어느 종류의 관계든, 테스트 포함, 같은 줄에 여러 번이면 여러 번)가 **20 이상**이면 `hot: true`예요(`DEFAULT_HOT_USES`). 인자 `hot`으로 저장소마다 바꿔요. 물은 심볼은 `target.uses`·`target.hot`, 파일을 물으면 `target.hotNames`(그 파일이 정의한 hot 이름)로 나와요. 20은 "한 화면에 다 못 보는 정도"로 잡은 값이에요. 이름을 바꿀 때 손으로 고치기 힘들고 리뷰가 커지는 경계예요.
+
 ## 그래프 탐색
 
 `src/graph/traverse.ts`. impact, trace, clusters가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.
@@ -220,7 +233,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
 - `graph.in(id)` / `graph.out(id)`: 이 노드를 쓰는 간선 / 이 노드가 쓰는 간선. `graph.node(id)`는 이름, 정의 파일, 역할(app/test), 정의(`DefinitionRow`)를 줘요. `graph.fileNodes(path)`는 파일과 그 파일이 정의한 심볼의 노드예요.
 - `graph.reach(starts, 'in' | 'out', maxDepth)`: 너비 우선으로 거리별 도착점(`Reached`)을 줘요. 같은 거리라면 정밀한 길을 먼저 골라요. 길에 추정 관계가 하나라도 있으면 그 도착점은 `inferred`예요. 결과 순서는 거리, 그 안에서 id 순이라 다시 돌려도 같아요.
-- 사용처 수는 `GraphStore.useCounts()`(심볼 열쇠 → 수). "많이 쓰이는 이름"(impact)과 검색 정렬(search)이 이 수를 써요.
+- 사용처 수는 `GraphStore.useCounts()`(심볼 열쇠 → 수). "많이 쓰이는 이름"(impact, 기준은 "질의: impact")과 검색 정렬(search)이 이 수를 써요.
 - 모듈은 `src/modules.ts`의 `moduleResolver(loadRepoConfig(...))`로 노드의 `path`에서 얻어요.
 
 ## 질의 실행기와 바깥 껍데기
