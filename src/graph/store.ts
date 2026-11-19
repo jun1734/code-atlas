@@ -505,6 +505,17 @@ export class GraphStore {
     return rows.map((r) => ({ ...toSymbolRow(r), parentKey: r.parentKey }));
   }
 
+  /**
+   * 심볼별 사용처 수(어느 종류의 관계든, usesOf의 total과 같아요). 사용처가 없는 심볼은 빠져요.
+   * "많이 쓰이는 이름" 표시(impact)와 검색 정렬(search)이 같은 수를 쓰게 해요.
+   */
+  useCounts(): Map<string, number> {
+    const rows = this.db
+      .prepare('SELECT to_symbol_key AS key, COUNT(*) AS n FROM relations WHERE to_symbol_key IS NOT NULL GROUP BY to_symbol_key')
+      .all() as { key: string; n: number }[];
+    return new Map(rows.map((r) => [r.key, Number(r.n)]));
+  }
+
   /** 사용처(어느 종류의 관계든)가 하나라도 있는 심볼의 열쇠. */
   referencedKeys(): Set<string> {
     const rows = this.db
