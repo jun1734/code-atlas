@@ -7,13 +7,14 @@
 // 이어진 조각으로 나눠요.
 //
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced } from '../answer.ts';
-import type { Confidence, SymbolKind } from '../facts.ts';
+import { compareText, cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced, sourcedOf } from '../answer.ts';
+import type { SymbolKind } from '../facts.ts';
 import type { GraphStore, Location } from '../graph/store.ts';
-import { Graph, type NodeId, type NodeInfo, nodeId } from '../graph/traverse.ts';
-import { moduleResolver } from '../modules.ts';
+import { Graph, type NodeInfo, nodeId } from '../graph/traverse.ts';
+import { repoModules } from '../modules.ts';
 import type { QueryDef } from '../queries.ts';
-import { loadRepoConfig } from '../repo-config.ts';
+import { CONFIG_PARAM } from '../repo-config.ts';
+import { pointOfNode } from './point.ts';
 
 export interface ClusterItem extends Sourced {
   /** 든 이름(최상위 선언) 수. */
@@ -160,42 +161,27 @@ function modularity(g: Weighted, community: number[]): number {
   return q;
 }
 
-/** 이 노드를 감싸는 최상위 선언(멤버면 바깥 타입으로 올라가요). 심볼이 아니면 null. */
-function topLevel(graph: Graph, id: NodeId): NodeInfo | null {
-  let node = graph.node(id);
-  if (!node?.symbol) return null;
-  for (let parent = node.symbol.parentKey; parent; ) {
-    const up = graph.node(nodeId({ symbol: parent }));
-    if (!up?.symbol) break;
-    node = up;
-    parent = up.symbol.parentKey;
-  }
-  return node;
-}
-
 /** 이름을 셈하는 칸: 앱 코드의 최상위 선언(이름 공간 빼고). */
-const counts = (n: NodeInfo | null): n is NodeInfo => !!n && n.role === 'app' && n.symbol?.kind !== 'namespace';
+const counts = (n: NodeInfo | undefined): n is NodeInfo => !!n && n.role === 'app' && n.symbol?.kind !== 'namespace';
 
 export function clusters(store: GraphStore, limit: number, configPath?: string): ClustersBody {
-  const meta = store.meta();
-  const config = loadRepoConfig(meta.repoRoot, configPath);
-  const moduleOf = moduleResolver(config);
+  const { config, moduleOf } = repoModules(store, configPath);
   const graph = Graph.load(store);
 
   // 1. 최상위 선언을 노드로, 그 사이의 관계(어느 방향이든)를 무게로. 테스트 코드와 파일 노드(import)는 빼요.
   const units = graph
     .allNodes()
-    .filter((n) => counts(n) && topLevel(graph, n.id)?.id === n.id)
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    .filter((n) => counts(n) && graph.topLevel(n.id)?.id === n.id)
+    .sort((a, b) => compareText(a.id, b.id));
   const index = new Map(units.map((u, i) => [u.id, i]));
   const g: Weighted = { n: units.length, adj: units.map(() => new Map<number, number>()) };
-  const pairEdges: { a: number; b: number; confidence: Confidence; source: string }[] = [];
+  const pairEdges: (Sourced & { a: number; b: number })[] = [];
   for (const from of graph.allNodes()) {
-    const a = index.get(topLevel(graph, from.id)?.id ?? '');
+    const a = index.get(graph.topLevel(from.id)?.id ?? '');
     if (a === undefined) continue;
     for (const edge of graph.out(from.id)) {
       if (!('symbol' in edge.to)) continue;
-      const b = index.get(topLevel(graph, nodeId(edge.to))?.id ?? '');
+      const b = index.get(graph.topLevel(nodeId(edge.to))?.id ?? '');
       if (b === undefined || a === b) continue;
       g.adj[a]!.set(b, (g.adj[a]!.get(b) ?? 0) + 1);
       g.adj[b]!.set(a, (g.adj[b]!.get(a) ?? 0) + 1);
@@ -228,24 +214,26 @@ export function clusters(store: GraphStore, limit: number, configPath?: string):
       return k;
     };
     const rep = [...nodes].sort((x, y) => innerDegree(y) - innerDegree(x) || x - y)[0]!;
-    const repNode = units[rep]!;
-    const files = [...new Set(nodes.map((i) => units[i]!.path))].sort();
-    const modules = [...new Set(files.map(moduleOf).filter((m): m is string => m !== null))].sort();
-    const sources = new Set(internal.flatMap((e) => e.source.split(',')));
+    const repPoint = pointOfNode(units[rep]!);
+    const files = [...new Set(nodes.map((i) => units[i]!.path))].sort(compareText);
+    const modules = [...new Set(files.map(moduleOf).filter((m): m is string => m !== null))].sort(compareText);
     items.push({
       size: nodes.length,
-      representative: { name: repNode.label, kind: repNode.symbol!.kind, definition: repNode.symbol!.definition },
-      names: cut(nodes.map((i) => units[i]!.label).sort(), limit),
+      representative: {
+        name: repPoint.name,
+        kind: repPoint.kind,
+        definition: { path: repPoint.path, line: repPoint.line!, column: repPoint.column! },
+      },
+      names: cut(nodes.map((i) => units[i]!.label).sort(compareText), limit),
       files: cut(files, limit),
       modules,
       crossModule: modules.length > 1,
       internalEdges: internal.length,
       externalEdges: external,
-      confidence: internal.some((e) => e.confidence === 'inferred') ? 'inferred' : 'precise',
-      source: [...sources].sort().join(','),
+      ...sourcedOf(internal),
     });
   }
-  items.sort((x, y) => y.size - x.size || x.representative.name.localeCompare(y.representative.name));
+  items.sort((x, y) => y.size - x.size || compareText(x.representative.name, y.representative.name));
 
   return {
     config: config.path,
@@ -289,12 +277,8 @@ export const clustersQuery: QueryDef = {
     '폴더 구조와 실제 결합이 어긋난 곳(다른 폴더에 있지만 한 덩어리로 움직이는 코드)이나 떼어 낼 수 있는 덩어리를 찾을 때 불러요. ' +
     '앱 코드만 셈하고 테스트 코드는 빼요. 모듈 기준은 저장소 뿌리의 .code-atlas.json이 정해요.',
   params: [
-    {
-      name: 'config',
-      type: 'string',
-      description: '저장소 설정 파일 경로. 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
-    },
-    { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '묶음을 앞에서부터 몇 개까지 줄지.' },
+    CONFIG_PARAM,
+    { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '묶음과 묶음 안의 목록(이름, 파일)을 앞에서부터 몇 개까지 줄지.' },
   ],
   run: (store, args) => clusters(store, args.limit as number, args.config as string | undefined),
 };
