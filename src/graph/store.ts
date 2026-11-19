@@ -506,6 +506,37 @@ export class GraphStore {
   }
 
   /**
+   * 검색(search)의 후보: 정의된 심볼 전부(파일, 매개변수 제외)와 그 파일의 언어·역할. 경로와 위치순.
+   * 이름 맞추기(낙타 표기 조각)는 질의가 하고, 여기서는 SQL로 거를 수 있는 조건(종류, 언어, 폴더)만 걸러요.
+   */
+  searchCandidates(filter: SearchFilter = {}): SearchRow[] {
+    const where = [`s.kind NOT IN ('file', 'parameter')`];
+    const params: string[] = [];
+    if (filter.kinds) {
+      where.push(`s.kind IN (${filter.kinds.map(() => '?').join(', ')})`);
+      params.push(...filter.kinds);
+    }
+    if (filter.languages) {
+      where.push(`f.language IN (${filter.languages.map(() => '?').join(', ')})`);
+      params.push(...filter.languages);
+    }
+    if (filter.folder) {
+      // LIKE의 특수 글자(%, _)와 탈출 글자(!)는 '!'로 풀어 글자 그대로 맞춰요.
+      where.push(`f.path LIKE ? ESCAPE '!'`);
+      params.push(`${filter.folder.replace(/[!%_]/g, (c) => `!${c}`)}/%`);
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT ${SYMBOL_COLUMNS}, f.language, f.role
+         FROM symbols s JOIN files f ON f.id = s.file_id
+         WHERE ${where.join(' AND ')}
+         ORDER BY f.path, s.line, s.col`,
+      )
+      .all(...params) as unknown as (SymbolSqlRow & { language: string; role: FileRole })[];
+    return rows.map((r) => ({ ...toSymbolRow(r), language: r.language, role: r.role }));
+  }
+
+  /**
    * 심볼별 사용처 수(어느 종류의 관계든, usesOf의 total과 같아요). 사용처가 없는 심볼은 빠져요.
    * "많이 쓰이는 이름" 표시(impact)와 검색 정렬(search)이 같은 수를 쓰게 해요.
    */
@@ -644,6 +675,19 @@ export interface EdgeRow {
   confidence: Confidence;
   kindConfidence: Confidence;
   source: string;
+}
+
+/** 검색 후보를 SQL로 거르는 조건. 폴더는 저장소 기준 경로('/' 구분, 끝 '/' 없이)이고 그 아래 전부가 맞아요. */
+export interface SearchFilter {
+  kinds?: SymbolKind[];
+  languages?: string[];
+  folder?: string;
+}
+
+/** 검색 후보 하나: 심볼과 그것이 정의된 파일의 언어·역할. */
+export interface SearchRow extends SymbolRow {
+  language: string;
+  role: FileRole;
 }
 
 /** 정의 하나와 바로 바깥 심볼(최상위 선언이면 null). */
