@@ -1,0 +1,70 @@
+{
+  "query": "withTax",
+  "status": "found",
+  "symbol": {
+    "name": "withTax",
+    "qualifiedName": "withTax",
+    "kind": "function",
+    "definition": {
+      "path": "lib/src/pricing.dart",
+      "line": 2,
+      "column": 5
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 4,
+    "byRole": {
+      "app": 3,
+      "test": 1
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "line": 8,
+        "column": 15,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "bin/checkout.dart",
+        "line": 9,
+        "column": 20,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/cart.dart",
+        "line": 22,
+        "column": 14,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "Cart.total",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "line": 5,
+        "column": 7,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

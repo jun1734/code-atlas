@@ -89,7 +89,6 @@
       {
         "from": "lib/shared/header.dart",
         "to": "lib/features/catalog/catalog_provider.dart",
-        "line": 2,
         "fromModule": "shared",
         "toModule": "catalog",
         "allowed": true,
@@ -99,7 +98,6 @@
       {
         "from": "lib/shared/toast.dart",
         "to": "lib/features/orders/order_status.dart",
-        "line": 2,
         "fromModule": "shared",
         "toModule": "orders",
         "allowed": false,

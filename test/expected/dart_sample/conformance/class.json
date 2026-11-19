@@ -1,0 +1,59 @@
+{
+  "query": "Cart",
+  "status": "found",
+  "symbol": {
+    "name": "Cart",
+    "qualifiedName": "Cart",
+    "kind": "class",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 13,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 3,
+    "byRole": {
+      "app": 3,
+      "test": 0
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "lib/src/cart.dart",
+        "line": 28,
+        "column": 24,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "GiftCart",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/providers.dart",
+        "line": 5,
+        "column": 31,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "in": "cartProvider",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/providers.dart",
+        "line": 5,
+        "column": 46,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "cartProvider",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

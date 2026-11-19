@@ -1,6 +1,9 @@
 name: dart_sample
-description: code-atlas 테스트용 작은 Dart 예제 저장소.
+description: code-atlas 테스트용 작은 Dart 예제 저장소(언어 적합성 묶음의 Dart 쪽).
 publish_to: none
 version: 1.0.0
 environment:
-  sdk: ^3.5.0
+  sdk: ^3.12.0
+dependencies:
+  # Riverpod provider의 사용처를 묻는 질문 때문에 진짜 riverpod을 써요(MIT).
+  riverpod: ^3.4.3

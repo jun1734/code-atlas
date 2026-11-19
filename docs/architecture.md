@@ -42,7 +42,7 @@ interface RepoInfo {
 
 ```ts
 interface Facts {
-  files: { path: string; language: string }[];
+  files: { path: string; language: string; role: 'app' | 'test' }[]; // role: 테스트 파일인지(어댑터가 언어 관례로 정해요)
   symbols: SymbolFact[];
   relations: RelationFact[];
 }
@@ -56,6 +56,7 @@ interface SymbolFact {
   range: Range;           // 이름이 적힌 자리(0부터)
   enclosingRange?: Range; // 정의 전체(본문 포함). 사용처를 감싸는 심볼을 찾을 때 써요
   parentKey?: string;     // 바로 바깥 심볼(메서드라면 클래스)
+  supertypes?: string[];  // 타입이 상속·구현하는 타입들(색인기가 알려 줄 때, 조상 전체일 수 있어요). 그래프에는 넣지 않아요
   confidence: 'precise' | 'inferred';
   source: string;         // 낸 색인기
 }
@@ -64,18 +65,43 @@ interface RelationFact {
   kind: 'import' | 'reference' | 'read' | 'write' | 'call' | 'extends' | 'implements';
   from: { path: string; range: Range; symbolKey?: string }; // 적힌 자리와 감싸는 심볼
   to: { symbolKey: string } | { path: string };             // 심볼 또는 파일(import)
-  confidence: 'precise' | 'inferred';
+  confidence: 'precise' | 'inferred';     // 관계가 있다는 것(어디서 무엇을)을 믿는 정도
+  kindConfidence: 'precise' | 'inferred'; // 종류(kind)를 믿는 정도. 색인기가 알려 줬거나 색인기의 사실로 확인했으면 precise, 문법으로만 가렸으면 inferred
   source: string;
 }
 ```
+
+관계 종류의 뜻: `import`(파일을 가져오거나 다시 내보냄), `read`/`write`/`call`(값을 읽음, 값에 씀, 함수·메서드·생성자를 부름), `extends`(상속, mixin을 섞는 것 포함)/`implements`(구현), `reference`(그 밖의 언급: 타입 표기 등).
+
+### 기본으로 빼는 파일
+
+- git이 무시하는 파일(`git ls-files --others --ignored --exclude-standard --directory`)은 어느 언어든 색인기(`src/indexer.ts`)가 빼요(`dropFiles`).
+- 생성된 코드와 빌드 산출물은 언어마다 달라서 어댑터가 빼요. 뺀 파일의 정의, 그 파일에 적힌 사용처, 그 파일로 가는 import가 같이 빠져요. 다른 파일에서 뺀 파일의 이름을 쓰는 곳은 남고, 그 이름은 저장소 밖 심볼처럼 `symbols`에 없어요.
 
 SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 
 - 정의: `Definition` 역할이 붙은 occurrence. 종류는 `SymbolInformation.kind`, 없으면 심볼 문자열 꼬리(`().` 함수, `#` 타입, `.` 값)로 짐작해요.
 - 사용처: 그 밖의 occurrence. 같은 파일에서 `enclosingRange`가 사용처를 품는 정의 중 가장 안쪽 것을 `from.symbolKey`로 둬요.
-- 관계 종류: SCIP 역할의 `Import`/`WriteAccess`/`ReadAccess`를 따르고, 아무것도 없으면 `reference`예요. scip-dart 1.8.1은 읽기/쓰기를 가려 주지 않아서 Dart 사용처는 지금 모두 `reference`예요.
+- 관계 종류: SCIP 역할의 `Import`/`WriteAccess`/`ReadAccess`를 따르고, 아무것도 없으면 `reference`예요(`kindConfidence: 'precise'`). 어댑터가 뒤에서 더 가를 수 있어요.
+- 타입의 `SymbolInformation.relationships` 중 `is_implementation`은 `supertypes`가 돼요.
 - 파일 자체를 가리키는 심볼(`` …/`lib/a.dart`/ ``)에 대한 occurrence(import/export 지시문)는 파일→파일 `import` 관계가 돼요.
 - `local N` 심볼(지역 변수)은 넣지 않아요.
+- 파일의 `role`은 `app`으로 두고, 어댑터가 고쳐요.
+
+### Dart 어댑터가 더 하는 일
+
+`src/adapters/dart-refine.ts`. scip-dart 1.8.1이 주지 않는 것을 Dart 관례와 소스 글로 채워요.
+
+- **빼는 파일**: 패키지 뿌리의 `build/`, `.dart_tool/`, 꼬리가 `.g.dart`·`.freezed.dart`·`.mocks.dart`·`.gr.dart`·`.gen.dart`인 파일, 머리(앞 1000자)에 `GENERATED CODE - DO NOT MODIFY BY HAND`나 `// @generated`가 있는 파일.
+- **테스트 파일**: 패키지 뿌리의 `test/`, `integration_test/`, `test_driver/` 아래이거나 이름이 `_test.dart`로 끝나면 `role: 'test'`.
+- **열쇠 맞추기**: 이름 없는 생성자(`` Cart#`<constructor>`(). ``)는 클래스(`Cart#`)로 합쳐요. `Cart()`는 클래스 `Cart`를 부르는 곳(`call`)으로 나와요. getter·setter(`` `<get>label`. ``)는 그 이름(`label.`)으로 합치고 종류를 `getter`/`setter`로 둬요. 이름 있는 생성자(`Cart.empty`)는 그대로예요.
+- **상수**: 선언문의 이름 앞에 `const`가 있는 변수·필드는 `constant`예요(scip-dart는 `Variable`로 줘요).
+- **사용처의 종류**: scip-dart 1.8.1은 읽기/쓰기 역할을 주지 않아서(모두 역할 없음) 소스의 문법으로 가려요.
+  - `extends`/`implements` (`kindConfidence: 'precise'`): 감싸는 타입의 머리(이름 뒤, `{` 앞)에 있고, 그 타입의 `supertypes`(scip-dart가 준 사실)에 대상이 있을 때만. 바로 앞의 열쇠말이 `extends`·`with`면 `extends`, `implements`·`on`(mixin의 `on`)이면 `implements`예요.
+  - `call` (`inferred`): 이름 뒤(타입 인자 `<…>`를 건너뛰고) 바로 `(`가 와요.
+  - `write` (`inferred`): 값(`.`으로 끝나는 열쇠)이나 메서드 뒤에 대입 연산자(`=`, `+=`, `??=` 등)나 `++`/`--`가 오거나, 앞에 `++`/`--`가 있어요.
+  - `read` (`inferred`): 그 밖의 값·메서드(함수를 값으로 넘기는 tear-off 포함).
+  - `reference` (`inferred`): 그 밖의 타입 언급(타입 표기, `find.byType(X)` 등).
 
 ## 그래프 스키마
 
@@ -84,20 +110,28 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 | 표 | 열 | 뜻 |
 | --- | --- | --- |
 | `meta` | `key`, `value` | `schema`(스키마 버전), `repoRoot`, `commit`(색인 기준 커밋), `worktree`(색인할 때의 작업 트리 지문), `indexedAt` |
-| `files` | `id`, `path`, `language`, `hash` | 파일 노드. `hash`는 그 파일의 사실 전체의 해시 |
+| `files` | `id`, `path`, `language`, `role`, `hash` | 파일 노드. `role`은 `app` 또는 `test`, `hash`는 그 파일의 사실 전체의 해시(역할 포함) |
 | `symbols` | `id`, `key`, `name`, `qualified_name`, `kind`, `file_id`, `line`, `col`, `end_line`, `end_col`, `parent_key`, `confidence`, `source` | 심볼 노드와 정의 위치(0부터) |
-| `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_path`, `confidence`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_path`(import한 파일의 경로) |
+| `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_path`, `confidence`, `kind_confidence`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_path`(import한 파일의 경로) |
 
 - 모든 간선과 심볼에 신뢰도(`precise`/`inferred`)와 출처(색인기)가 있어요.
 - `to_symbol_key`는 저장소 밖 심볼(예: `dart:core`의 `print`)도 가리킬 수 있어요. 그런 심볼은 `symbols`에 없어요.
-- 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`applyFacts(facts, meta)`), 질의 함수(`findSymbols`, `usesOf`, `meta`, `counts`, `languages`)뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
+- 스키마 버전은 `3`이에요(#212가 `files.role`, `relations.kind_confidence`를 더했어요).
+- 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`applyFacts(facts, meta)`), 질의 함수뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
+  - `meta()`, `counts()`, `languages()`
+  - `findSymbols(query)`: 이름으로 심볼 찾기.
+  - `usesOf(key, limit, filter?)`: 사용처와 전체 개수, 역할별 개수(`byRole`). 앱 코드가 먼저, 테스트가 뒤에 와요. 각 항목에 `role`, `kind`, `kindConfidence`. `filter: { roles?: ('app'|'test')[], kinds?: RelationKind[] }`로 고르면 개수도 고른 것만 세요(impact의 테스트 목록은 `roles: ['test']`, trace의 호출만 따라가기는 `kinds: ['call']`).
+  - `findFile(path)`: 파일 하나(`path`, `language`, `role`).
+  - `definedIn(path)`: 파일이 정의하는 심볼.
+  - `importsOf(path)`, `importersOf(path)`: 파일이 가져오는(다시 내보내는) 파일, 파일을 가져오는 파일.
+  - `usersOf(path)`: 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 이름으로 이어서 barrel을 거친 곳도 나와요.
 - `open`은 스키마 버전이 다른 옛 색인을 비우고 새로 만들어요. 그러면 다음 넣기가 처음부터 색인이 돼요.
 
 ### 증분 반영
 
 색인기는 늘 저장소 전체를 돌리고(SCIP 색인기는 대개 프로젝트 단위로 돌아요), 그래프에는 사실이 달라진 파일만 반영해요(`applyFacts`, 한 트랜잭션).
 
-- 사실을 파일별로 나눠요. 파일의 사실은 파일 자신(경로, 언어), 그 파일에 정의된 심볼, 그 파일에 적힌(나가는) 관계예요.
+- 사실을 파일별로 나눠요. 파일의 사실은 파일 자신(경로, 언어, 역할), 그 파일에 정의된 심볼, 그 파일에 적힌(나가는) 관계예요.
 - 파일마다 그 사실 전체의 해시(`files.hash`)를 둬요. 해시가 같은 파일은 건드리지 않고, 다른 파일은 그 파일의 심볼과 관계를 지우고 다시 넣어요. 사실에서 사라진 파일은 빼요.
 - 해시는 파일 내용이 아니라 사실에서 내요. 파일 이름을 바꾸면 그 파일의 심볼 열쇠가 바뀌어서, 내용이 그대로인 다른 파일(barrel을 거쳐 쓰는 파일 등)의 관계도 바뀌기 때문이에요. 거꾸로 주석만 고친 파일은 사실이 같아서 반영하지 않아요.
 - import 관계의 대상은 파일 id가 아니라 경로(`to_path`)로 둬요. 대상 파일이 빠지거나 새로 생겨도 그 관계를 가진 파일을 다시 넣을 필요가 없어요.
@@ -117,13 +151,14 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 
 ## 질의: context
 
-`src/query/context.ts`. 이름을 `key` → `qualifiedName` → `name` 순으로 찾고, 처음 맞는 단계의 결과를 써요. 파일과 매개변수(`kind`가 `file`, `parameter`)는 찾지 않아요.
+`src/query/context.ts`. 물은 글이 색인된 파일 경로와 정확히 맞으면(`\`는 `/`로 바꿔요) 파일 답을 내요. 아니면 이름을 `key` → `qualifiedName` → `name` 순으로 찾고, 처음 맞는 단계의 결과를 써요. 파일과 매개변수(`kind`가 `file`, `parameter`)는 이름으로 찾지 않아요.
 
 답의 봉투(`index`: 저장소, 기준 커밋, 낡음)는 실행기가 씌워요. 계약은 [contract.md](contract.md)에 있어요.
 
 봉투의 `stale`은 HEAD가 색인 커밋과 다르거나 작업 트리가 색인할 때와 다르면 `true`예요(`src/freshness.ts`). 색인은 작업 트리를 읽으니 고친 채로 색인했다면 낡지 않았어요. 그래서 색인할 때 `git status`에 나오는 파일들의 상태와 내용으로 지문(`meta.worktree`)을 남기고, 물을 때 다시 재서 비교해요.
 
-- 하나: `status: 'found'`, 정의와 사용처(앞에서부터 `limit`개, `total`, `truncated`).
+- 하나: `status: 'found'`, 정의와 사용처(`uses`: 앞에서부터 `limit`개, `total`, `truncated`, 역할별 개수 `byRole`). 사용처마다 `role`(`app`/`test`), `kind`, `kindConfidence`, 감싸는 심볼 `in`.
+- 파일: `status: 'found'`, `file`(`path`, `language`, `role`), `defines`(정의하는 이름), `imports`(가져오거나 다시 내보내는 파일), `importedBy`(가져오는 파일), `usedBy`(이름을 쓰는 파일과 `uses` 수, barrel을 거친 것 포함). 넷 다 `Page`예요.
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 - 없음: `status: 'not_found'`.
 
@@ -140,3 +175,9 @@ src/mcp.ts ─┘   QUERIES, checkArgs             └─▶ src/answer.ts   (�
 - `src/locate.ts`: `defaultDb(repo)`(저장소마다 `~/.code-atlas/` 아래 파일 하나), `openIndex(target)`, 바깥에 그대로 보일 오류 `UserError`.
 - `src/cli.ts`: `index`, `mcp`, 그리고 `QUERIES`의 질의마다 명령 하나. `Param`의 `positional`은 위치 인자, 나머지는 `--이름` 옵션이에요.
 - `src/mcp.ts`: 공식 MCP SDK(`McpServer`, stdio). `QUERIES`의 질의마다 도구 하나, 입력 스키마는 `Param`에서 만든 zod에 `repo`를 더한 것. 오류는 `isError` 결과로 돌려줘요.
+
+## 언어 적합성 묶음
+
+`test/conformance/questions.ts`(질문)와 `test/conformance.test.ts`(돌리는 틀). 질문은 언어와 무관하고, 언어마다 같은 모양의 예제 저장소(이름이 같은 함수·상수·변수·provider·타입, barrel, 빼야 할 파일)에 던져 그 언어의 정답(`test/expected/<예제>/conformance/<질문>.json`)과 비교해요. 파일 경로처럼 언어마다 다른 값은 `conformance/fixture.json`의 자리표시자(`{pricingFile}` 등)로 채워요. 예제가 갖출 모양은 `questions.ts` 머리에 적혀 있어요.
+
+질문에는 GitNexus 1.6.12가 hijo_app에서 놓친 경우(최상위 변수·provider의 사용처, barrel을 거친 사용처, 같은 이름 메서드)가 들어 있어요. 정답에는 항목마다 `confidence`와 `kindConfidence`가 적혀 있어서, 그 언어가 무엇을 정밀하게 내고 무엇을 추정으로 내는지가 정답 파일에 기록돼요.

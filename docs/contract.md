@@ -33,7 +33,7 @@
 2. **목록: 길어질 수 있는 목록은 `{ total, truncated, items }`예요.**
    - `items`는 앞에서부터 `limit`개, `total`은 자르기 전 전체 개수, `truncated`는 `items`가 전체보다 적은지.
    - 질의는 `page(items, total)`로 만들어요. `limit` 인자의 기본은 `DEFAULT_LIMIT`(100), 가장 작은 값은 1이에요.
-   - 순서는 질의마다 정하되 늘 같아야 해요(같은 색인, 같은 질문이면 같은 답). context의 사용처는 경로, 줄, 열 순이에요.
+   - 순서는 질의마다 정하되 늘 같아야 해요(같은 색인, 같은 질문이면 같은 답). context의 사용처는 앱 코드가 먼저, 테스트가 뒤이고, 그 안에서 경로, 줄, 열 순이에요. 파일 답의 목록(`defines`, `imports`, `importedBy`, `usedBy`)도 `Page`예요.
 3. **항목: 답의 항목마다 `confidence`와 `source`가 있어요.**
    - `confidence`: `precise`(컴파일러 수준 색인기) 또는 `inferred`(이름으로 이은 추정). `inferred`면 직접 확인해요.
    - `source`: 그 항목을 낸 색인기(예: `scip-dart`).

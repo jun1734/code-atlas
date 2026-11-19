@@ -1,0 +1,61 @@
+{
+  "query": "lib/dart_sample.dart",
+  "status": "found",
+  "file": {
+    "path": "lib/dart_sample.dart",
+    "language": "dart",
+    "role": "app"
+  },
+  "defines": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "imports": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "lib/src/cart.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/pricing.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/providers.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "query": "Totaled",
+  "status": "found",
+  "symbol": {
+    "name": "Totaled",
+    "qualifiedName": "Totaled",
+    "kind": "class",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 4,
+      "column": 26
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 1,
+    "byRole": {
+      "app": 1,
+      "test": 0
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "lib/src/cart.dart",
+        "line": 13,
+        "column": 36,
+        "role": "app",
+        "kind": "implements",
+        "kindConfidence": "precise",
+        "in": "Cart",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

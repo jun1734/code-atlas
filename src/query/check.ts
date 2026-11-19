@@ -4,7 +4,13 @@
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
 import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
 import type { Confidence, SymbolKind } from '../facts.ts';
-import type { FileImportRow, GraphStore, Location } from '../graph/store.ts';
+import type { GraphStore, Location } from '../graph/store.ts';
+
+/** 파일 하나에서 다른 파일로 가는 import(같은 쌍의 관계를 묶은 것). */
+interface FileImport extends Sourced {
+  from: string;
+  to: string;
+}
 import { globToRegExp, moduleResolver, nameGlobToRegExp } from '../modules.ts';
 import type { QueryDef } from '../queries.ts';
 import { loadRepoConfig, readAllowlist } from '../repo-config.ts';
@@ -19,7 +25,6 @@ export interface CycleItem extends Sourced {
 export interface BackwardImportItem extends Sourced {
   from: string;
   to: string;
-  line: number;
   fromModule: string;
   toModule: string;
   /** 저장소가 적어 둔 허용 목록에 든 것인지. false면 새 위반이에요. */
@@ -71,7 +76,7 @@ export interface CheckBody {
 }
 
 /** 여러 import에서 나온 항목의 표시: 가장 낮은 신뢰도와 낸 색인기들. */
-function sourcedOf(rows: FileImportRow[]): Sourced {
+function sourcedOf(rows: FileImport[]): Sourced {
   const confidence: Confidence = rows.some((r) => r.confidence === 'inferred') ? 'inferred' : 'precise';
   const sources = new Set(rows.flatMap((r) => r.source.split(',')));
   return { confidence, source: [...sources].sort().join(',') };
@@ -159,7 +164,13 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   // 1. 검사 안 파일과 그 사이의 import.
   const files = store.filePaths().filter((p) => moduleOf(p) !== null);
   const inScope = new Set(files);
-  const imports = store.fileImports().filter((i) => i.from !== i.to && inScope.has(i.from) && inScope.has(i.to));
+  const imports: FileImport[] = files.flatMap((from) =>
+    store
+      .importsOf(from)
+      .filter((t) => t.path !== from && inScope.has(t.path))
+      .map((t) => ({ from, to: t.path, confidence: t.confidence, source: t.source }))
+      .sort((a, b) => a.to.localeCompare(b.to)),
+  );
   const importsOf = new Map<string, string[]>();
   for (const i of imports) (importsOf.get(i.from) ?? importsOf.set(i.from, []).get(i.from)!).push(i.to);
   const mod = (p: string) => moduleOf(p)!;
@@ -210,7 +221,6 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
     .map((i) => ({
       from: i.from,
       to: i.to,
-      line: i.line,
       fromModule: mod(i.from),
       toModule: mod(i.to),
       allowed: allowlist.has(i.to),
@@ -230,7 +240,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   }
   const shared = new Set(config.shared);
   const composers = new Set(config.composers);
-  const candidates = new Map<string, FileImportRow[]>();
+  const candidates = new Map<string, FileImport[]>();
   for (const i of imports) {
     const a = mod(i.from);
     const b = mod(i.to);
