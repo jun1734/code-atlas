@@ -6,12 +6,15 @@ import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { GraphStore } from './graph/store.ts';
 import { indexRepo } from './indexer.ts';
+import { check } from './query/check.ts';
 import { context } from './query/context.ts';
 
 const USAGE = `사용법:
   code-atlas index [저장소=.] [--db 파일]
   code-atlas context <이름|qualifiedName|key> [--repo 저장소=.] [--db 파일] [--limit 100]
+  code-atlas check [--repo 저장소=.] [--db 파일] [--config 설정파일] [--limit 100]
 
+check의 설정은 --config를 주지 않으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)이에요.
 --db를 주지 않으면 색인은 ~/.code-atlas/<저장소이름>-<경로해시>.db 에 둬요(CODE_ATLAS_HOME으로 폴더를 바꿔요).`;
 
 /** 저장소 경로마다 저장소 밖에 색인 파일 자리를 하나씩 정해요. */
@@ -36,6 +39,7 @@ async function main(argv: string[]): Promise<number> {
       db: { type: 'string' },
       repo: { type: 'string' },
       limit: { type: 'string' },
+      config: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -66,6 +70,23 @@ async function main(argv: string[]): Promise<number> {
       const limit = values.limit === undefined ? 100 : Number(values.limit);
       if (!Number.isInteger(limit) || limit < 1) throw new Error(`--limit은 1 이상의 정수여야 해요: ${values.limit}`);
       print(context(store, arg, limit));
+    } finally {
+      store.close();
+    }
+    return 0;
+  }
+
+  if (command === 'check') {
+    const db = values.db ?? defaultDb(values.repo ?? '.');
+    const store = GraphStore.openExisting(db);
+    if (!store) {
+      process.stderr.write(`색인이 없어요: ${db}\n먼저 code-atlas index 를 돌려요.\n`);
+      return 1;
+    }
+    try {
+      const limit = values.limit === undefined ? 100 : Number(values.limit);
+      if (!Number.isInteger(limit) || limit < 1) throw new Error(`--limit은 1 이상의 정수여야 해요: ${values.limit}`);
+      print(check(store, limit, values.config));
     } finally {
       store.close();
     }

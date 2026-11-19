@@ -258,4 +258,63 @@ export class GraphStore {
       })),
     };
   }
+
+  /** 색인된 파일 경로 전부(경로순). */
+  filePaths(): string[] {
+    return (this.db.prepare('SELECT path FROM files ORDER BY path').all() as { path: string }[]).map((r) => r.path);
+  }
+
+  /** 저장소 안 파일 사이의 import 간선. 같은 (from, to) 쌍은 처음 적힌 줄(1부터) 하나로 모아요. */
+  fileImports(): { from: string; to: string; line: number }[] {
+    const rows = this.db
+      .prepare(
+        `SELECT f.path AS "from", t.path AS "to", MIN(r.line) AS line
+         FROM relations r
+         JOIN files f ON f.id = r.from_file_id
+         JOIN files t ON t.id = r.to_file_id
+         WHERE r.kind = 'import'
+         GROUP BY f.path, t.path
+         ORDER BY f.path, t.path`,
+      )
+      .all() as { from: string; to: string; line: number }[];
+    return rows.map((r) => ({ from: r.from, to: r.to, line: r.line + 1 }));
+  }
+
+  /** 정의된 심볼 전부(파일, 매개변수 제외). 경로와 위치순. */
+  definitions(): DefinitionRow[] {
+    const rows = this.db
+      .prepare(
+        `SELECT s.key, s.name, s.qualified_name AS qualifiedName, s.kind, s.parent_key AS parentKey, f.path, s.line, s.col
+         FROM symbols s JOIN files f ON f.id = s.file_id
+         WHERE s.kind NOT IN ('file', 'parameter')
+         ORDER BY f.path, s.line, s.col`,
+      )
+      .all() as { key: string; name: string; qualifiedName: string; kind: SymbolKind; parentKey: string | null; path: string; line: number; col: number }[];
+    return rows.map((r) => ({
+      key: r.key,
+      name: r.name,
+      qualifiedName: r.qualifiedName,
+      kind: r.kind,
+      parentKey: r.parentKey,
+      definition: toLocation(r.path, r.line, r.col),
+    }));
+  }
+
+  /** 사용처(어느 종류의 관계든)가 하나라도 있는 심볼의 열쇠. */
+  referencedKeys(): Set<string> {
+    const rows = this.db
+      .prepare('SELECT DISTINCT to_symbol_key AS key FROM relations WHERE to_symbol_key IS NOT NULL')
+      .all() as { key: string }[];
+    return new Set(rows.map((r) => r.key));
+  }
+}
+
+export interface DefinitionRow {
+  key: string;
+  name: string;
+  qualifiedName: string;
+  kind: SymbolKind;
+  /** 바로 바깥 심볼. 최상위 선언이면 null. */
+  parentKey: string | null;
+  definition: Location;
 }

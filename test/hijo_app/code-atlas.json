@@ -1,0 +1,23 @@
+{
+  "modules": [
+    { "path": "lib/features/{module}/**" },
+    { "path": "lib/design_system/**", "module": "design_system" },
+    { "path": "lib/hijo_facts.dart", "module": "hijo_facts" },
+    { "path": "lib/**", "module": "main" }
+  ],
+  "shared": ["common", "design_system", "hijo_facts", "main"],
+  "composers": ["main", "entry"],
+  "allowlist": {
+    "file": "test/architecture/import_boundaries_test.dart",
+    "block": "const commonMayImport = \\{([\\s\\S]*?)\\};",
+    "item": "'(lib/[^']+)'"
+  },
+  "openToOtherModules": {
+    "files": ["**/*_page.dart", "**/*_tab.dart", "**/*_gate.dart", "**/*_sheet.dart", "**/*_shell.dart"],
+    "symbols": [
+      { "kinds": ["class"], "name": "*Page" },
+      { "kinds": ["variable", "field"], "name": "*Provider" }
+    ]
+  },
+  "unused": { "ignore": ["main"] }
+}

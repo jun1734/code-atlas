@@ -1,0 +1,6 @@
+name: modular_sample
+description: code-atlas check 테스트용 예제. 기능 폴더(모듈)가 서로 기대는 작은 Dart 앱이에요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

@@ -1,7 +1,7 @@
 // Dart 정밀 어댑터: 저장소 안의 Dart 패키지마다 scip-dart를 돌리고 SCIP 색인을 사실로 옮겨요.
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { appendFacts, emptyFacts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
+import { appendFacts, emptyFacts, type Facts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
 import { run, runOrThrow } from '../run.ts';
 import { scipToFacts } from '../scip/to-facts.ts';
 
@@ -48,6 +48,23 @@ const toLinuxForm = (s: string) =>
     .replace(/`([^`]*\\[^`]*)`/g, (_, path: string) => path.split('\\').map(descriptorName).join('/'))
     .replaceAll('\\', '/');
 
+/**
+ * `part of 'a.dart';` 지시문은 scip-dart가 a.dart로 가는 import처럼 적어요. 하지만 part 파일은 a.dart와 한 라이브러리라
+ * 기대는 방향이 아니에요(a.dart의 `part` 지시문이 이미 이어 줘요). 그대로 두면 라이브러리마다 서로 물린 파일 묶음이 생겨서 빼요.
+ */
+function dropPartOf(facts: Facts, root: string): Facts {
+  const lines = new Map<string, string[]>();
+  const lineOf = (path: string, line: number) => {
+    let text = lines.get(path);
+    if (!text) lines.set(path, (text = readFileSync(join(root, path), 'utf8').split('\n')));
+    return text[line] ?? '';
+  };
+  facts.relations = facts.relations.filter(
+    (r) => !(r.kind === 'import' && 'path' in r.to && /^\s*part\s+of\b/.test(lineOf(r.from.path, r.from.range.startLine))),
+  );
+  return facts;
+}
+
 export const dartAdapter: LanguageAdapter = {
   name: 'scip-dart',
   language: 'dart',
@@ -66,7 +83,7 @@ export const dartAdapter: LanguageAdapter = {
       const out = join(workDir, `dart-${i}.scip`);
       // 경로는 절대 경로로 줘요. './'로 주면 scip-dart 1.8.1이 패키지 전체를 '중첩 패키지'로 보고 0개를 색인해요.
       runOrThrow('dart', ['pub', 'global', 'run', 'scip_dart', '-o', out, pkgRoot], pkgRoot);
-      appendFacts(facts, scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm }));
+      appendFacts(facts, dropPartOf(scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm }), repo.root));
     }
     return facts;
   },

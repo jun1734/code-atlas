@@ -1,0 +1,22 @@
+{
+  "modules": [
+    { "path": "lib/features/{module}/**" },
+    { "path": "lib/shared/**", "module": "shared" },
+    { "path": "lib/*", "module": "app" }
+  ],
+  "shared": ["shared"],
+  "composers": ["app"],
+  "allowlist": {
+    "file": "tool/boundaries.dart",
+    "block": "const sharedMayImport = \\{([\\s\\S]*?)\\};",
+    "item": "'([^']+)'"
+  },
+  "openToOtherModules": {
+    "files": ["**/*_page.dart"],
+    "symbols": [
+      { "kinds": ["class"], "name": "*Page" },
+      { "kinds": ["variable"], "name": "*Provider" }
+    ]
+  },
+  "unused": { "ignore": ["main"] }
+}

@@ -1,0 +1,6 @@
+{
+  "modules": [
+    { "path": "lib/features/{module}/**" },
+    { "path": "lib/**", "module": "app" }
+  ]
+}
