@@ -1,10 +1,11 @@
 # 구조: 그래프 스키마와 언어 어댑터
 
 ```
-저장소 ──▶ 언어 어댑터(언어마다 하나) ──▶ 사실(Facts) ──▶ 그래프 저장소(SQLite) ──▶ 질의(context …) ──▶ 명령줄 / MCP
+저장소 ──▶ 언어 어댑터(언어마다 하나) ──▶ 사실(Facts) ──▶ 그래프 저장소(SQLite) ──▶ 질의(context …) ──▶ 실행기(봉투) ──▶ 명령줄 / MCP
 ```
 
 언어를 아는 곳은 어댑터뿐이에요. 그래프 저장소와 질의는 공통 형식의 사실만 알아요. 새 언어는 어댑터 하나와 예제 저장소 하나를 더해 붙여요.
+새 질의는 `QueryDef` 하나를 `QUERIES`에 더해 붙여요. 명령줄과 MCP는 고치지 않아요(아래 "질의 실행기와 바깥 껍데기").
 
 ## 언어 어댑터 인터페이스
 
@@ -118,8 +119,24 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 
 `src/query/context.ts`. 이름을 `key` → `qualifiedName` → `name` 순으로 찾고, 처음 맞는 단계의 결과를 써요. 파일과 매개변수(`kind`가 `file`, `parameter`)는 찾지 않아요.
 
-모든 답의 `index`에는 `commit`, `indexedAt`, `stale`(`src/freshness.ts`: HEAD가 색인 커밋과 다르거나, 작업 트리가 색인할 때와 다르면 `true`)이 들어가요. 색인은 작업 트리를 읽으니 고친 채로 색인했다면 낡지 않았어요. 그래서 색인할 때 `git status`에 나오는 파일들의 상태와 내용으로 지문(`meta.worktree`)을 남기고, 물을 때 다시 재서 비교해요.
+답의 봉투(`index`: 저장소, 기준 커밋, 낡음)는 실행기가 씌워요. 계약은 [contract.md](contract.md)에 있어요.
 
-- 하나: `status: 'found'`, 정의와 사용처(앞에서부터 `--limit`개, `total`, `truncated`).
+봉투의 `stale`은 HEAD가 색인 커밋과 다르거나 작업 트리가 색인할 때와 다르면 `true`예요(`src/freshness.ts`). 색인은 작업 트리를 읽으니 고친 채로 색인했다면 낡지 않았어요. 그래서 색인할 때 `git status`에 나오는 파일들의 상태와 내용으로 지문(`meta.worktree`)을 남기고, 물을 때 다시 재서 비교해요.
+
+- 하나: `status: 'found'`, 정의와 사용처(앞에서부터 `limit`개, `total`, `truncated`).
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 - 없음: `status: 'not_found'`.
+
+## 질의 실행기와 바깥 껍데기
+
+```
+src/cli.ts ─┐                                  ┌─▶ src/locate.ts   (저장소 → 색인 파일, 없으면 색인 명령 안내)
+            ├─▶ src/queries.ts  askQuery(def) ─┼─▶ QueryDef.run   (src/query/*.ts, 몸통만)
+src/mcp.ts ─┘   QUERIES, checkArgs             └─▶ src/answer.ts   (봉투 index, page(), formatAnswer)
+```
+
+- `src/queries.ts`: 질의 목록 `QUERIES`와 실행기 `askQuery(def, rawArgs, { repo, db? })`. 인자를 `def.params`대로 검사하고(`checkArgs`), 색인을 열고(`openIndex`), `def.run`의 몸통에 봉투를 씌워요(`envelope`).
+- `src/answer.ts`: 답의 계약을 지키는 도우미. `IndexInfo`(봉투), `Page`/`page()`(잘린 목록), `Sourced`(항목의 `confidence`·`source`), `DEFAULT_LIMIT`, `formatAnswer`.
+- `src/locate.ts`: `defaultDb(repo)`(저장소마다 `~/.code-atlas/` 아래 파일 하나), `openIndex(target)`, 바깥에 그대로 보일 오류 `UserError`.
+- `src/cli.ts`: `index`, `mcp`, 그리고 `QUERIES`의 질의마다 명령 하나. `Param`의 `positional`은 위치 인자, 나머지는 `--이름` 옵션이에요.
+- `src/mcp.ts`: 공식 MCP SDK(`McpServer`, stdio). `QUERIES`의 질의마다 도구 하나, 입력 스키마는 `Param`에서 만든 zod에 `repo`를 더한 것. 오류는 `isError` 결과로 돌려줘요.

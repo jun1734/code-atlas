@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), 명령줄 `context`. 앞으로 붙을 것(impact, check, MCP 서버, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(scip-dart), `context`(명령줄과 MCP 서버). 앞으로 붙을 것(impact, check, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -31,11 +31,49 @@ node src/cli.ts context withTax --repo path/to/repo --limit 20
 ```
 
 - 답은 JSON이에요. `status`는 `found`, `ambiguous`(후보 목록 `candidates`), `not_found` 중 하나예요.
-- 모든 답에 색인 기준 커밋(`index.commit`)과 낡았는지(`index.stale`: 색인 뒤 커밋이 바뀌었거나 작업 트리에 바뀐 파일이 있으면 `true`, git 저장소가 아니면 `null`)가 들어가요. 사용처에는 전체 개수(`total`)와 잘렸는지(`truncated`)가 들어가요.
-- 항목마다 `confidence`(`precise` 정밀 / `inferred` 추정)와 `source`(어느 색인기)가 붙어요.
+- 모든 답은 [답의 계약](docs/contract.md)을 따라요: 색인한 저장소와 기준 커밋(`index.repo`, `index.commit`), 낡았는지(`index.stale`: 색인 뒤 커밋이 바뀌었거나 작업 트리가 색인할 때와 달라졌으면 `true`, git 저장소가 아니면 `null`), 목록의 전체 개수(`total`)와 잘렸는지(`truncated`), 항목마다 `confidence`(`precise` 정밀 / `inferred` 추정)와 `source`(어느 색인기).
 - 줄과 열은 1부터 세요.
 
+### 다시 색인하기와 색인 요약
+
+코드를 고친 뒤 같은 `index` 명령을 다시 돌려요. 색인기(scip-dart)는 저장소 전체를 다시 돌리지만, 그래프에는 사실이 달라진 파일만 반영해요(증분 반영). 고친 채로(커밋하지 않고) 색인해도 돼요. 그 뒤로 또 고치지 않았으면 답의 `index.stale`은 `false`예요.
+
+`index`는 요약을 JSON으로 내요. 파일 수(`files`), 이름 수(`symbols`), 관계 수(`relations`), 언어별 개수와 관계의 정밀/추정 비율(`languages.<언어>.precise`, `.inferred`), 이번에 반영한 파일 수(`changes`: `added`, `modified`, `removed`, `unchanged`), 걸린 시간(`ms`: 색인기 실행 `indexers`, 그래프 반영 `graph`, 전체 `total`)이 들어가요. 칸의 뜻은 [docs/architecture.md](docs/architecture.md#색인-요약-index-명령의-출력)에 있어요.
+
 색인 파일은 저장소 밖 `~/.code-atlas/<저장소이름>-<경로해시>.db`에 둬요. `--db`로 자리를 정하거나 `CODE_ATLAS_HOME`으로 폴더를 바꿔요.
+여러 저장소를 각각 색인해 두고 `--repo`로 골라 물어요. 색인이 없는 저장소를 물으면 색인하는 명령을 알려 줘요.
+
+### MCP 서버
+
+```sh
+node src/cli.ts mcp [--repo 기본저장소=.]
+```
+
+공식 MCP SDK로 stdio 서버를 열어요(포트를 열지 않고, 네트워크를 쓰지 않아요). 명령줄의 질의(`context` …)가 같은 이름의 도구로 나오고, 답은 명령줄과 같은 JSON 글이에요.
+도구마다 `repo` 인자로 물을 저장소를 골라요. 없으면 서버를 띄운 저장소(`--repo`, 없으면 서버의 작업 폴더)예요.
+
+**Claude Code에 붙이기** (Claude Code는 서버를 프로젝트 폴더에서 띄우니, 그 프로젝트가 기본 저장소가 돼요):
+
+```sh
+# 1. 물을 저장소를 먼저 색인해요(저장소마다 한 번, 코드가 바뀌면 다시).
+node C:/hijo/code-atlas/src/cli.ts index C:/hijo/hijo_app
+
+# 2. 서버를 등록해요. --scope user면 모든 프로젝트에서, 빼면 지금 프로젝트에서만 써요.
+claude mcp add --scope user code-atlas -- node C:/hijo/code-atlas/src/cli.ts mcp
+
+# 3. 확인: Claude Code 안에서 /mcp, 또는
+claude mcp list
+```
+
+경로는 이 저장소를 받은 자리로 바꿔요. 프로젝트 하나에 고정하려면 그 저장소의 `.mcp.json`에 적어도 돼요.
+
+```json
+{
+  "mcpServers": {
+    "code-atlas": { "command": "node", "args": ["C:/hijo/code-atlas/src/cli.ts", "mcp"] }
+  }
+}
+```
 
 ### 색인은 저장소를 바꾸지 않아요
 
@@ -46,8 +84,19 @@ node src/cli.ts context withTax --repo path/to/repo --limit 20
 
 ### 측정 (2026-11-19, Windows 11 노트북)
 
-hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): 색인 67초, DB 28MB, 심볼 5,790개, 관계 72,461개.
-대부분 scip-dart(Dart 분석기) 시간이에요.
+hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): DB 28MB, 심볼 5,790개, 관계 72,456개, 관계는 모두 정밀.
+
+색인기 실행과 그래프 반영을 따로 쟀어요(#218). hijo_app의 커밋 사본(`git archive`에 `.dart_tool/package_config.json`을 더한 것)을 색인했어요.
+
+| 경우 | 반영한 파일 | 색인기(scip-dart) | 그래프 반영 |
+| --- | --- | --- | --- |
+| 처음 색인 | 329개 더함 | 84.4초 | 0.95초 |
+| 아무것도 안 바꾸고 다시 | 0개 | 54.5초 | 0.10초 |
+| `lib` 파일 하나에 함수 하나 더하고 다시 | 1개 바꿈 | 28.0초 | 0.13초 |
+
+- 색인기 시간이 28~84초로 크게 흔들린 건 같은 노트북에서 다른 작업(다른 에이전트의 테스트)이 함께 돌았기 때문이에요. 흔들림을 빼도 결론은 같아요.
+- 다시 색인할 때 시간의 99% 넘게가 색인기 실행이에요. 그래프 반영은 증분으로 0.1초 남짓이라 더 줄일 게 없어요.
+- **판단: 색인기 실행을 줄일 값어치가 있어요.** 작업 중에 금방 최신이 되려면 이 30~80초를 줄여야 해요. 다만 scip-dart 1.8.1은 파일 하나만 색인하는 방법이 없고 패키지 단위로 돌아요. 그래서 줄이는 길은 (1) 바뀐 파일이 없는 패키지는 색인기를 건너뛰기(hijo_app처럼 패키지가 하나인 저장소에는 효과가 없어요. 또 다른 패키지가 가리키는 이름이 바뀌면 그 패키지도 다시 돌려야 해요), (2) Dart 분석기를 띄워 둔 채 바뀐 파일만 다시 분석하는 상주 색인기(scip-dart를 고치거나 새로 짜야 해요) 중 하나예요. 어느 쪽으로 갈지는 뒤 티켓에서 정해요.
 
 ## 검사
 
@@ -56,7 +105,8 @@ npm run check      # 타입 검사(tsc --noEmit) + 테스트
 ```
 
 테스트는 실제 scip-dart를 돌려요(가짜 SCIP 파일을 쓰지 않아요). 그래서 위 준비물이 모두 있어야 해요.
-테스트는 `test/fixtures/<예제>`를 임시 git 저장소로 복사해 명령줄로 색인하고, 명령줄로 질문해 `test/expected/<예제>/`의 정답과 비교해요. 내부 모듈은 시험하지 않아요.
+테스트는 `test/fixtures/<예제>`를 임시 git 저장소로 복사해 명령줄로 색인하고, 명령줄과 MCP 서버(공식 SDK 클라이언트로 붙어요)로 질문해 `test/expected/<예제>/`의 정답과 비교해요. 내부 모듈은 시험하지 않아요.
+모든 도구 프로세스는 네트워크 차단 장치(`test/no-network.ts`)를 단 채로 돌아서, 네트워크를 쓰려 하면 테스트가 실패해요.
 
 CI(`.github/workflows/ci.yml`)는 Linux(ubuntu)와 Windows 양쪽에서 같은 검사를 돌려요.
 
@@ -70,9 +120,10 @@ CI(`.github/workflows/ci.yml`)는 Linux(ubuntu)와 Windows 양쪽에서 같은 �
 
 - **무료 오픈소스 부품만 써요.** 상용 개발에 쓸 수 있는 라이선스(MIT, BSD, Apache-2.0 등)만 들여요. 비상업 전용(PolyForm Noncommercial 등)이나 유료 부품, 네트워크로 코드를 내보내는 서비스는 쓰지 않아요. 새 부품을 들일 때 라이선스를 먼저 확인해요.
 - **GitNexus 코드는 복사하지 않아요.** GitNexus는 PolyForm Noncommercial이라 상용 개발에 쓸 수 없어요. 기능 아이디어만 참고해 다시 구현해요.
-- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), protobufjs(BSD-3-Clause), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
+- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
 - `proto/scip.proto`는 [scip-code/scip](https://github.com/scip-code/scip)(커밋 `be1d9f7`)에서 가져온 파일이에요. Apache-2.0이고 원문 라이선스는 `proto/LICENSE-scip`에 있어요.
 
 ## 문서
 
-- [docs/architecture.md](docs/architecture.md): 그래프 스키마와 언어 어댑터 인터페이스
+- [docs/architecture.md](docs/architecture.md): 그래프 스키마와 언어 어댑터 인터페이스, 질의 실행기
+- [docs/contract.md](docs/contract.md): 답의 계약과 새 질의를 명령줄·MCP에 붙이는 법
