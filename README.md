@@ -54,7 +54,7 @@ node src/cli.ts trace lib/ui/a.dart --to lib/data/db.dart --follow all --repo pa
 node src/cli.ts trace OrderButton --to logAudit --depth 15 --repo path/to/repo             # 더 긴 경로까지(기본 10)
 ```
 
-undefined
+trace의 답과 표시(구간마다 `confidence`와 `kindConfidence`)는 [docs/architecture.md](docs/architecture.md#질의-trace)에 있어요.
 
 check와 impact의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.
 
