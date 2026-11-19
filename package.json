@@ -1,0 +1,25 @@
+{
+  "name": "code-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-language code intelligence: index repos into one symbol graph and ask about it.",
+  "type": "module",
+  "bin": {
+    "code-atlas": "src/cli.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "protobufjs": "^7.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}

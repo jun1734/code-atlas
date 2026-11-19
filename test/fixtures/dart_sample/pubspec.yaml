@@ -1,0 +1,6 @@
+name: dart_sample
+description: code-atlas 테스트용 작은 Dart 예제 저장소.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0
