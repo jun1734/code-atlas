@@ -24,9 +24,10 @@ function assertIndex(answer: any, fx: IndexedFixture, stale: boolean): void {
   assert.equal(answer.index.stale, stale);
 }
 
-/** 답 안의 모든 항목(심볼, 사용처, 후보). */
+/** 답 안의 모든 항목(심볼, 사용처, 후보, 파일 목록). */
 function itemsOf(answer: any): any[] {
-  return [...(answer.symbol ? [answer.symbol] : []), ...(answer.uses?.items ?? []), ...(answer.candidates ?? [])];
+  const lists = ['uses', 'defines', 'imports', 'importedBy', 'usedBy'].flatMap((name) => answer[name]?.items ?? []);
+  return [...(answer.symbol ? [answer.symbol] : []), ...lists, ...(answer.candidates ?? [])];
 }
 
 describe('답의 계약 (명령줄과 MCP)', () => {
@@ -80,16 +81,16 @@ describe('답의 계약 (명령줄과 MCP)', () => {
 
   it('답이 길면 잘리고, 잘린 사실과 전체 개수가 나온다', async () => {
     for (const answer of [first.ask('context', 'withTax', '--limit', '2'), await mcp.call('context', { query: 'withTax', limit: 2 })]) {
-      assert.equal(answer.uses.total, 3);
+      assert.equal(answer.uses.total, 4);
       assert.equal(answer.uses.truncated, true);
       assert.equal(answer.uses.items.length, 2);
     }
     const whole = await mcp.call('context', { query: 'withTax' });
-    assert.deepEqual([whole.uses.total, whole.uses.truncated, whole.uses.items.length], [3, false, 3]);
+    assert.deepEqual([whole.uses.total, whole.uses.truncated, whole.uses.items.length], [4, false, 4]);
   });
 
   it('답의 항목마다 정밀/추정과 출처가 붙는다', async () => {
-    for (const query of ['withTax', 'add']) {
+    for (const query of ['withTax', 'add', 'Cart', 'lib/src/pricing.dart']) {
       const items = itemsOf(await mcp.call('context', { query }));
       assert.ok(items.length > 0, query);
       for (const item of items) {

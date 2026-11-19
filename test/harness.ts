@@ -107,7 +107,7 @@ function git(cwd: string, ...args: string[]): string {
 
 /**
  * `test/fixtures/<name>`을 새 git 저장소로 복사해 커밋하고 색인해요.
- * 색인 도구는 pub get을 대신 돌리지 않으니, 개발자가 하듯 여기서 먼저 돌려요(lock 고정, 의존성 없음).
+ * 색인 도구는 pub get을 대신 돌리지 않으니, 개발자가 하듯 여기서 먼저 돌려요(lock 고정).
  */
 export function indexFixture(name: string, opts: FixtureOptions = {}): IndexedFixture {
   const work = mkdtempSync(join(tmpdir(), 'code-atlas-test-'));

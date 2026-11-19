@@ -6,83 +6,99 @@
     "language": "dart",
     "role": "app"
   },
-  "defines": [
-    {
-      "key": "scip-dart pub dart_sample 1.0.0 lib/src/`pricing.dart`/withTax().",
-      "name": "withTax",
-      "qualifiedName": "withTax",
-      "kind": "function",
-      "definition": {
-        "path": "lib/src/pricing.dart",
-        "line": 2,
-        "column": 5
+  "defines": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "key": "scip-dart pub dart_sample 1.0.0 lib/src/`pricing.dart`/withTax().",
+        "name": "withTax",
+        "qualifiedName": "withTax",
+        "kind": "function",
+        "definition": {
+          "path": "lib/src/pricing.dart",
+          "line": 2,
+          "column": 5
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
       },
-      "confidence": "precise",
-      "source": "scip-dart"
-    },
-    {
-      "key": "scip-dart pub dart_sample 1.0.0 lib/src/`pricing.dart`/shippingFee.",
-      "name": "shippingFee",
-      "qualifiedName": "shippingFee",
-      "kind": "constant",
-      "definition": {
-        "path": "lib/src/pricing.dart",
-        "line": 5,
-        "column": 7
+      {
+        "key": "scip-dart pub dart_sample 1.0.0 lib/src/`pricing.dart`/shippingFee.",
+        "name": "shippingFee",
+        "qualifiedName": "shippingFee",
+        "kind": "constant",
+        "definition": {
+          "path": "lib/src/pricing.dart",
+          "line": 5,
+          "column": 7
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
       },
-      "confidence": "precise",
-      "source": "scip-dart"
-    },
-    {
-      "key": "scip-dart pub dart_sample 1.0.0 lib/src/`pricing.dart`/discountPercent.",
-      "name": "discountPercent",
-      "qualifiedName": "discountPercent",
-      "kind": "variable",
-      "definition": {
-        "path": "lib/src/pricing.dart",
-        "line": 8,
-        "column": 5
+      {
+        "key": "scip-dart pub dart_sample 1.0.0 lib/src/`pricing.dart`/discountPercent.",
+        "name": "discountPercent",
+        "qualifiedName": "discountPercent",
+        "kind": "variable",
+        "definition": {
+          "path": "lib/src/pricing.dart",
+          "line": 8,
+          "column": 5
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "imports": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "lib/dart_sample.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart"
       },
-      "confidence": "precise",
-      "source": "scip-dart"
-    }
-  ],
-  "imports": [],
-  "importedBy": [
-    {
-      "path": "lib/dart_sample.dart",
-      "role": "app",
-      "confidence": "precise",
-      "source": "scip-dart"
-    },
-    {
-      "path": "lib/src/cart.dart",
-      "role": "app",
-      "confidence": "precise",
-      "source": "scip-dart"
-    }
-  ],
-  "usedBy": [
-    {
-      "path": "bin/checkout.dart",
-      "role": "app",
-      "confidence": "precise",
-      "source": "scip-dart",
-      "uses": 3
-    },
-    {
-      "path": "lib/src/cart.dart",
-      "role": "app",
-      "confidence": "precise",
-      "source": "scip-dart",
-      "uses": 3
-    },
-    {
-      "path": "test/pricing_test.dart",
-      "role": "test",
-      "confidence": "precise",
-      "source": "scip-dart",
-      "uses": 3
-    }
-  ]
+      {
+        "path": "lib/src/cart.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart",
+        "uses": 3
+      },
+      {
+        "path": "lib/src/cart.dart",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-dart",
+        "uses": 3
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-dart",
+        "uses": 3
+      }
+    ]
+  }
 }
