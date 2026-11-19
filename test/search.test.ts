@@ -46,10 +46,11 @@ describe('dart_sample search', () => {
   it('종류로 좁힌다(쉼표로 여럿, 이름 없이 종류만도 된다)', () => {
     assert.deepEqual(names(fx.ask('search', '--kind', 'class')), [
       'Cart @ lib/src/cart.dart',
-      'Totaled @ lib/src/cart.dart',
       'GiftCart @ lib/src/cart.dart',
       'Wishlist @ lib/src/cart.dart',
     ]);
+    // abstract interface class는 interface예요.
+    assert.deepEqual(names(fx.ask('search', '--kind', 'interface')), ['Totaled @ lib/src/cart.dart']);
     assert.deepEqual(names(fx.ask('search', 'total', '--kind', 'function,method')), [
       'Cart.total @ lib/src/cart.dart',
       'Totaled.total @ lib/src/cart.dart',

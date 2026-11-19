@@ -85,9 +85,11 @@ export function refineDartFacts(raw: Facts, opts: RefineOptions): Facts {
     to: 'symbolKey' in r.to ? { symbolKey: rename(r.to.symbolKey) } : r.to,
   }));
 
-  // 4) 상수
+  // 4) 상수와 인터페이스: 선언문에서 이름 앞의 열쇠말로 가려요(scip-dart는 둘 다 따로 알려 주지 않아요).
   for (const s of symbols) {
-    if ((s.kind === 'variable' || s.kind === 'field') && declaredConst(source(s.path), s)) s.kind = 'constant';
+    const head = () => declarationHead(source(s.path), s);
+    if ((s.kind === 'variable' || s.kind === 'field') && /(^|[^\w$])const\s/.test(head())) s.kind = 'constant';
+    if (s.kind === 'class' && /(^|[^\w$])abstract\s+interface\s+class\s+$/.test(head())) s.kind = 'interface';
   }
 
   // 5) 사용처의 종류
@@ -134,13 +136,12 @@ function offsetOf(src: Source, line: number, column: number): number {
   return (src.lineStarts[line] ?? src.text.length) + column;
 }
 
-/** 선언문에서 이름 앞에 const가 있는지(같은 문장 안에서만). */
-function declaredConst(src: Source | null, s: SymbolFact): boolean {
-  if (src === null) return false;
+/** 선언문에서 이름 앞까지의 글(같은 문장 안에서만: 앞의 ';', '{', '}' 뒤부터). 소스를 읽지 못하면 빈 글. */
+function declarationHead(src: Source | null, s: SymbolFact): string {
+  if (src === null) return '';
   const at = offsetOf(src, s.range.startLine, s.range.startColumn);
   const before = src.text.slice(Math.max(0, at - 300), at);
-  const statement = before.slice(Math.max(before.lastIndexOf(';'), before.lastIndexOf('{'), before.lastIndexOf('}')) + 1);
-  return /(^|[^\w$])const\s/.test(statement);
+  return before.slice(Math.max(before.lastIndexOf(';'), before.lastIndexOf('{'), before.lastIndexOf('}')) + 1);
 }
 
 /** 대입(쓰기)으로 보는 연산자. ==와 =>는 빼요. */

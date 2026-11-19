@@ -4,7 +4,7 @@
   "symbol": {
     "name": "Totaled",
     "qualifiedName": "Totaled",
-    "kind": "class",
+    "kind": "interface",
     "definition": {
       "path": "lib/src/cart.dart",
       "line": 4,

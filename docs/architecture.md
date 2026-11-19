@@ -96,6 +96,8 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 - **테스트 파일**: 패키지 뿌리의 `test/`, `integration_test/`, `test_driver/` 아래이거나 이름이 `_test.dart`로 끝나면 `role: 'test'`.
 - **열쇠 맞추기**: 이름 없는 생성자(`` Cart#`<constructor>`(). ``)는 클래스(`Cart#`)로 합쳐요. `Cart()`는 클래스 `Cart`를 부르는 곳(`call`)으로 나와요. getter·setter(`` `<get>label`. ``)는 그 이름(`label.`)으로 합치고 종류를 `getter`/`setter`로 둬요. 이름 있는 생성자(`Cart.empty`)는 그대로예요.
 - **상수**: 선언문의 이름 앞에 `const`가 있는 변수·필드는 `constant`예요(scip-dart는 `Variable`로 줘요).
+- **인터페이스**: 선언문의 이름 바로 앞이 `abstract interface class`인 클래스는 `interface`예요(scip-dart 1.8.1은 `Class`로 줘요. `mixin`은 scip-dart가 `Mixin`으로 줘서 그대로예요). 그냥 `interface class`는 만들 수 있는 클래스라 `class`로 둬요.
+- 상수와 인터페이스의 종류는 선언문의 열쇠말(Dart 문법이 정한 꼴)로 가려서 심볼의 `confidence`는 그대로 `precise`예요. 사용처의 종류(아래)처럼 앞뒤 글로 짐작하는 것이 아니라, 정의 자체는 scip-dart가 준 것이고 열쇠말은 선언에 그대로 적혀 있어서요.
 - **사용처의 종류**: scip-dart 1.8.1은 읽기/쓰기 역할을 주지 않아서(모두 역할 없음) 소스의 문법으로 가려요.
   - `extends`/`implements` (`kindConfidence: 'precise'`): 감싸는 타입의 머리(이름 뒤, `{` 앞)에 있고, 그 타입의 `supertypes`(scip-dart가 준 사실)에 대상이 있을 때만. 바로 앞의 열쇠말이 `extends`·`with`면 `extends`, `implements`·`on`(mixin의 `on`)이면 `implements`예요.
   - `call` (`inferred`): 이름 뒤(타입 인자 `<…>`를 건너뛰고) 바로 `(`가 와요.
