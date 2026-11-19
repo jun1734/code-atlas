@@ -1,17 +1,14 @@
 // search: 정확한 이름을 몰라도 시작점을 찾아요. 이름 일부(대소문자 무시)나 낙타 표기 조각으로 심볼을 찾고,
 // 종류·언어·폴더로 좁혀요. 많이 쓰이는 것이 먼저 와요. 임베딩 기반 의미 검색은 하지 않아요.
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { DEFAULT_LIMIT, page, type Page } from '../answer.ts';
-import type { SymbolKind } from '../facts.ts';
+import { cut, DEFAULT_LIMIT, type Page } from '../answer.ts';
+import { SYMBOL_KINDS, type SymbolKind } from '../facts.ts';
 import type { GraphStore, SearchFilter, SearchRow } from '../graph/store.ts';
 import { UserError } from '../locate.ts';
 import type { QueryDef } from '../queries.ts';
 
 /** 검색할 수 있는 심볼 종류(파일과 매개변수는 검색 대상이 아니에요). */
-const KINDS: SymbolKind[] = [
-  'namespace', 'class', 'interface', 'enum', 'mixin', 'extension', 'type', 'function', 'method',
-  'constructor', 'getter', 'setter', 'field', 'variable', 'constant', 'unknown',
-];
+const KINDS: readonly SymbolKind[] = SYMBOL_KINDS.filter((k) => k !== 'file' && k !== 'parameter');
 
 /** 검색 결과 하나. key를 그대로 context에 넘기면 이 심볼 하나를 찾아요. */
 export interface SearchItem extends SearchRow {
@@ -96,7 +93,7 @@ export function search(
       ...(languages ? { language: languages } : {}),
       ...(folder ? { folder } : {}),
     },
-    results: page(found.slice(0, opts.limit), found.length),
+    results: cut(found, opts.limit),
   };
 }
 

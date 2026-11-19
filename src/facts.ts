@@ -5,26 +5,30 @@
 /** 관계를 얼마나 믿을 수 있는지. 정밀: 컴파일러 수준 색인기, 추정: 이름으로 이은 것. */
 export type Confidence = 'precise' | 'inferred';
 
-/** 심볼의 종류. 색인기가 모르는 종류는 'unknown'. */
-export type SymbolKind =
-  | 'file'
-  | 'namespace'
-  | 'class'
-  | 'interface'
-  | 'enum'
-  | 'mixin'
-  | 'extension'
-  | 'type'
-  | 'function'
-  | 'method'
-  | 'constructor'
-  | 'getter'
-  | 'setter'
-  | 'field'
-  | 'variable'
-  | 'constant'
-  | 'parameter'
-  | 'unknown';
+/** 심볼의 종류 전부. 색인기가 모르는 종류는 'unknown'. 종류 목록이 필요한 곳(search의 kind 검사 등)은 이 배열을 써요. */
+export const SYMBOL_KINDS = [
+  'file',
+  'namespace',
+  'class',
+  'interface',
+  'enum',
+  'mixin',
+  'extension',
+  'type',
+  'function',
+  'method',
+  'constructor',
+  'getter',
+  'setter',
+  'field',
+  'variable',
+  'constant',
+  'parameter',
+  'unknown',
+] as const;
+
+/** 심볼의 종류. */
+export type SymbolKind = (typeof SYMBOL_KINDS)[number];
 
 /**
  * 관계의 종류.
