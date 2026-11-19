@@ -13,7 +13,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "verify:hijo": "node --test test/hijo_app/hijo_app.verify.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

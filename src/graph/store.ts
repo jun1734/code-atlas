@@ -388,7 +388,7 @@ export class GraphStore {
   }
 
   /**
-   * 저장소 안 파일 사이의 import 간선. 같은 (from, to) 쌍은 처음 적힌 줄(1부터) 하나로 모아요.
+   * 저장소 안 파일 사이의 import 간선(대상이 색인된 파일인 to_path만). 같은 (from, to) 쌍은 처음 적힌 줄(1부터) 하나로 모아요.
    * 신뢰도는 그 쌍의 간선 가운데 가장 낮은 것(추정이 하나라도 있으면 inferred), 출처는 낸 색인기들(쉼표로 이음)이에요.
    */
   fileImports(): FileImportRow[] {
@@ -398,7 +398,7 @@ export class GraphStore {
                 MIN(r.confidence) AS confidence, GROUP_CONCAT(DISTINCT r.source) AS source
          FROM relations r
          JOIN files f ON f.id = r.from_file_id
-         JOIN files t ON t.id = r.to_file_id
+         JOIN files t ON t.path = r.to_path
          WHERE r.kind = 'import'
          GROUP BY f.path, t.path
          ORDER BY f.path, t.path`,
