@@ -1,16 +1,47 @@
 // check: 구조 검사. 서로 물린 파일 묶음, 모듈 사이에서 흐름을 거스르는 import와 그 최소 개수, 모듈별 층,
 // 다른 모듈에서 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름.
 // 어느 파일이 어느 모듈인지, 무엇이 공용·조립 모듈이고 허용 목록이 어디 있는지는 저장소 설정(repo-config.ts)이 정해요.
-import { isStale } from '../freshness.ts';
-import type { GraphStore, Location } from '../graph/store.ts';
-import type { SymbolKind } from '../facts.ts';
+// 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
+import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
+import type { Confidence, SymbolKind } from '../facts.ts';
+import type { FileImportRow, GraphStore, Location } from '../graph/store.ts';
 import { globToRegExp, moduleResolver, nameGlobToRegExp } from '../modules.ts';
+import type { QueryDef } from '../queries.ts';
 import { loadRepoConfig, readAllowlist } from '../repo-config.ts';
 
-export interface CheckAnswer {
-  /** 색인 기준 커밋과, 그 뒤로 바뀐 것이 있는지(stale). */
-  index: { commit: string | null; indexedAt: string; stale: boolean | null };
-  /** 읽은 저장소 설정 파일. 기본 설정이면 null. */
+export interface CycleItem extends Sourced {
+  files: string[];
+  modules: string[];
+  /** 묶음 안의 import [가져다 쓰는 파일, 가져오는 파일]. */
+  imports: [string, string][];
+}
+
+export interface BackwardImportItem extends Sourced {
+  from: string;
+  to: string;
+  line: number;
+  fromModule: string;
+  toModule: string;
+  /** 저장소가 적어 둔 허용 목록에 든 것인지. false면 새 위반이에요. */
+  allowed: boolean;
+}
+
+export interface ReviewCandidateItem extends Sourced {
+  target: string;
+  module: string;
+  from: string[];
+}
+
+export interface UnusedNameItem extends Sourced {
+  name: string;
+  kind: SymbolKind;
+  definition: Location;
+}
+
+/** check 답의 몸통. */
+export interface CheckBody {
+  [key: string]: unknown;
+  /** 읽은 저장소 설정 파일(저장소 뿌리 기준, 밖이면 절대 경로). 기본 설정이면 null. */
   config: string | null;
   summary: {
     /** 어느 모듈에 든(검사 안의) 파일 수. */
@@ -28,16 +59,26 @@ export interface CheckAnswer {
     unusedPublicNames: number;
   };
   /** 서로 import해서 한 덩어리가 된 파일 묶음(큰 것부터). */
-  cycles: { files: string[]; modules: string[]; imports: [string, string][] }[];
-  /** 모듈을 위(가져다 쓰는 쪽)에서 아래로 세운 순서와 층(흐름을 거스르는 간선을 뺀 뒤, 맨 아래에서의 가장 긴 거리). */
+  cycles: Page<CycleItem>;
+  /** 모듈을 위(가져다 쓰는 쪽)에서 아래로 세운 순서와 층(흐름을 거스르는 간선을 뺀 뒤, 맨 아래에서의 가장 긴 거리). 모듈 수만큼이라 자르지 않아요. */
   modules: { name: string; layer: number; files: number }[];
   /** 위 순서에서 아래 모듈이 위 모듈을 가져다 쓰는 import. */
-  backwardImports: { from: string; to: string; line: number; fromModule: string; toModule: string; allowed: boolean }[];
+  backwardImports: Page<BackwardImportItem>;
   /** 다른 모듈에서 그 모듈의 화면도 provider도 아닌 것(설정의 openToOtherModules에 안 맞는 파일)을 가져다 쓰는 곳. 판정이 아니라 리뷰 후보예요. */
-  reviewCandidates: { target: string; module: string; from: string[] }[];
+  reviewCandidates: Page<ReviewCandidateItem>;
   /** 검사 안 파일의 최상위 공개 이름 가운데 어디서도(테스트 포함) 쓰이지 않는 것. */
-  unusedPublicNames: { total: number; truncated: boolean; items: { name: string; kind: SymbolKind; definition: Location }[] };
+  unusedPublicNames: Page<UnusedNameItem>;
 }
+
+/** 여러 import에서 나온 항목의 표시: 가장 낮은 신뢰도와 낸 색인기들. */
+function sourcedOf(rows: FileImportRow[]): Sourced {
+  const confidence: Confidence = rows.some((r) => r.confidence === 'inferred') ? 'inferred' : 'precise';
+  const sources = new Set(rows.flatMap((r) => r.source.split(',')));
+  return { confidence, source: [...sources].sort().join(',') };
+}
+
+/** 목록 전체를 앞에서부터 limit개로 잘라 계약의 모양으로. */
+const pageOf = <T extends Sourced>(all: T[], limit: number): Page<T> => page(all.slice(0, limit), all.length);
 
 /** Tarjan 강연결 요소. 묶음은 의존되는 쪽(간선이 닿는 쪽)부터 나와요. */
 export function stronglyConnected(nodes: string[], next: (v: string) => string[]): string[][] {
@@ -110,7 +151,7 @@ function bestOrder(group: string[], weight: (a: string, b: string) => number): s
 }
 
 /** 색인과 저장소 설정으로 구조를 검사해요. configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)을 써요. */
-export function check(store: GraphStore, limit: number, configPath?: string): CheckAnswer {
+export function check(store: GraphStore, limit: number, configPath?: string): CheckBody {
   const meta = store.meta();
   const config = loadRepoConfig(meta.repoRoot, configPath);
   const moduleOf = moduleResolver(config);
@@ -124,15 +165,17 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   const mod = (p: string) => moduleOf(p)!;
 
   // 2. 서로 물린 파일 묶음.
-  const cycles = stronglyConnected(files, (f) => importsOf.get(f) ?? [])
+  const cycles: CycleItem[] = stronglyConnected(files, (f) => importsOf.get(f) ?? [])
     .filter((g) => g.length > 1)
     .map((group) => {
       const sorted = [...group].sort();
       const inGroup = new Set(group);
+      const inner = imports.filter((i) => inGroup.has(i.from) && inGroup.has(i.to));
       return {
         files: sorted,
         modules: [...new Set(sorted.map(mod))].sort(),
-        imports: imports.filter((i) => inGroup.has(i.from) && inGroup.has(i.to)).map((i) => [i.from, i.to] as [string, string]),
+        imports: inner.map((i) => [i.from, i.to] as [string, string]),
+        ...sourcedOf(inner),
       };
     })
     .sort((a, b) => b.files.length - a.files.length || a.files[0]!.localeCompare(b.files[0]!));
@@ -162,7 +205,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
 
   // 4. 흐름을 거스르는 import와 허용 목록.
   const allowlist = new Set(readAllowlist(meta.repoRoot, config.allowlist));
-  const backwardImports = imports
+  const backwardImports: BackwardImportItem[] = imports
     .filter((i) => position.get(mod(i.from))! > position.get(mod(i.to))!)
     .map((i) => ({
       from: i.from,
@@ -171,6 +214,8 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
       fromModule: mod(i.from),
       toModule: mod(i.to),
       allowed: allowlist.has(i.to),
+      confidence: i.confidence,
+      source: i.source,
     }));
 
   // 5. 리뷰 후보: 다른 모듈에서, 공용 모듈도 아니고 다른 모듈에 열린 파일(화면, provider 등)도 아닌 것을 가져다 쓰는 곳.
@@ -185,15 +230,15 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   }
   const shared = new Set(config.shared);
   const composers = new Set(config.composers);
-  const candidates = new Map<string, string[]>();
+  const candidates = new Map<string, FileImportRow[]>();
   for (const i of imports) {
     const a = mod(i.from);
     const b = mod(i.to);
     if (a === b || shared.has(b) || composers.has(a) || openByFile.has(i.to)) continue;
-    (candidates.get(i.to) ?? candidates.set(i.to, []).get(i.to)!).push(i.from);
+    (candidates.get(i.to) ?? candidates.set(i.to, []).get(i.to)!).push(i);
   }
-  const reviewCandidates = [...candidates]
-    .map(([target, from]) => ({ target, module: mod(target), from: from.sort() }))
+  const reviewCandidates: ReviewCandidateItem[] = [...candidates]
+    .map(([target, rows]) => ({ target, module: mod(target), from: rows.map((r) => r.from).sort(), ...sourcedOf(rows) }))
     .sort((a, b) => b.from.length - a.from.length || a.target.localeCompare(b.target));
 
   // 6. 쓰이지 않는 공개 이름: 검사 안 파일의 최상위 선언 가운데, 그것도 그 안의 것(생성자, 멤버)도 쓰인 적이 없는 것.
@@ -222,7 +267,6 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   );
 
   return {
-    index: { commit: meta.commit, indexedAt: meta.indexedAt, stale: isStale(meta) },
     config: config.path,
     summary: {
       files: files.length,
@@ -235,14 +279,30 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
       reviewCandidates: reviewCandidates.length,
       unusedPublicNames: unused.length,
     },
-    cycles,
+    cycles: pageOf(cycles, limit),
     modules: order.map((name) => ({ name, layer: layer.get(name)!, files: files.filter((f) => mod(f) === name).length })),
-    backwardImports,
-    reviewCandidates,
-    unusedPublicNames: {
-      total: unused.length,
-      truncated: unused.length > limit,
-      items: unused.slice(0, limit).map((d) => ({ name: d.name, kind: d.kind, definition: d.definition })),
-    },
+    backwardImports: pageOf(backwardImports, limit),
+    reviewCandidates: pageOf(reviewCandidates, limit),
+    unusedPublicNames: pageOf(
+      unused.map((d) => ({ name: d.name, kind: d.kind, definition: d.definition, confidence: d.confidence, source: d.source })),
+      limit,
+    ),
   };
 }
+
+export const checkQuery: QueryDef = {
+  name: 'check',
+  description:
+    '저장소 구조를 검사해요: 서로 import해서 물린 파일 묶음, 모듈 사이에서 흐름을 거스르는 import(최소 개수, 허용 목록에 든 것과 새 위반 구분)와 모듈별 층, ' +
+    '다른 기능 모듈의 화면도 provider도 아닌 것을 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름. ' +
+    '리팩터링 전후나 리뷰 때 모듈 경계가 무너졌는지 볼 때 불러요. 모듈 기준은 저장소 뿌리의 .code-atlas.json이 정해요.',
+  params: [
+    {
+      name: 'config',
+      type: 'string',
+      description: '저장소 설정 파일 경로. 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
+    },
+    { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '목록마다 앞에서부터 몇 개까지 줄지.' },
+  ],
+  run: (store, args) => check(store, args.limit as number, args.config as string | undefined),
+};

@@ -1,21 +1,33 @@
-// 구조 검사(check): 모듈 구조가 있는 예제 저장소를 실제 scip-dart로 색인하고, 명령줄 check의 답을 정답과 비교해요.
+// 구조 검사(check): 모듈 구조가 있는 예제 저장소를 실제 scip-dart로 색인하고, 명령줄과 MCP의 check 답을 정답과 비교해요.
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
-import { expected, indexFixture, type IndexedFixture } from './harness.ts';
+import { expected, indexFixture, startMcp, type IndexedFixture, type McpSession } from './harness.ts';
 
 describe('modular_sample check', () => {
+  let home: string;
   let fx: IndexedFixture;
+  let mcp: McpSession;
   let answer: any;
   const want = expected('modular_sample', 'check.json');
-  before(() => {
-    fx = indexFixture('modular_sample');
+  before(async () => {
+    home = mkdtempSync(join(tmpdir(), 'code-atlas-home-'));
+    fx = indexFixture('modular_sample', { home });
     answer = fx.ask('check');
+    mcp = await startMcp({ cwd: fx.repo, env: { CODE_ATLAS_HOME: home } });
   });
-  after(() => fx?.dispose());
+  after(async () => {
+    await mcp?.close();
+    fx?.dispose();
+    if (home) rmSync(home, { recursive: true, force: true });
+  });
 
-  it('저장소 뿌리의 .code-atlas.json을 읽고, 답에 색인 기준 커밋과 낡았는지를 넣는다', () => {
+  it('저장소 뿌리의 .code-atlas.json을 읽고, 답에 봉투(index)를 씌운다', () => {
     assert.equal(answer.config, '.code-atlas.json');
+    assert.equal(answer.index.repo, fx.repo);
     assert.equal(answer.index.commit, fx.head());
     assert.equal(answer.index.stale, false);
   });
@@ -32,7 +44,7 @@ describe('modular_sample check', () => {
   });
 
   it('허용 목록에 든 것과 새 위반을 구분한다', () => {
-    const byAllowed = Object.fromEntries(answer.backwardImports.map((b: any) => [b.to, b.allowed]));
+    const byAllowed = Object.fromEntries(answer.backwardImports.items.map((b: any) => [b.to, b.allowed]));
     assert.deepEqual(byAllowed, {
       'lib/features/catalog/catalog_provider.dart': true,
       'lib/features/orders/order_status.dart': false,
@@ -54,19 +66,31 @@ describe('modular_sample check', () => {
     assert.deepEqual(rest, want);
   });
 
+  it('목록은 limit으로 잘리고 전체 개수와 잘린 사실을 함께 낸다', () => {
+    const cut = fx.ask('check', '--limit', '1');
+    assert.deepEqual(cut.cycles, { ...want.cycles, truncated: true, items: want.cycles.items.slice(0, 1) });
+    assert.equal(cut.unusedPublicNames.total, 2);
+    assert.equal(cut.unusedPublicNames.items.length, 1);
+  });
+
   it('--config로 준 설정이 모듈 기준을 바꾼다(허용 목록이 없으면 모두 새 위반)', () => {
     const config = fileURLToPath(new URL('./configs/modular_sample-plain.json', import.meta.url));
     const plain = fx.ask('check', '--config', config);
     assert.deepEqual(plain.modules.map((m: any) => m.name), ['orders', 'app', 'catalog']);
     assert.deepEqual(
-      plain.backwardImports.map((b: any) => [b.from, b.to, b.allowed]),
+      plain.backwardImports.items.map((b: any) => [b.from, b.to, b.allowed]),
       [
+        ['lib/app.dart', 'lib/features/orders/orders_page.dart', false],
         ['lib/features/catalog/catalog_list.dart', 'lib/shared/strings.dart', false],
         ['lib/features/catalog/catalog_page.dart', 'lib/shared/header.dart', false],
-        ['lib/app.dart', 'lib/features/orders/orders_page.dart', false],
         ['lib/shared/toast.dart', 'lib/features/orders/order_status.dart', false],
-      ].sort((a, b) => String(a[0]).localeCompare(String(b[0])) || String(a[1]).localeCompare(String(b[1]))),
+      ],
     );
     assert.equal(plain.summary.new, 4);
+  });
+
+  it('MCP 도구 check도 명령줄과 같은 답을 돌려준다', async () => {
+    assert.ok((await mcp.tools()).includes('check'));
+    assert.deepEqual(await mcp.call('check', {}), answer);
   });
 });

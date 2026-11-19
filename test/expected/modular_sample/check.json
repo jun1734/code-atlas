@@ -11,47 +11,55 @@
     "reviewCandidates": 2,
     "unusedPublicNames": 2
   },
-  "cycles": [
-    {
-      "files": [
-        "lib/features/catalog/catalog_item.dart",
-        "lib/features/catalog/catalog_list.dart"
-      ],
-      "modules": [
-        "catalog"
-      ],
-      "imports": [
-        [
+  "cycles": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "files": [
           "lib/features/catalog/catalog_item.dart",
           "lib/features/catalog/catalog_list.dart"
         ],
-        [
-          "lib/features/catalog/catalog_list.dart",
-          "lib/features/catalog/catalog_item.dart"
-        ]
-      ]
-    },
-    {
-      "files": [
-        "lib/features/orders/order_status.dart",
-        "lib/shared/toast.dart"
-      ],
-      "modules": [
-        "orders",
-        "shared"
-      ],
-      "imports": [
-        [
+        "modules": [
+          "catalog"
+        ],
+        "imports": [
+          [
+            "lib/features/catalog/catalog_item.dart",
+            "lib/features/catalog/catalog_list.dart"
+          ],
+          [
+            "lib/features/catalog/catalog_list.dart",
+            "lib/features/catalog/catalog_item.dart"
+          ]
+        ],
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "files": [
           "lib/features/orders/order_status.dart",
           "lib/shared/toast.dart"
         ],
-        [
-          "lib/shared/toast.dart",
-          "lib/features/orders/order_status.dart"
-        ]
-      ]
-    }
-  ],
+        "modules": [
+          "orders",
+          "shared"
+        ],
+        "imports": [
+          [
+            "lib/features/orders/order_status.dart",
+            "lib/shared/toast.dart"
+          ],
+          [
+            "lib/shared/toast.dart",
+            "lib/features/orders/order_status.dart"
+          ]
+        ],
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
   "modules": [
     {
       "name": "app",
@@ -74,40 +82,56 @@
       "files": 3
     }
   ],
-  "backwardImports": [
-    {
-      "from": "lib/shared/header.dart",
-      "to": "lib/features/catalog/catalog_provider.dart",
-      "line": 2,
-      "fromModule": "shared",
-      "toModule": "catalog",
-      "allowed": true
-    },
-    {
-      "from": "lib/shared/toast.dart",
-      "to": "lib/features/orders/order_status.dart",
-      "line": 2,
-      "fromModule": "shared",
-      "toModule": "orders",
-      "allowed": false
-    }
-  ],
-  "reviewCandidates": [
-    {
-      "target": "lib/features/catalog/price_format.dart",
-      "module": "catalog",
-      "from": [
-        "lib/features/orders/orders_page.dart"
-      ]
-    },
-    {
-      "target": "lib/features/orders/order_status.dart",
-      "module": "orders",
-      "from": [
-        "lib/shared/toast.dart"
-      ]
-    }
-  ],
+  "backwardImports": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "from": "lib/shared/header.dart",
+        "to": "lib/features/catalog/catalog_provider.dart",
+        "line": 2,
+        "fromModule": "shared",
+        "toModule": "catalog",
+        "allowed": true,
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "from": "lib/shared/toast.dart",
+        "to": "lib/features/orders/order_status.dart",
+        "line": 2,
+        "fromModule": "shared",
+        "toModule": "orders",
+        "allowed": false,
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "reviewCandidates": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "target": "lib/features/catalog/price_format.dart",
+        "module": "catalog",
+        "from": [
+          "lib/features/orders/orders_page.dart"
+        ],
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "target": "lib/features/orders/order_status.dart",
+        "module": "orders",
+        "from": [
+          "lib/shared/toast.dart"
+        ],
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
   "unusedPublicNames": {
     "total": 2,
     "truncated": false,
@@ -119,7 +143,9 @@
           "path": "lib/features/catalog/price_format.dart",
           "line": 5,
           "column": 8
-        }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
       },
       {
         "name": "shout",
@@ -128,7 +154,9 @@
           "path": "lib/shared/strings.dart",
           "line": 5,
           "column": 8
-        }
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
       }
     ]
   }
