@@ -513,6 +513,53 @@ export class GraphStore {
     return new Set(rows.map((r) => r.key));
   }
 
+  /**
+   * 그래프 탐색용 간선 전부. 관계 하나가 간선 하나예요.
+   * 출발은 사용처를 감싸는 심볼(없으면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import)이에요.
+   * 저장소 밖 심볼(예: dart:core의 print)을 가리키는 관계는 빼요.
+   */
+  edges(filter: { kinds?: RelationKind[] } = {}): EdgeRow[] {
+    const where = ['(t.key IS NOT NULL OR tf.id IS NOT NULL)'];
+    const params: string[] = [];
+    if (filter.kinds) {
+      where.push(`r.kind IN (${filter.kinds.map(() => '?').join(', ')})`);
+      params.push(...filter.kinds);
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT f.path, f.role, r.from_symbol_key AS fromKey, r.line, r.col, r.kind,
+                t.key AS toKey, tf.path AS toPath, r.confidence, r.kind_confidence AS kindConfidence, r.source
+         FROM relations r
+         JOIN files f ON f.id = r.from_file_id
+         LEFT JOIN symbols t ON t.key = r.to_symbol_key
+         LEFT JOIN files tf ON tf.path = r.to_path
+         WHERE ${where.join(' AND ')}
+         ORDER BY f.path, r.line, r.col`,
+      )
+      .all(...params) as {
+      path: string;
+      role: FileRole;
+      fromKey: string | null;
+      line: number;
+      col: number;
+      kind: RelationKind;
+      toKey: string | null;
+      toPath: string | null;
+      confidence: Confidence;
+      kindConfidence: Confidence;
+      source: string;
+    }[];
+    return rows.map((r) => ({
+      from: r.fromKey ? { symbol: r.fromKey } : { file: r.path },
+      to: r.toKey ? { symbol: r.toKey } : { file: r.toPath as string },
+      kind: r.kind,
+      at: { ...toLocation(r.path, r.line, r.col), role: r.role },
+      confidence: r.confidence,
+      kindConfidence: r.kindConfidence,
+      source: r.source,
+    }));
+  }
+
   /** 파일 사이 관계를 파일별로 묶어요. 앱 코드가 먼저, 테스트가 뒤에 와요. */
   private links(sql: string, path: string): FileLink[] {
     const rows = this.db
@@ -571,6 +618,21 @@ function toLink(r: LinkSqlRow): FileLink {
     confidence: r.minConfidence,
     source: r.sources.split(',').sort().join(','),
   };
+}
+
+/** 그래프의 노드: 심볼(열쇠) 또는 파일(경로). */
+export type NodeRef = { symbol: string } | { file: string };
+
+/** 관계 하나를 노드 사이 간선으로 본 것(GraphStore.edges). */
+export interface EdgeRow {
+  from: NodeRef;
+  to: NodeRef;
+  kind: RelationKind;
+  /** 관계가 적힌 자리와 그 파일의 역할. */
+  at: Location & { role: FileRole };
+  confidence: Confidence;
+  kindConfidence: Confidence;
+  source: string;
 }
 
 /** 정의 하나와 바로 바깥 심볼(최상위 선언이면 null). */

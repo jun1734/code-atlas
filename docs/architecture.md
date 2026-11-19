@@ -212,6 +212,16 @@ hijo_app의 설정 예는 `test/hijo_app/code-atlas.json`이에요(허용 목록
 
 hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run verify:hijo`(`test/hijo_app/`). 무거워서 기본 `npm test`에는 넣지 않았어요.
 
+## 그래프 탐색
+
+`src/graph/traverse.ts`. impact, trace, clusters가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.
+
+- `GraphStore.edges({ kinds? })`: 관계 하나가 간선 하나(`EdgeRow`). 출발은 사용처를 감싸는 심볼(파일 최상위면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import). 저장소 밖 심볼을 가리키는 관계는 빠져요.
+- `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
+- `graph.in(id)` / `graph.out(id)`: 이 노드를 쓰는 간선 / 이 노드가 쓰는 간선. `graph.node(id)`는 이름, 정의 파일, 역할(app/test), 정의(`DefinitionRow`)를 줘요. `graph.fileNodes(path)`는 파일과 그 파일이 정의한 심볼의 노드예요.
+- `graph.reach(starts, 'in' | 'out', maxDepth)`: 너비 우선으로 거리별 도착점(`Reached`)을 줘요. 같은 거리라면 정밀한 길을 먼저 골라요. 길에 추정 관계가 하나라도 있으면 그 도착점은 `inferred`예요. 결과 순서는 거리, 그 안에서 id 순이라 다시 돌려도 같아요.
+- 모듈은 `src/modules.ts`의 `moduleResolver(loadRepoConfig(...))`로 노드의 `path`에서 얻어요.
+
 ## 질의 실행기와 바깥 껍데기
 
 ```
