@@ -1,19 +1,21 @@
 // 그래프 저장소: 언어와 무관한 스키마를 SQLite 파일 하나에 둬요.
-// 바깥에는 "사실을 넣는다"(replaceAll)와 "그래프에 묻는다"(아래 질의 함수)만 보여요.
+// 바깥에는 "사실을 넣는다"(applyFacts)와 "그래프에 묻는다"(아래 질의 함수)만 보여요.
 // 스키마 설명은 docs/architecture.md에 있어요.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { Confidence, Facts, RelationKind, SymbolKind } from '../facts.ts';
+import type { Confidence, Facts, RelationFact, RelationKind, SymbolFact, SymbolKind } from '../facts.ts';
 
-const SCHEMA_VERSION = '1';
+const SCHEMA_VERSION = '2';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS files (
   id INTEGER PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,
-  language TEXT NOT NULL
+  language TEXT NOT NULL,
+  hash TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS symbols (
   id INTEGER PRIMARY KEY,
@@ -32,6 +34,7 @@ CREATE TABLE IF NOT EXISTS symbols (
 );
 CREATE INDEX IF NOT EXISTS symbols_name ON symbols(name);
 CREATE INDEX IF NOT EXISTS symbols_qualified_name ON symbols(qualified_name);
+CREATE INDEX IF NOT EXISTS symbols_file ON symbols(file_id);
 CREATE TABLE IF NOT EXISTS relations (
   id INTEGER PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -42,19 +45,70 @@ CREATE TABLE IF NOT EXISTS relations (
   end_line INTEGER NOT NULL,
   end_col INTEGER NOT NULL,
   to_symbol_key TEXT,
-  to_file_id INTEGER REFERENCES files(id),
+  to_path TEXT,
   confidence TEXT NOT NULL,
   source TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS relations_to_symbol ON relations(to_symbol_key);
-CREATE INDEX IF NOT EXISTS relations_to_file ON relations(to_file_id);
+CREATE INDEX IF NOT EXISTS relations_to_path ON relations(to_path);
+CREATE INDEX IF NOT EXISTS relations_from_file ON relations(from_file_id);
 `;
 
 export interface IndexMeta {
   repoRoot: string;
   /** 색인한 커밋. git 저장소가 아니면 null. */
   commit: string | null;
+  /** 색인할 때 작업 트리에서 커밋과 달랐던 파일들의 지문(src/freshness.ts). git 저장소가 아니면 null. */
+  worktree: string | null;
   indexedAt: string;
+}
+
+/** 한 번 넣을 때 파일 단위로 무엇이 바뀌었는지. */
+export interface FileChanges {
+  /** 그래프에 없던 파일. */
+  added: number;
+  /** 사실이 달라져 다시 넣은 파일. */
+  modified: number;
+  /** 사실에서 사라져 뺀 파일. */
+  removed: number;
+  /** 사실이 같아 건드리지 않은 파일. */
+  unchanged: number;
+}
+
+/** 언어 하나의 개수와 관계의 정밀/추정 비율(0~1, 관계가 없으면 null). */
+export interface LanguageCounts {
+  files: number;
+  symbols: number;
+  relations: number;
+  precise: number | null;
+  inferred: number | null;
+}
+
+interface FilePart {
+  language: string;
+  symbols: SymbolFact[];
+  relations: RelationFact[];
+  /** 이 파일의 사실 전체의 해시. */
+  hash: string;
+}
+
+/** 사실을 파일별로 나누고 파일마다 해시를 내요. 심볼은 정의된 파일, 관계는 적힌 파일에 속해요. */
+function groupByFile(facts: Facts): Map<string, FilePart> {
+  const parts = new Map<string, FilePart>();
+  for (const f of facts.files) {
+    if (!parts.has(f.path)) parts.set(f.path, { language: f.language, symbols: [], relations: [], hash: '' });
+  }
+  const part = (path: string) => {
+    const p = parts.get(path);
+    if (!p) throw new Error(`사실에 없는 파일을 가리켜요: ${path}`);
+    return p;
+  };
+  for (const s of facts.symbols) part(s.path).symbols.push(s);
+  for (const r of facts.relations) part(r.from.path).relations.push(r);
+  for (const p of parts.values()) {
+    p.hash = createHash('sha256').update(JSON.stringify([p.language, p.symbols, p.relations])).digest('hex');
+  }
+  return parts;
 }
 
 export interface Location {
@@ -95,10 +149,17 @@ export class GraphStore {
     this.db = db;
   }
 
-  /** 색인 파일을 열어요. 없으면 만들어요. */
+  /** 색인 파일을 열어요. 없으면 만들어요. 스키마 버전이 다른 옛 색인이면 비우고 새로 만들어요(다음 넣기가 처음부터 색인이 돼요). */
   static open(path: string): GraphStore {
     mkdirSync(dirname(path), { recursive: true });
     const db = new DatabaseSync(path);
+    const hasMeta = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'`).get();
+    const version = hasMeta
+      ? (db.prepare(`SELECT value FROM meta WHERE key = 'schema'`).get() as { value: string } | undefined)?.value
+      : undefined;
+    if (hasMeta && version !== SCHEMA_VERSION) {
+      db.exec('DROP TABLE IF EXISTS relations; DROP TABLE IF EXISTS symbols; DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS meta;');
+    }
     db.exec(SCHEMA);
     return new GraphStore(db);
   }
@@ -121,82 +182,144 @@ export class GraphStore {
     this.db.close();
   }
 
-  /** 그래프 전체를 이 사실로 바꿔요(한 트랜잭션). */
-  replaceAll(facts: Facts, meta: IndexMeta): void {
+  /**
+   * 저장소 전체의 사실을 받아, 그래프와 달라진 파일의 사실만 바꿔요(한 트랜잭션).
+   * 파일마다 "그 파일의 사실"(파일 자신, 그 파일에 정의된 심볼, 그 파일에서 나가는 관계)의 해시를 두고,
+   * 해시가 같은 파일은 건드리지 않아요. 파일 내용이 그대로여도 가리키는 심볼의 열쇠가 바뀌면
+   * (다른 파일의 이름 바꾸기 등) 사실이 달라지니 다시 반영해요.
+   */
+  applyFacts(facts: Facts, meta: IndexMeta): FileChanges {
     const db = this.db;
+    const byFile = groupByFile(facts);
+    const stored = new Map(
+      (db.prepare('SELECT id, path, hash FROM files').all() as { id: number; path: string; hash: string }[]).map((r) => [r.path, r]),
+    );
+    const changes: FileChanges = { added: 0, modified: 0, removed: 0, unchanged: 0 };
+
     db.exec('BEGIN');
     try {
-      db.exec('DELETE FROM relations; DELETE FROM symbols; DELETE FROM files; DELETE FROM meta;');
+      db.exec('DELETE FROM meta');
       const putMeta = db.prepare('INSERT INTO meta(key, value) VALUES (?, ?)');
       putMeta.run('schema', SCHEMA_VERSION);
       putMeta.run('repoRoot', meta.repoRoot);
       if (meta.commit) putMeta.run('commit', meta.commit);
+      if (meta.worktree) putMeta.run('worktree', meta.worktree);
       putMeta.run('indexedAt', meta.indexedAt);
 
-      const fileIds = new Map<string, number>();
-      const putFile = db.prepare('INSERT INTO files(path, language) VALUES (?, ?)');
-      for (const f of facts.files) {
-        if (fileIds.has(f.path)) continue;
-        fileIds.set(f.path, Number(putFile.run(f.path, f.language).lastInsertRowid));
+      const dropSymbols = db.prepare('DELETE FROM symbols WHERE file_id = ?');
+      const dropRelations = db.prepare('DELETE FROM relations WHERE from_file_id = ?');
+      const dropFile = db.prepare('DELETE FROM files WHERE id = ?');
+      // 사실에서 사라진 파일
+      for (const [path, row] of stored) {
+        if (byFile.has(path)) continue;
+        dropRelations.run(row.id);
+        dropSymbols.run(row.id);
+        dropFile.run(row.id);
+        changes.removed++;
       }
-      const fileId = (path: string) => {
-        const id = fileIds.get(path);
-        if (id === undefined) throw new Error(`사실에 없는 파일을 가리켜요: ${path}`);
-        return id;
-      };
 
+      const putFile = db.prepare('INSERT INTO files(path, language, hash) VALUES (?, ?, ?)');
+      const updateFile = db.prepare('UPDATE files SET language = ?, hash = ? WHERE id = ?');
       const putSymbol = db.prepare(
         `INSERT OR IGNORE INTO symbols(key, name, qualified_name, kind, file_id, line, col, end_line, end_col, parent_key, confidence, source)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      for (const s of facts.symbols) {
-        putSymbol.run(
-          s.key,
-          s.name,
-          s.qualifiedName,
-          s.kind,
-          fileId(s.path),
-          s.range.startLine,
-          s.range.startColumn,
-          s.range.endLine,
-          s.range.endColumn,
-          s.parentKey ?? null,
-          s.confidence,
-          s.source,
-        );
-      }
-
       const putRelation = db.prepare(
-        `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_file_id, confidence, source)
+        `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_path, confidence, source)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      for (const r of facts.relations) {
-        const toPath = 'path' in r.to ? r.to.path : null;
-        putRelation.run(
-          r.kind,
-          fileId(r.from.path),
-          r.from.symbolKey ?? null,
-          r.from.range.startLine,
-          r.from.range.startColumn,
-          r.from.range.endLine,
-          r.from.range.endColumn,
-          'symbolKey' in r.to ? r.to.symbolKey : null,
-          toPath === null ? null : (fileIds.get(toPath) ?? null),
-          r.confidence,
-          r.source,
-        );
+      // 새로 생겼거나 사실이 달라진 파일. 경로 순으로 넣어 같은 사실이면 같은 그래프가 되게 해요.
+      for (const [path, part] of [...byFile].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+        const old = stored.get(path);
+        if (old?.hash === part.hash) {
+          changes.unchanged++;
+          continue;
+        }
+        let fileId: number;
+        if (old) {
+          dropRelations.run(old.id);
+          dropSymbols.run(old.id);
+          updateFile.run(part.language, part.hash, old.id);
+          fileId = old.id;
+          changes.modified++;
+        } else {
+          fileId = Number(putFile.run(path, part.language, part.hash).lastInsertRowid);
+          changes.added++;
+        }
+        for (const s of part.symbols) {
+          putSymbol.run(
+            s.key,
+            s.name,
+            s.qualifiedName,
+            s.kind,
+            fileId,
+            s.range.startLine,
+            s.range.startColumn,
+            s.range.endLine,
+            s.range.endColumn,
+            s.parentKey ?? null,
+            s.confidence,
+            s.source,
+          );
+        }
+        for (const r of part.relations) {
+          putRelation.run(
+            r.kind,
+            fileId,
+            r.from.symbolKey ?? null,
+            r.from.range.startLine,
+            r.from.range.startColumn,
+            r.from.range.endLine,
+            r.from.range.endColumn,
+            'symbolKey' in r.to ? r.to.symbolKey : null,
+            'path' in r.to ? r.to.path : null,
+            r.confidence,
+            r.source,
+          );
+        }
       }
       db.exec('COMMIT');
     } catch (e) {
       db.exec('ROLLBACK');
       throw e;
     }
+    return changes;
   }
 
   meta(): IndexMeta {
     const rows = this.db.prepare('SELECT key, value FROM meta').all() as { key: string; value: string }[];
     const m = new Map(rows.map((r) => [r.key, r.value]));
-    return { repoRoot: m.get('repoRoot') ?? '', commit: m.get('commit') ?? null, indexedAt: m.get('indexedAt') ?? '' };
+    return {
+      repoRoot: m.get('repoRoot') ?? '',
+      commit: m.get('commit') ?? null,
+      worktree: m.get('worktree') ?? null,
+      indexedAt: m.get('indexedAt') ?? '',
+    };
+  }
+
+  /** 언어별 파일·심볼·관계 수와 관계의 정밀/추정 비율. 관계와 심볼의 언어는 그것이 적힌 파일의 언어예요. */
+  languages(): Record<string, LanguageCounts> {
+    const out: Record<string, LanguageCounts> = {};
+    const files = this.db.prepare('SELECT language, COUNT(*) AS n FROM files GROUP BY language ORDER BY language').all() as { language: string; n: number }[];
+    for (const f of files) out[f.language] = { files: Number(f.n), symbols: 0, relations: 0, precise: null, inferred: null };
+    const symbols = this.db
+      .prepare('SELECT f.language, COUNT(*) AS n FROM symbols s JOIN files f ON f.id = s.file_id GROUP BY f.language')
+      .all() as { language: string; n: number }[];
+    for (const s of symbols) out[s.language]!.symbols = Number(s.n);
+    const relations = this.db
+      .prepare(
+        `SELECT f.language, COUNT(*) AS n, SUM(r.confidence = 'precise') AS precise
+         FROM relations r JOIN files f ON f.id = r.from_file_id GROUP BY f.language`,
+      )
+      .all() as { language: string; n: number; precise: number }[];
+    const ratio = (part: number, whole: number) => Math.round((part / whole) * 1000) / 1000;
+    for (const r of relations) {
+      const lang = out[r.language]!;
+      lang.relations = Number(r.n);
+      lang.precise = ratio(Number(r.precise), lang.relations);
+      lang.inferred = ratio(lang.relations - Number(r.precise), lang.relations);
+    }
+    return out;
   }
 
   counts(): { files: number; symbols: number; relations: number } {

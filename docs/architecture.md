@@ -83,21 +83,45 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 
 | 표 | 열 | 뜻 |
 | --- | --- | --- |
-| `meta` | `key`, `value` | `schema`(스키마 버전), `repoRoot`, `commit`(색인 기준 커밋), `indexedAt` |
-| `files` | `id`, `path`, `language` | 파일 노드 |
+| `meta` | `key`, `value` | `schema`(스키마 버전), `repoRoot`, `commit`(색인 기준 커밋), `worktree`(색인할 때의 작업 트리 지문), `indexedAt` |
+| `files` | `id`, `path`, `language`, `hash` | 파일 노드. `hash`는 그 파일의 사실 전체의 해시 |
 | `symbols` | `id`, `key`, `name`, `qualified_name`, `kind`, `file_id`, `line`, `col`, `end_line`, `end_col`, `parent_key`, `confidence`, `source` | 심볼 노드와 정의 위치(0부터) |
-| `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_file_id`, `confidence`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_file_id`(import) |
+| `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_path`, `confidence`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_path`(import한 파일의 경로) |
 
 - 모든 간선과 심볼에 신뢰도(`precise`/`inferred`)와 출처(색인기)가 있어요.
 - `to_symbol_key`는 저장소 밖 심볼(예: `dart:core`의 `print`)도 가리킬 수 있어요. 그런 심볼은 `symbols`에 없어요.
-- 색인할 때마다 전체를 한 트랜잭션으로 바꿔요. 바뀐 파일만 반영하는 증분 색인은 뒤 티켓에서 해요.
-- 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`replaceAll(facts, meta)`), 질의 함수(`findSymbols`, `usesOf`, `meta`, `counts`)뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
+- 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`applyFacts(facts, meta)`), 질의 함수(`findSymbols`, `usesOf`, `meta`, `counts`, `languages`)뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
+- `open`은 스키마 버전이 다른 옛 색인을 비우고 새로 만들어요. 그러면 다음 넣기가 처음부터 색인이 돼요.
+
+### 증분 반영
+
+색인기는 늘 저장소 전체를 돌리고(SCIP 색인기는 대개 프로젝트 단위로 돌아요), 그래프에는 사실이 달라진 파일만 반영해요(`applyFacts`, 한 트랜잭션).
+
+- 사실을 파일별로 나눠요. 파일의 사실은 파일 자신(경로, 언어), 그 파일에 정의된 심볼, 그 파일에 적힌(나가는) 관계예요.
+- 파일마다 그 사실 전체의 해시(`files.hash`)를 둬요. 해시가 같은 파일은 건드리지 않고, 다른 파일은 그 파일의 심볼과 관계를 지우고 다시 넣어요. 사실에서 사라진 파일은 빼요.
+- 해시는 파일 내용이 아니라 사실에서 내요. 파일 이름을 바꾸면 그 파일의 심볼 열쇠가 바뀌어서, 내용이 그대로인 다른 파일(barrel을 거쳐 쓰는 파일 등)의 관계도 바뀌기 때문이에요. 거꾸로 주석만 고친 파일은 사실이 같아서 반영하지 않아요.
+- import 관계의 대상은 파일 id가 아니라 경로(`to_path`)로 둬요. 대상 파일이 빠지거나 새로 생겨도 그 관계를 가진 파일을 다시 넣을 필요가 없어요.
+- 몇 개를 더하고(added), 바꾸고(modified), 빼고(removed), 두었는지(unchanged)를 돌려줘요. `index` 명령의 요약(`changes`)에 그대로 나와요.
+
+### 색인 요약 (`index` 명령의 출력)
+
+`src/indexer.ts`의 `IndexSummary`. JSON이에요.
+
+| 칸 | 뜻 |
+| --- | --- |
+| `files`, `symbols`, `relations` | 색인한 뒤 그래프 전체의 파일·이름(심볼)·관계 수 |
+| `languages.<언어>` | 언어별 `files`, `symbols`, `relations`, 관계 중 정밀(`precise`)·추정(`inferred`) 비율(0~1, 관계가 없으면 `null`). 심볼과 관계의 언어는 적힌 파일의 언어예요 |
+| `changes` | 이번에 그래프에 반영한 파일 수(`added`, `modified`, `removed`, `unchanged`). 처음 색인이면 모두 `added` |
+| `ms` | 걸린 시간(밀리초). `indexers`(색인기 실행), `graph`(그래프 반영), `total`(전체) |
+| `repo`, `db`, `commit`, `adapters`, `dbBytes` | 저장소, 색인 파일, 기준 커밋, 돈 색인기, 색인 파일 크기 |
 
 ## 질의: context
 
 `src/query/context.ts`. 이름을 `key` → `qualifiedName` → `name` 순으로 찾고, 처음 맞는 단계의 결과를 써요. 파일과 매개변수(`kind`가 `file`, `parameter`)는 찾지 않아요.
 
 답의 봉투(`index`: 저장소, 기준 커밋, 낡음)는 실행기가 씌워요. 계약은 [contract.md](contract.md)에 있어요.
+
+봉투의 `stale`은 HEAD가 색인 커밋과 다르거나 작업 트리가 색인할 때와 다르면 `true`예요(`src/freshness.ts`). 색인은 작업 트리를 읽으니 고친 채로 색인했다면 낡지 않았어요. 그래서 색인할 때 `git status`에 나오는 파일들의 상태와 내용으로 지문(`meta.worktree`)을 남기고, 물을 때 다시 재서 비교해요.
 
 - 하나: `status: 'found'`, 정의와 사용처(앞에서부터 `limit`개, `total`, `truncated`).
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.

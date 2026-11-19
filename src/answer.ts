@@ -19,7 +19,7 @@ export interface IndexInfo {
   commit: string | null;
   /** 색인한 때(ISO 8601). */
   indexedAt: string;
-  /** 색인 뒤에 커밋이 바뀌었거나 작업 트리에 바뀐 파일이 있으면 true, 그대로면 false, 알 수 없으면 null. */
+  /** 색인 뒤에 커밋이 바뀌었거나 작업 트리가 색인할 때와 달라졌으면 true, 그대로면 false, 알 수 없으면 null. */
   stale: boolean | null;
 }
 

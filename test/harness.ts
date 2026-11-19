@@ -2,7 +2,7 @@
 // 명령줄 도구와 MCP 서버를 실제 프로세스로 불러 JSON 답을 받아요. 내부 모듈은 부르지 않아요.
 // 모든 도구 프로세스는 네트워크 차단 장치(test/no-network.ts)를 단 채로 돌아요.
 import { execFileSync, execSync, spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -11,6 +11,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const cli = join(root, 'src', 'cli.ts');
+/** 예제 저장소들이 있는 폴더. */
+export const fixtureDir = join(root, 'test', 'fixtures');
 /** 네트워크를 쓰려 하면 프로세스를 멈추는 장치. 모든 도구 프로세스에 `--import`로 달아요. */
 export const NO_NETWORK = pathToFileURL(join(root, 'test', 'no-network.ts')).href;
 /** 차단 장치가 네트워크 시도를 잡으면 이 종료 코드로 끝나요. */
@@ -86,6 +88,20 @@ export interface IndexedFixture {
   head(): string;
   /** 사본의 파일 끝에 글을 덧붙여요(색인은 다시 하지 않아요). */
   append(path: string, text: string): void;
+  /** 사본의 파일을 이 글로 바꿔요. 없으면 만들어요(색인은 다시 하지 않아요). */
+  write(path: string, text: string): void;
+  /** 사본의 파일 글을 읽어요. */
+  read(path: string): string;
+  /** 사본의 파일을 지워요(색인은 다시 하지 않아요). */
+  remove(path: string): void;
+  /** 사본의 파일 이름을 바꿔요(색인은 다시 하지 않아요). */
+  rename(from: string, to: string): void;
+  /** 사본을 늘 쓰던 색인 파일에 다시 색인하고 색인 요약을 돌려줘요. */
+  reindex(): any;
+  /** 사본을 새 색인 파일에 처음부터 색인하고, 그 색인에 묻는 함수와 요약을 돌려줘요. */
+  indexFresh(): { summary: any; ask(...args: string[]): any };
+  /** 처음 색인할 때 나온 요약. */
+  readonly firstSummary: any;
   /** 사본의 작업 트리를 커밋 상태로 되돌려요. */
   restore(): void;
   dispose(): void;
@@ -112,7 +128,7 @@ function git(cwd: string, ...args: string[]): string {
 export function indexFixture(name: string, opts: FixtureOptions = {}): IndexedFixture {
   const work = mkdtempSync(join(tmpdir(), 'code-atlas-test-'));
   const repo = join(work, name);
-  cpSync(join(root, 'test', 'fixtures', name), repo, {
+  cpSync(join(fixtureDir, name), repo, {
     recursive: true,
     filter: (src) => !src.includes('.dart_tool'),
   });
@@ -127,22 +143,37 @@ export function indexFixture(name: string, opts: FixtureOptions = {}): IndexedFi
   if (existsSync(join(repo, 'pubspec.yaml'))) {
     execSync('dart pub get --enforce-lockfile', { cwd: repo, stdio: 'ignore' });
   }
-  let ask: (...args: string[]) => any;
-  if (opts.home) {
-    const env = { CODE_ATLAS_HOME: opts.home };
-    runCli(['index', repo], env);
-    ask = (...args) => runCli([...args, '--repo', repo], env);
-  } else {
-    const db = join(work, 'atlas.db');
-    runCli(['index', repo, '--db', db]);
-    ask = (...args) => runCli([...args, '--db', db]);
-  }
+  // 색인 명령의 꼴(어느 색인 파일에 쓰는지)과 질문 꼴. home을 주면 기본 자리, 아니면 --db.
+  const env: Record<string, string> = opts.home ? { CODE_ATLAS_HOME: opts.home } : {};
+  const db = join(work, 'atlas.db');
+  const where = opts.home ? ['--repo', repo] : ['--db', db];
+  const indexArgs = opts.home ? ['index', repo] : ['index', repo, '--db', db];
+  const firstSummary = runCli(indexArgs, env);
+  const ask = (...args: string[]) => runCli([...args, ...where], env);
+  let fresh = 0;
   return {
     repo,
     ask,
     gitStatus: () => git(repo, 'status', '--porcelain'),
     head: () => git(repo, 'rev-parse', 'HEAD'),
     append: (path, text) => appendFileSync(join(repo, path), text),
+    write: (path, text) => {
+      mkdirSync(dirname(join(repo, path)), { recursive: true });
+      writeFileSync(join(repo, path), text);
+    },
+    read: (path) => readFileSync(join(repo, path), 'utf8'),
+    remove: (path) => rmSync(join(repo, path)),
+    rename: (from, to) => {
+      mkdirSync(dirname(join(repo, to)), { recursive: true });
+      renameSync(join(repo, from), join(repo, to));
+    },
+    reindex: () => runCli(indexArgs, env),
+    indexFresh: () => {
+      const freshDb = join(work, `fresh-${++fresh}.db`);
+      const summary = runCli(['index', repo, '--db', freshDb]);
+      return { summary, ask: (...args) => runCli([...args, '--db', freshDb]) };
+    },
+    firstSummary,
     restore: () => {
       git(repo, 'checkout', '--', '.');
     },
