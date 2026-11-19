@@ -30,11 +30,20 @@ export interface Sourced {
 }
 
 /** 길어질 수 있는 목록. items는 앞에서부터 limit개, total은 자르기 전 전체 개수. */
-export interface Page<T extends Sourced> {
+export interface List<T> {
   total: number;
   truncated: boolean;
   items: T[];
 }
+
+/** 답의 항목 목록. 항목마다 정밀/추정과 출처(Sourced)가 있어야 해요. */
+export type Page<T extends Sourced> = List<T>;
+
+/**
+ * 항목 안쪽의 목록(서로 물린 파일 묶음의 파일, 묶음의 이름 등). 바깥 목록과 같은 limit으로 잘려요.
+ * 항목이 글(경로, 이름)이라, 그 표시(confidence, source)는 이 목록을 가진 바깥 항목의 것이에요.
+ */
+export type InnerList<T> = List<T>;
 
 /** 질의가 돌려주는 답의 몸통. `index`는 봉투 몫이라 몸통에 넣을 수 없어요. */
 export type Body = { [key: string]: unknown; index?: never };
@@ -47,8 +56,13 @@ export type Answer<B extends Body = Body> = { index: IndexInfo } & B;
  * @param items 앞에서부터 limit개까지 가져온 항목
  * @param total 자르기 전 전체 개수
  */
-export function page<T extends Sourced>(items: T[], total: number): Page<T> {
+export function page<T>(items: T[], total: number): List<T> {
   return { total, truncated: items.length < total, items };
+}
+
+/** 목록 전체를 앞에서부터 limit개로 잘라 계약의 모양(Page, InnerList)으로. */
+export function cut<T>(all: T[], limit: number): List<T> {
+  return page(all.slice(0, limit), all.length);
 }
 
 /** 색인 파일의 기록과 지금 저장소 상태로 봉투를 만들어요. */

@@ -2,7 +2,7 @@
 // 다른 모듈에서 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름.
 // 어느 파일이 어느 모듈인지, 무엇이 공용·조립 모듈이고 허용 목록이 어디 있는지는 저장소 설정(repo-config.ts)이 정해요.
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
+import { cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced } from '../answer.ts';
 import type { Confidence, SymbolKind } from '../facts.ts';
 import type { GraphStore, Location } from '../graph/store.ts';
 
@@ -16,10 +16,11 @@ import type { QueryDef } from '../queries.ts';
 import { loadRepoConfig, readAllowlist } from '../repo-config.ts';
 
 export interface CycleItem extends Sourced {
-  files: string[];
+  /** 묶음의 파일, 경로순. */
+  files: InnerList<string>;
   modules: string[];
   /** 묶음 안의 import [가져다 쓰는 파일, 가져오는 파일]. */
-  imports: [string, string][];
+  imports: InnerList<[string, string]>;
 }
 
 export interface BackwardImportItem extends Sourced {
@@ -81,9 +82,6 @@ function sourcedOf(rows: FileImport[]): Sourced {
   const sources = new Set(rows.flatMap((r) => r.source.split(',')));
   return { confidence, source: [...sources].sort().join(',') };
 }
-
-/** 목록 전체를 앞에서부터 limit개로 잘라 계약의 모양으로. */
-const pageOf = <T extends Sourced>(all: T[], limit: number): Page<T> => page(all.slice(0, limit), all.length);
 
 /** Tarjan 강연결 요소. 묶음은 의존되는 쪽(간선이 닿는 쪽)부터 나와요. */
 export function stronglyConnected(nodes: string[], next: (v: string) => string[]): string[][] {
@@ -176,20 +174,24 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   const mod = (p: string) => moduleOf(p)!;
 
   // 2. 서로 물린 파일 묶음.
+  // 안쪽 목록(파일, import)도 같은 limit으로 잘라요. 순서는 자르기 전 전체로 정해요.
   const cycles: CycleItem[] = stronglyConnected(files, (f) => importsOf.get(f) ?? [])
     .filter((g) => g.length > 1)
-    .map((group) => {
-      const sorted = [...group].sort();
-      const inGroup = new Set(group);
+    .map((group) => [...group].sort())
+    .sort((a, b) => b.length - a.length || a[0]!.localeCompare(b[0]!))
+    .map((sorted) => {
+      const inGroup = new Set(sorted);
       const inner = imports.filter((i) => inGroup.has(i.from) && inGroup.has(i.to));
       return {
-        files: sorted,
+        files: cut(sorted, limit),
         modules: [...new Set(sorted.map(mod))].sort(),
-        imports: inner.map((i) => [i.from, i.to] as [string, string]),
+        imports: cut(
+          inner.map((i) => [i.from, i.to] as [string, string]),
+          limit,
+        ),
         ...sourcedOf(inner),
       };
-    })
-    .sort((a, b) => b.files.length - a.files.length || a.files[0]!.localeCompare(b.files[0]!));
+    });
 
   // 3. 모듈 사이 간선과 순서. 가져다 쓰는 쪽이 위예요.
   const moduleNames = [...new Set(files.map(mod))].sort();
@@ -295,11 +297,11 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
       reviewCandidates: reviewCandidates.length,
       unusedPublicNames: unused.length,
     },
-    cycles: pageOf(cycles, limit),
+    cycles: cut(cycles, limit),
     modules: order.map((name) => ({ name, layer: layer.get(name)!, files: files.filter((f) => mod(f) === name).length })),
-    backwardImports: pageOf(backwardImports, limit),
-    reviewCandidates: pageOf(reviewCandidates, limit),
-    unusedPublicNames: pageOf(
+    backwardImports: cut(backwardImports, limit),
+    reviewCandidates: cut(reviewCandidates, limit),
+    unusedPublicNames: cut(
       unused.map((d) => ({ name: d.name, kind: d.kind, definition: d.definition, confidence: d.confidence, source: d.source })),
       limit,
     ),

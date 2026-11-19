@@ -51,7 +51,7 @@ describe('hijo_app 7ba0197 check', () => {
 
   it('서로 물린 파일 묶음 5개가 같다', () => {
     assert.equal(answer.summary.cycles, 5);
-    assert.deepEqual(answer.cycles.items.map((c: any) => c.files), want.cycles);
+    assert.deepEqual(answer.cycles.items.map((c: any) => c.files.items), want.cycles);
   });
 
   it('흐름을 거스르는 import 4개가 같고 모두 허용 목록이다', () => {

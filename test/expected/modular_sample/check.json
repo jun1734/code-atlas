@@ -16,45 +16,61 @@
     "truncated": false,
     "items": [
       {
-        "files": [
-          "lib/features/catalog/catalog_item.dart",
-          "lib/features/catalog/catalog_list.dart"
-        ],
+        "files": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            "lib/features/catalog/catalog_item.dart",
+            "lib/features/catalog/catalog_list.dart"
+          ]
+        },
         "modules": [
           "catalog"
         ],
-        "imports": [
-          [
-            "lib/features/catalog/catalog_item.dart",
-            "lib/features/catalog/catalog_list.dart"
-          ],
-          [
-            "lib/features/catalog/catalog_list.dart",
-            "lib/features/catalog/catalog_item.dart"
+        "imports": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            [
+              "lib/features/catalog/catalog_item.dart",
+              "lib/features/catalog/catalog_list.dart"
+            ],
+            [
+              "lib/features/catalog/catalog_list.dart",
+              "lib/features/catalog/catalog_item.dart"
+            ]
           ]
-        ],
+        },
         "confidence": "precise",
         "source": "scip-dart"
       },
       {
-        "files": [
-          "lib/features/orders/order_status.dart",
-          "lib/shared/toast.dart"
-        ],
+        "files": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            "lib/features/orders/order_status.dart",
+            "lib/shared/toast.dart"
+          ]
+        },
         "modules": [
           "orders",
           "shared"
         ],
-        "imports": [
-          [
-            "lib/features/orders/order_status.dart",
-            "lib/shared/toast.dart"
-          ],
-          [
-            "lib/shared/toast.dart",
-            "lib/features/orders/order_status.dart"
+        "imports": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            [
+              "lib/features/orders/order_status.dart",
+              "lib/shared/toast.dart"
+            ],
+            [
+              "lib/shared/toast.dart",
+              "lib/features/orders/order_status.dart"
+            ]
           ]
-        ],
+        },
         "confidence": "precise",
         "source": "scip-dart"
       }

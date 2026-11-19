@@ -68,7 +68,16 @@ describe('modular_sample check', () => {
 
   it('목록은 limit으로 잘리고 전체 개수와 잘린 사실을 함께 낸다', () => {
     const cut = fx.ask('check', '--limit', '1');
-    assert.deepEqual(cut.cycles, { ...want.cycles, truncated: true, items: want.cycles.items.slice(0, 1) });
+    assert.equal(cut.cycles.total, 2);
+    assert.equal(cut.cycles.truncated, true);
+    assert.equal(cut.cycles.items.length, 1);
+    // 묶음 안의 목록(파일, import)도 같은 limit으로 잘려요.
+    assert.deepEqual(cut.cycles.items[0].files, { total: 2, truncated: true, items: ['lib/features/catalog/catalog_item.dart'] });
+    assert.deepEqual(cut.cycles.items[0].imports, {
+      total: 2,
+      truncated: true,
+      items: [['lib/features/catalog/catalog_item.dart', 'lib/features/catalog/catalog_list.dart']],
+    });
     assert.equal(cut.unusedPublicNames.total, 2);
     assert.equal(cut.unusedPublicNames.items.length, 1);
   });

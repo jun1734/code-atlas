@@ -32,8 +32,9 @@
    - 봉투는 실행기(`askQuery`)가 씌워요. 질의는 몸통만 만들고, 몸통에 `index`를 넣을 수 없어요(`Body` 타입이 막아요).
 2. **목록: 길어질 수 있는 목록은 `{ total, truncated, items }`예요.**
    - `items`는 앞에서부터 `limit`개, `total`은 자르기 전 전체 개수, `truncated`는 `items`가 전체보다 적은지.
-   - 질의는 `page(items, total)`로 만들어요. `limit` 인자의 기본은 `DEFAULT_LIMIT`(100), 가장 작은 값은 1이에요.
+   - 질의는 `cut(all, limit)`(전체를 앞에서부터 자름)이나 `page(items, total)`(이미 자른 것)로 만들어요. `limit` 인자의 기본은 `DEFAULT_LIMIT`(100), 가장 작은 값은 1이에요.
    - 순서는 질의마다 정하되 늘 같아야 해요(같은 색인, 같은 질문이면 같은 답). context의 사용처는 앱 코드가 먼저, 테스트가 뒤이고, 그 안에서 경로, 줄, 열 순이에요. 파일 답의 목록(`defines`, `imports`, `importedBy`, `usedBy`)도 `Page`예요.
+   - 항목 안의 목록(check `cycles`의 `files`·`imports`, clusters 묶음의 `names`·`files`)도 같은 모양(`InnerList`)이고 같은 `limit`으로 잘려요. 항목이 글(경로, 이름)이라 정밀/추정과 출처는 그 목록을 가진 바깥 항목의 것이에요. 모듈 이름 목록(`modules`)은 모듈 수만큼이라 자르지 않아요.
 3. **항목: 답의 항목마다 `confidence`와 `source`가 있어요.**
    - `confidence`: `precise`(컴파일러 수준 색인기) 또는 `inferred`(이름으로 이은 추정). `inferred`면 직접 확인해요.
    - `source`: 그 항목을 낸 색인기(예: `scip-dart`).
@@ -49,7 +50,6 @@
 
 ### 아직 계약 밖인 것
 
-- check의 `cycles.files`와 clusters 묶음의 `names`·`files`는 잘리지 않는 맨 배열이에요. 묶음 목록 자체는 `Page`라 `limit`으로 잘려요.
 - trace의 경로 목록(`paths`)은 상한(1000개)에서 세기를 멈춰요. 그때는 `paths.capped: true`이고 `total`은 자르기 전 전체가 아니라 센 데까지예요(실제는 더 많아요). 경로 수는 길이에 따라 폭발할 수 있어서 다 세지 않아요.
 - context의 후보 목록(`candidates`)은 잘리지 않는 맨 배열이에요. 이름 하나에 맞는 후보는 몇 개뿐이라 그대로 뒀어요. 후보가 많아질 수 있는 질의(search 등)는 `Page`로 내요.
 

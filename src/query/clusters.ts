@@ -7,7 +7,7 @@
 // 이어진 조각으로 나눠요.
 //
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
+import { cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced } from '../answer.ts';
 import type { Confidence, SymbolKind } from '../facts.ts';
 import type { GraphStore, Location } from '../graph/store.ts';
 import { Graph, type NodeId, type NodeInfo, nodeId } from '../graph/traverse.ts';
@@ -21,9 +21,9 @@ export interface ClusterItem extends Sourced {
   /** 묶음 안에서 가장 많이 엮인 이름. */
   representative: { name: string; kind: SymbolKind; definition: Location };
   /** 든 이름(바깥 타입을 붙인 이름), 이름순. */
-  names: string[];
+  names: InnerList<string>;
   /** 이름이 정의된 파일, 경로순. */
-  files: string[];
+  files: InnerList<string>;
   /** 파일들이 든 모듈(저장소 설정 기준), 이름순. 어느 모듈에도 안 든 파일은 빠져요. */
   modules: string[];
   /** 모듈이 둘 이상이면 true. 폴더 구조와 결합이 어긋났을 수 있는 곳이에요. */
@@ -235,8 +235,8 @@ export function clusters(store: GraphStore, limit: number, configPath?: string):
     items.push({
       size: nodes.length,
       representative: { name: repNode.label, kind: repNode.symbol!.kind, definition: repNode.symbol!.definition },
-      names: nodes.map((i) => units[i]!.label).sort(),
-      files,
+      names: cut(nodes.map((i) => units[i]!.label).sort(), limit),
+      files: cut(files, limit),
       modules,
       crossModule: modules.length > 1,
       internalEdges: internal.length,
@@ -256,7 +256,7 @@ export function clusters(store: GraphStore, limit: number, configPath?: string):
       crossModule: items.filter((i) => i.crossModule).length,
       modularity: Math.round(modularity(g, community) * 1000) / 1000,
     },
-    clusters: page(items.slice(0, limit), items.length),
+    clusters: cut(items, limit),
   };
 }
 

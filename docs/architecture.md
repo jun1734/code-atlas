@@ -221,7 +221,7 @@ hijo_app의 설정 예는 `test/hijo_app/code-atlas.json`이에요(허용 목록
 - `backwardImports`: 그 순서에서 아래 모듈이 위 모듈을 가져다 쓰는 import. 허용은 (가져다 쓰는 쪽, 대상) 쌍이에요: 가져다 쓰는 파일이나 그 모듈이 허용 목록의 `from`에 맞고 대상이 그 목록에 있으면 `allowed: true`, 아니면 새 위반이에요. 다른 모듈이 같은 대상을 거꾸로 가져오면 새 위반이에요.
 - `reviewCandidates`: 다른 모듈의 파일을 가져다 쓰되, 대상 모듈이 `shared`가 아니고, 가져다 쓰는 쪽이 `composers`가 아니고, 대상 파일이 `openToOtherModules`(파일 glob, 또는 그 파일이 정의한 심볼의 이름·종류)에 맞지 않는 것. 판정이 아니라 리뷰 후보예요.
 - `unusedPublicNames`: 검사 안 파일의 최상위 선언 가운데, 이름이 `unused.private`에 맞지 않고, 그것과 그 안의 것(생성자, 멤버) 어느 것도 어디서도(테스트 포함) 쓰이지 않은 것. 멤버 하나하나는 보지 않아요: 프레임워크가 부르는 재정의(`build` 등)를 아직 가려내지 못해요. 정의가 없는 사용처 열쇠는 열쇠에서 바깥 타입(`C#`)을 잘라 올라가요.
-- 목록(`cycles`, `backwardImports`, `reviewCandidates`, `unusedPublicNames`)은 `Page`예요(`limit`). 항목의 `confidence`는 그 항목을 이룬 import 가운데 가장 낮은 것, `source`는 낸 색인기들이에요. `modules`는 모듈 수만큼이라 자르지 않아요. `summary`에 각 개수와 허용(`allowed`)·새 위반(`new`) 수가 있어요.
+- 목록(`cycles`, `backwardImports`, `reviewCandidates`, `unusedPublicNames`)은 `Page`예요(`limit`). 묶음 안의 `files`·`imports`도 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`, 모양은 `Page`와 같음)이에요. 항목의 `confidence`는 그 항목을 이룬 import 가운데 가장 낮은 것, `source`는 낸 색인기들이에요. `modules`는 모듈 수만큼이라 자르지 않아요. `summary`에 각 개수와 허용(`allowed`)·새 위반(`new`) 수가 있어요.
 
 hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run verify:hijo`(`test/hijo_app/`). 무거워서 기본 `npm test`에는 넣지 않았어요.
 
@@ -247,7 +247,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   - 1단계(노드 옮기기)는 노드를 id 순으로 훑고, 모듈성 증가량이 가장 큰 이웃 묶음으로 옮겨요. 같으면 번호가 작은 묶음, 제자리보다 크지 않으면 그대로예요. 2단계는 묶음을 노드 하나로 접어요. 더 옮길 것이 없을 때까지 되풀이해요.
   - 난수를 쓰지 않아서 같은 색인이면 늘 같은 묶음이 나와요.
   - Louvain은 이어지지 않은 묶음을 낼 수 있어요(V. A. Traag, L. Waltman, N. J. van Eck, "From Louvain to Leiden: guaranteeing well-connected communities", *Sci. Rep.* 9, 5233 (2019)). 그래서 마지막에 묶음마다 이어진 조각으로 나눠요. Leiden의 다듬기 단계는 하지 않았어요.
-- **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`moduleResolver(loadRepoConfig(...))`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 맨 배열이에요.
+- **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`moduleResolver(loadRepoConfig(...))`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`)이고, `size`가 이름 수예요.
 - `summary`: 셈한 이름 수(`names`), 묶음 수(`clusters`), 혼자 남은 이름 수(`singletons`, 목록에 안 나옴), 여러 모듈에 걸친 묶음 수(`crossModule`), 나눈 결과의 모듈성(`modularity`, 소수 셋째 자리).
 - 모듈 기준은 check와 같은 저장소 설정이에요(`--config`, MCP `config`).
 

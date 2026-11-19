@@ -24,7 +24,7 @@ describe('cluster_sample clusters', () => {
   it('두 덩어리가 뚜렷이 나뉜 저장소에서 두 묶음이 나온다', () => {
     assert.equal(answer.clusters.total, 2);
     assert.deepEqual(
-      answer.clusters.items.map((c: any) => c.names),
+      answer.clusters.items.map((c: any) => c.names.items),
       [
         ['Invoice', 'LineItem', 'formatReceipt', 'lineTax', 'taxRate', 'withTax'],
         ['Message', 'Room', 'Sender'],
@@ -34,13 +34,13 @@ describe('cluster_sample clusters', () => {
 
   it('묶음마다 든 이름과 파일, 대표 이름이 나온다', () => {
     const [billing, chat] = answer.clusters.items;
-    assert.deepEqual(billing.files, [
+    assert.deepEqual(billing.files.items, [
       'lib/billing/invoice.dart',
       'lib/billing/line_item.dart',
       'lib/billing/tax.dart',
       'lib/misc/receipt_format.dart',
     ]);
-    assert.deepEqual(chat.files, ['lib/chat/message.dart', 'lib/chat/room.dart', 'lib/chat/sender.dart']);
+    assert.deepEqual(chat.files.items, ['lib/chat/message.dart', 'lib/chat/room.dart', 'lib/chat/sender.dart']);
     assert.equal(billing.representative.name, 'formatReceipt'); // 손으로 센 묶음 안 관계: formatReceipt 9, Invoice 8
     assert.equal(billing.representative.definition.path, 'lib/misc/receipt_format.dart');
     assert.equal(chat.representative.name, 'Message'); // Message 8, Room 6, Sender 6
@@ -68,7 +68,12 @@ describe('cluster_sample clusters', () => {
 
   it('목록은 limit으로 잘리고, MCP 도구도 같은 답을 낸다', async () => {
     const cut = fx.ask('clusters', '--limit', '1');
-    assert.deepEqual(cut.clusters, { total: 2, truncated: true, items: want.clusters.items.slice(0, 1) });
+    assert.equal(cut.clusters.total, 2);
+    assert.equal(cut.clusters.truncated, true);
+    assert.equal(cut.clusters.items.length, 1);
+    // 묶음 안의 목록(이름, 파일)도 같은 limit으로 잘려요.
+    assert.deepEqual(cut.clusters.items[0].names, { total: 6, truncated: true, items: ['Invoice'] });
+    assert.deepEqual(cut.clusters.items[0].files, { total: 4, truncated: true, items: ['lib/billing/invoice.dart'] });
     const mcp = await startMcp({ cwd: fx.repo, env: { CODE_ATLAS_HOME: home } });
     try {
       assert.ok((await mcp.tools()).includes('clusters'));
