@@ -35,8 +35,14 @@ node src/cli.ts context lib/src/cart.dart --repo path/to/repo  # 파일: 정의�
 - 사용처는 앱 코드가 먼저, 테스트가 뒤에 와요. 항목마다 `role`(`app`/`test`), `kind`(`read`, `write`, `call`, `extends`, `implements`, `reference`), `kindConfidence`가 붙고, `uses.byRole`에 역할별 전체 개수가 있어요.
 - `kindConfidence`: Dart의 읽기·쓰기·호출은 scip-dart 1.8.1이 가려 주지 않아서 소스 문법으로 가린 추정(`inferred`)이에요. 상속·구현은 scip-dart가 준 타입 관계로 확인해 `precise`예요. 사용처가 있다는 것 자체(`confidence`)는 정밀이에요. 자세한 규칙은 [docs/architecture.md](docs/architecture.md)의 "Dart 어댑터가 더 하는 일".
 - 생성된 코드(`*.g.dart` 등, `GENERATED CODE` 머리), 빌드 산출물(`build/`, `.dart_tool/`), git이 무시하는 파일은 색인에서 빠져요.
-- 모든 답은 [답의 계약](docs/contract.md)을 따라요: 색인한 저장소와 기준 커밋(`index.repo`, `index.commit`), 낡았는지(`index.stale`: 색인 뒤 커밋이 바뀌었거나 작업 트리에 바뀐 파일이 있으면 `true`, git 저장소가 아니면 `null`), 목록의 전체 개수(`total`)와 잘렸는지(`truncated`), 항목마다 `confidence`(`precise` 정밀 / `inferred` 추정)와 `source`(어느 색인기).
+- 모든 답은 [답의 계약](docs/contract.md)을 따라요: 색인한 저장소와 기준 커밋(`index.repo`, `index.commit`), 낡았는지(`index.stale`: 색인 뒤 커밋이 바뀌었거나 작업 트리가 색인할 때와 달라졌으면 `true`, git 저장소가 아니면 `null`), 목록의 전체 개수(`total`)와 잘렸는지(`truncated`), 항목마다 `confidence`(`precise` 정밀 / `inferred` 추정)와 `source`(어느 색인기).
 - 줄과 열은 1부터 세요.
+
+### 다시 색인하기와 색인 요약
+
+코드를 고친 뒤 같은 `index` 명령을 다시 돌려요. 색인기(scip-dart)는 저장소 전체를 다시 돌리지만, 그래프에는 사실이 달라진 파일만 반영해요(증분 반영). 고친 채로(커밋하지 않고) 색인해도 돼요. 그 뒤로 또 고치지 않았으면 답의 `index.stale`은 `false`예요.
+
+`index`는 요약을 JSON으로 내요. 파일 수(`files`), 이름 수(`symbols`), 관계 수(`relations`), 언어별 개수와 관계의 정밀/추정 비율(`languages.<언어>.precise`, `.inferred`), 이번에 반영한 파일 수(`changes`: `added`, `modified`, `removed`, `unchanged`), 걸린 시간(`ms`: 색인기 실행 `indexers`, 그래프 반영 `graph`, 전체 `total`)이 들어가요. 칸의 뜻은 [docs/architecture.md](docs/architecture.md#색인-요약-index-명령의-출력)에 있어요.
 
 색인 파일은 저장소 밖 `~/.code-atlas/<저장소이름>-<경로해시>.db`에 둬요. `--db`로 자리를 정하거나 `CODE_ATLAS_HOME`으로 폴더를 바꿔요.
 여러 저장소를 각각 색인해 두고 `--repo`로 골라 물어요. 색인이 없는 저장소를 물으면 색인하는 명령을 알려 줘요.
@@ -82,8 +88,19 @@ claude mcp list
 
 ### 측정 (2026-11-19, Windows 11 노트북)
 
-hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): 색인 67초, DB 28MB, 심볼 5,790개, 관계 72,461개.
-대부분 scip-dart(Dart 분석기) 시간이에요.
+hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): DB 28MB, 심볼 5,790개, 관계 72,456개, 관계는 모두 정밀.
+
+색인기 실행과 그래프 반영을 따로 쟀어요(#218). hijo_app의 커밋 사본(`git archive`에 `.dart_tool/package_config.json`을 더한 것)을 색인했어요.
+
+| 경우 | 반영한 파일 | 색인기(scip-dart) | 그래프 반영 |
+| --- | --- | --- | --- |
+| 처음 색인 | 329개 더함 | 84.4초 | 0.95초 |
+| 아무것도 안 바꾸고 다시 | 0개 | 54.5초 | 0.10초 |
+| `lib` 파일 하나에 함수 하나 더하고 다시 | 1개 바꿈 | 28.0초 | 0.13초 |
+
+- 색인기 시간이 28~84초로 크게 흔들린 건 같은 노트북에서 다른 작업(다른 에이전트의 테스트)이 함께 돌았기 때문이에요. 흔들림을 빼도 결론은 같아요.
+- 다시 색인할 때 시간의 99% 넘게가 색인기 실행이에요. 그래프 반영은 증분으로 0.1초 남짓이라 더 줄일 게 없어요.
+- **판단: 색인기 실행을 줄일 값어치가 있어요.** 작업 중에 금방 최신이 되려면 이 30~80초를 줄여야 해요. 다만 scip-dart 1.8.1은 파일 하나만 색인하는 방법이 없고 패키지 단위로 돌아요. 그래서 줄이는 길은 (1) 바뀐 파일이 없는 패키지는 색인기를 건너뛰기(hijo_app처럼 패키지가 하나인 저장소에는 효과가 없어요. 또 다른 패키지가 가리키는 이름이 바뀌면 그 패키지도 다시 돌려야 해요), (2) Dart 분석기를 띄워 둔 채 바뀐 파일만 다시 분석하는 상주 색인기(scip-dart를 고치거나 새로 짜야 해요) 중 하나예요. 어느 쪽으로 갈지는 뒤 티켓에서 정해요.
 
 ## 검사
 

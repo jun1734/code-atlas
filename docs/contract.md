@@ -28,7 +28,7 @@
    - `repo`: 색인한 저장소의 절대 경로. 여러 저장소 중 어느 것의 답인지 알 수 있어요.
    - `commit`: 색인 기준 커밋. git 저장소가 아니면 `null`.
    - `indexedAt`: 색인한 때(ISO 8601).
-   - `stale`: 색인 뒤로 바뀐 것이 있는지. HEAD가 `commit`과 다르거나 작업 트리에 바뀐 파일(`git status --porcelain`)이 있으면 `true`, 그대로면 `false`, 알 수 없으면(git 저장소가 아님) `null`. `true`면 답을 그대로 믿지 말고 다시 색인해요.
+   - `stale`: 색인 뒤로 바뀐 것이 있는지. HEAD가 `commit`과 다르거나 작업 트리가 색인할 때와 달라졌으면(`git status --porcelain`에 나오는 파일과 그 내용으로 비교) `true`, 그대로면 `false`, 알 수 없으면(git 저장소가 아님) `null`. `true`면 답을 그대로 믿지 말고 다시 색인해요.
    - 봉투는 실행기(`askQuery`)가 씌워요. 질의는 몸통만 만들고, 몸통에 `index`를 넣을 수 없어요(`Body` 타입이 막아요).
 2. **목록: 길어질 수 있는 목록은 `{ total, truncated, items }`예요.**
    - `items`는 앞에서부터 `limit`개, `total`은 자르기 전 전체 개수, `truncated`는 `items`가 전체보다 적은지.
