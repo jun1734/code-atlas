@@ -1,34 +1,28 @@
 // trace: 두 지점(이름 또는 파일) 사이의 호출·의존 경로. "이 버튼이 어떻게 저 함수까지 가나"에 답해요.
 // 가장 짧은 경로가 먼저, 다른 경로가 짧은 순으로 뒤에 와요. 길이 없으면 없다고 답해요.
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
+import { cut, DEFAULT_LIMIT, joinSources, lowest, type Page, type Sourced } from '../answer.ts';
 import type { Confidence, RelationKind } from '../facts.ts';
 import type { GraphStore, Location, SymbolRow } from '../graph/store.ts';
 import { Graph, type GraphPath, type NodeId } from '../graph/traverse.ts';
 import { UserError } from '../locate.ts';
 import type { QueryDef } from '../queries.ts';
+import { locationOf, type Point, pointOfFile, pointOfNode, pointOfSymbol, resolvePoint } from './point.ts';
 
 /** 따라갈 관계. calls: 호출만, all: 참조·읽기·쓰기·상속·구현·import까지 모두. */
-export type Follow = 'calls' | 'all';
+export const FOLLOWS = ['calls', 'all'] as const;
+export type Follow = (typeof FOLLOWS)[number];
 const FOLLOW_KINDS: Record<Follow, RelationKind[] | undefined> = { calls: ['call'], all: undefined };
 
 /** 경로 수를 세다 멈추는 상한. 큰 저장소에서 경로 수가 폭발하는 것을 막아요. */
 export const PATH_CAP = 1000;
+export const DEFAULT_TRACE_DEPTH = 10;
 
 /**
- * 경로에 나오는 지점 하나. 심볼이면 key로 context에 다시 물을 수 있고, 정의를 낸 색인기의 표시(confidence, source)가 붙어요.
- * 파일이면 name이 경로이고 표시가 없어요(파일 지점은 계약의 예외: 색인기의 추정이 아니라 저장소의 파일이에요).
+ * 경로에 나오는 지점 하나(src/query/point.ts의 Point). 심볼이면 key로 context에 다시 물을 수 있고,
+ * 정의를 낸 색인기의 표시(confidence, source)가 붙어요. 파일이면 name이 경로이고 표시가 없어요(계약의 예외).
  */
-export interface TraceNode {
-  name: string;
-  kind: string;
-  path: string;
-  line?: number;
-  column?: number;
-  key?: string;
-  confidence?: Confidence;
-  source?: string;
-}
+export type TraceNode = Point;
 
 /** 경로의 구간 하나: from이 to를 쓰는 관계 하나. */
 export interface TraceStep extends Sourced {
@@ -68,35 +62,39 @@ export interface TraceBody {
   notFound?: ('from' | 'to')[];
 }
 
-type Resolved =
+export interface TraceOptions {
+  from: string;
+  to: string;
+  follow: Follow;
+  /** 경로의 가장 긴 길이(구간 수). */
+  depth: number;
+  /** 경로를 앞에서부터 몇 개까지 줄지. */
+  limit: number;
+}
+
+type End =
   | { status: 'found'; node: TraceNode; ids: NodeId[] }
   | { status: 'ambiguous'; candidates: SymbolRow[] }
   | { status: 'not_found' };
 
-/** 물은 글을 지점으로: 색인된 파일 경로면 그 파일과 그 파일이 정의한 심볼, 이름이면 그 심볼과 그 멤버. */
-function resolve(store: GraphStore, graph: Graph, query: string): Resolved {
-  const file = store.findFile(query.replaceAll('\\', '/'));
-  if (file) return { status: 'found', node: { name: file.path, kind: 'file', path: file.path }, ids: graph.fileNodes(file.path) };
-  const found = store.findSymbols(query);
-  if (found.length === 0) return { status: 'not_found' };
-  if (found.length > 1) return { status: 'ambiguous', candidates: found };
-  const s = found[0]!;
-  return { status: 'found', node: symbolNode(s), ids: graph.members(`s:${s.key}`) };
-}
-
-function symbolNode(s: SymbolRow): TraceNode {
-  const d = s.definition;
-  return { name: s.qualifiedName, kind: s.kind, path: d.path, line: d.line, column: d.column, key: s.key, confidence: s.confidence, source: s.source };
+/** 물은 글을 지점으로(resolvePoint): 파일이면 그 파일과 그 파일이 정의한 심볼, 이름이면 그 심볼과 그 멤버. */
+function endOf(store: GraphStore, graph: Graph, query: string): End {
+  const point = resolvePoint(store, query);
+  switch (point.status) {
+    case 'file':
+      return { status: 'found', node: pointOfFile(point.file.path), ids: graph.fileNodes(point.file.path) };
+    case 'symbol':
+      return { status: 'found', node: pointOfSymbol(point.symbol), ids: graph.members(`s:${point.symbol.key}`) };
+    default:
+      return point;
+  }
 }
 
 function describe(graph: Graph, id: NodeId): TraceNode {
   const n = graph.node(id);
   if (!n) throw new Error(`그래프에 없는 노드: ${id}`);
-  if (!n.symbol) return { name: n.path, kind: 'file', path: n.path };
-  return symbolNode(n.symbol);
+  return pointOfNode(n);
 }
-
-const lowest = (cs: Confidence[]): Confidence => (cs.includes('inferred') ? 'inferred' : 'precise');
 
 function toTracePath(graph: Graph, p: GraphPath): TracePath {
   const nodes = p.nodes.map((id) => describe(graph, id));
@@ -104,28 +102,27 @@ function toTracePath(graph: Graph, p: GraphPath): TracePath {
     from: nodes[i]!.name,
     to: nodes[i + 1]!.name,
     kind: e.kind,
-    at: { path: e.at.path, line: e.at.line, column: e.at.column },
+    at: locationOf(e.at),
     confidence: e.confidence,
     kindConfidence: e.kindConfidence,
     source: e.source,
   }));
-  const sources = new Set(steps.flatMap((s) => s.source.split(',')));
   return {
     length: steps.length,
     confidence: lowest(steps.map((s) => s.confidence)),
     kindConfidence: lowest(steps.map((s) => s.kindConfidence)),
-    source: [...sources].sort().join(','),
+    source: joinSources(steps.map((s) => s.source)),
     nodes,
     steps,
   };
 }
 
-export function trace(store: GraphStore, from: string, to: string, follow: string, depth: number, limit: number): TraceBody {
-  if (follow !== 'calls' && follow !== 'all') throw new UserError(`trace: follow는 calls 또는 all이어야 해요: ${follow}`);
+export function trace(store: GraphStore, opts: TraceOptions): TraceBody {
+  const { from, to, follow, depth, limit } = opts;
   const head = { query: { from, to }, follow, depth } as const;
   const graph = Graph.load(store, { kinds: FOLLOW_KINDS[follow] });
-  const a = resolve(store, graph, from);
-  const b = resolve(store, graph, to);
+  const a = endOf(store, graph, from);
+  const b = endOf(store, graph, to);
   const notFound = (
     [
       ['from', a],
@@ -148,7 +145,7 @@ export function trace(store: GraphStore, from: string, to: string, follow: strin
   if (starts.length === 0) throw new UserError(`trace: from과 to가 같은 곳이에요: ${from}`);
   const search = graph.paths(starts, b.ids, { maxDepth: depth, cap: PATH_CAP });
   const all = search.paths.map((p) => toTracePath(graph, p));
-  const paths = { ...page(all.slice(0, limit), all.length), capped: search.capped };
+  const paths = { ...cut(all, limit), capped: search.capped };
   const ends = { from: a.node, to: b.node };
   if (all.length > 0) return { ...head, status: 'found', ...ends, paths };
 
@@ -179,12 +176,20 @@ export const traceQuery: QueryDef = {
     {
       name: 'follow',
       type: 'string',
+      choices: FOLLOWS,
       default: 'calls',
       description: '따라갈 관계. calls: 호출만(기본). all: 참조·읽기·쓰기·상속·구현·import까지 모두.',
     },
-    { name: 'depth', type: 'integer', min: 1, default: 10, description: '경로의 가장 긴 길이(구간 수).' },
+    { name: 'depth', type: 'integer', min: 1, default: DEFAULT_TRACE_DEPTH, description: '경로의 가장 긴 길이(구간 수).' },
     { name: 'limit', type: 'integer', min: 1, default: DEFAULT_LIMIT, description: '경로를 앞에서부터 몇 개까지 줄지.' },
   ],
   run: (store, args) =>
-    trace(store, args.from as string, args.to as string, args.follow as string, args.depth as number, args.limit as number),
+    trace(store, {
+      from: args.from as string,
+      to: args.to as string,
+      // checkArgs가 choices(FOLLOWS) 안의 값만 들여보내요.
+      follow: args.follow as Follow,
+      depth: args.depth as number,
+      limit: args.limit as number,
+    }),
 };

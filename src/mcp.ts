@@ -11,7 +11,12 @@ const { version } = JSON.parse(readFileSync(new URL('../package.json', import.me
 
 /** Param 하나를 MCP 입력 스키마(zod)로. */
 function schemaOf(p: Param): z.ZodType {
-  let s: z.ZodType = p.type === 'integer' ? z.number().int().min(p.min ?? Number.MIN_SAFE_INTEGER) : z.string();
+  let s: z.ZodType =
+    p.type === 'integer'
+      ? z.number().int().min(p.min ?? Number.MIN_SAFE_INTEGER)
+      : p.choices
+        ? z.enum(p.choices as [string, ...string[]])
+        : z.string();
   const extra = p.default === undefined ? '' : ` (기본 ${p.default})`;
   s = s.describe(p.description + extra);
   return p.required ? s : s.optional();

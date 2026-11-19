@@ -23,6 +23,8 @@ export interface Param {
   default?: string | number;
   /** integer일 때 가장 작은 값. */
   min?: number;
+  /** string일 때 받을 수 있는 값(이 밖의 값은 오류). MCP 입력 스키마에서는 enum이 돼요. */
+  choices?: readonly string[];
 }
 
 /** 검사를 거친 인자. 없는 선택 인자는 기본값이 들어가요(기본값도 없으면 undefined). */
@@ -59,7 +61,11 @@ export function checkArgs(def: QueryDef, raw: Record<string, unknown>): Args {
       }
       args[p.name] = n;
     } else {
-      args[p.name] = String(value);
+      const s = String(value);
+      if (p.choices && !p.choices.includes(s)) {
+        throw new UserError(`${def.name}: ${p.name}는 ${p.choices.join(' 또는 ')} 중 하나여야 해요: ${s}`);
+      }
+      args[p.name] = s;
     }
   }
   return args;
