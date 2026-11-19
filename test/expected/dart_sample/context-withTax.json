@@ -1,0 +1,21 @@
+{
+  "query": "withTax",
+  "status": "found",
+  "symbol": {
+    "name": "withTax",
+    "qualifiedName": "withTax",
+    "kind": "function",
+    "definition": { "path": "lib/src/pricing.dart", "line": 2, "column": 5 },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      { "path": "bin/checkout.dart", "line": 5, "column": 9, "kind": "reference", "in": "main", "confidence": "precise", "source": "scip-dart" },
+      { "path": "lib/src/cart.dart", "line": 11, "column": 14, "kind": "reference", "in": "Cart.total", "confidence": "precise", "source": "scip-dart" },
+      { "path": "test/pricing_test.dart", "line": 4, "column": 7, "kind": "reference", "in": "main", "confidence": "precise", "source": "scip-dart" }
+    ]
+  }
+}
