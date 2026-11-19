@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(impact, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `search`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(impact, Python·JS/TS)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -34,6 +34,11 @@ node src/cli.ts context lib/src/cart.dart --repo path/to/repo  # 파일: 정의�
 # 다른 기능 모듈에서 가져다 쓰는 리뷰 후보, 어디서도 쓰이지 않는 공개 이름
 node src/cli.ts check --repo path/to/repo
 node src/cli.ts check --repo path/to/repo --config path/to/code-atlas.json
+
+# 검색: 정확한 이름을 몰라도 시작점 찾기(이름 일부, 대소문자 무시, 낙타 표기 조각). 많이 쓰이는 것이 먼저.
+# 결과의 key를 그대로 context에 넘겨요.
+node src/cli.ts search cartProv --repo path/to/repo
+node src/cli.ts search total --kind function,method --language dart --folder lib/src --repo path/to/repo
 
 # 묶음: 서로 촘촘히 엮인 이름들(Louvain). 묶음마다 이름, 파일, 대표 이름, 여러 모듈에 걸쳤는지(crossModule)
 node src/cli.ts clusters --repo path/to/repo
