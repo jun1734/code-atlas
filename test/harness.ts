@@ -17,6 +17,21 @@ export const fixtureDir = join(root, 'test', 'fixtures');
 export const NO_NETWORK = pathToFileURL(join(root, 'test', 'no-network.ts')).href;
 /** 차단 장치가 네트워크 시도를 잡으면 이 종료 코드로 끝나요. */
 export const NETWORK_EXIT = 97;
+/**
+ * 도구가 띄우는 자식 프로세스(scip-dart 등 Node가 아닌 색인기)에는 `--import` 장치가 닿지 않아요.
+ * 그래서 모든 도구 프로세스에 닫힌 곳(127.0.0.1:9)을 가리키는 pub 저장소와 HTTP 프록시를 줘요.
+ * 자식이 pub이나 표준 HTTP 클라이언트로 네트워크를 쓰려 하면 바로 연결이 거절돼 실패해요.
+ * 날 소켓까지 막지는 못해요(한계는 README의 "색인은 저장소를 바꾸지 않아요"와 docs/contract.md 약속 7).
+ */
+export const CHILD_NETWORK_TRAP: Record<string, string> = {
+  PUB_HOSTED_URL: 'http://127.0.0.1:9',
+  HTTP_PROXY: 'http://127.0.0.1:9',
+  HTTPS_PROXY: 'http://127.0.0.1:9',
+  http_proxy: 'http://127.0.0.1:9',
+  https_proxy: 'http://127.0.0.1:9',
+  NO_PROXY: '',
+  no_proxy: '',
+};
 
 export interface CliResult {
   status: number | null;
@@ -28,7 +43,7 @@ export interface CliResult {
 export function runCliRaw(args: string[], env: Record<string, string> = {}): CliResult {
   const r = spawnSync(process.execPath, ['--import', NO_NETWORK, cli, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...CHILD_NETWORK_TRAP, ...env },
   });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
@@ -55,7 +70,7 @@ export async function startMcp(opts: { cwd?: string; env?: Record<string, string
     command: process.execPath,
     args: ['--import', NO_NETWORK, cli, 'mcp'],
     cwd: opts.cwd,
-    env: { ...(process.env as Record<string, string>), ...opts.env },
+    env: { ...(process.env as Record<string, string>), ...CHILD_NETWORK_TRAP, ...opts.env },
     stderr: 'pipe',
   });
   const client = new Client({ name: 'code-atlas-test', version: '0.0.0' });

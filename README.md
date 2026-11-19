@@ -141,6 +141,11 @@ Dart 예제(`test/fixtures/dart_sample`)는 Riverpod provider를 묻는 질문 �
 테스트는 `test/fixtures/<예제>`를 임시 git 저장소로 복사해 명령줄로 색인하고, 명령줄과 MCP 서버(공식 SDK 클라이언트로 붙어요)로 질문해 `test/expected/<예제>/`의 정답과 비교해요. 내부 모듈은 시험하지 않아요.
 모든 도구 프로세스는 네트워크 차단 장치(`test/no-network.ts`)를 단 채로 돌아서, 네트워크를 쓰려 하면 테스트가 실패해요.
 
+**한계: 차단 장치는 도구가 띄우는 자식 프로세스(scip-dart)를 덮지 못해요.** 장치는 Node의 `--import`라 Node 프로세스 안에서만 돌아요. scip-dart는 Dart 프로세스(`dart pub global run scip_dart`)예요. 프로세스 하나의 네트워크만 막는 일은 OS 기본 기능으로 고르게 할 수 없어서(Linux의 네트워크 이름 공간은 권한이 필요하고, Windows는 방화벽 규칙에 관리자 권한이 필요해요) 다음으로 대신해요.
+
+- 테스트 틀은 모든 도구 프로세스에 닫힌 곳(`127.0.0.1:9`)을 가리키는 `PUB_HOSTED_URL`과 HTTP 프록시(`HTTP_PROXY`, `HTTPS_PROXY`)를 줘요(`test/harness.ts`의 `CHILD_NETWORK_TRAP`). 자식이 pub이나 표준 HTTP 클라이언트로 패키지를 받으려 하면 연결이 거절돼 색인이 실패해요. 날 소켓까지는 막지 못해요.
+- scip-dart가 네트워크를 쓰지 않는다는 근거: 색인기는 `pub get`을 대신 돌리지 않고(위 "색인은 저장소를 바꾸지 않아요"), scip-dart는 이미 있는 `.dart_tool/package_config.json`이 가리키는 로컬 패키지 캐시의 소스를 Dart 분석기로 읽기만 해요(패키지를 받는 일은 `pub get`의 몫이에요). `dart pub global run`은 활성화해 둔 패키지를 로컬에서 돌려요. 위 덫을 단 채로 모든 테스트의 색인이 통과해요.
+
 CI(`.github/workflows/ci.yml`)는 Linux(ubuntu)와 Windows 양쪽에서 같은 검사를 돌려요.
 
 hijo_app(커밋 7ba0197)의 check 답이 지금의 코드 지도(hijo_app `scripts/code-map/build.mjs`)와 같은지는 따로 봐요(Flutter SDK 필요, 1분쯤). 저장소를 임시 폴더로 clone해서 쓰니 원래 저장소는 바뀌지 않아요.
