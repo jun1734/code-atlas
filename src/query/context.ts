@@ -1,10 +1,11 @@
 // context: 이름 하나의 정의 위치, 종류, 사용처. 이름이 여럿에 맞으면 고르지 않고 후보를 돌려줘요.
 // 파일 경로를 물으면 그 파일이 정의하는 이름, 가져다 쓰는 파일, 쓰이는 파일을 돌려줘요.
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
+import { cut, DEFAULT_LIMIT, page, type Page } from '../answer.ts';
 import type { FileRole } from '../facts.ts';
 import type { FileLink, FileRow, GraphStore, SymbolRow, UseRow } from '../graph/store.ts';
 import type { QueryDef } from '../queries.ts';
+import { resolvePoint } from './point.ts';
 
 /** 사용처 목록. 앱 코드가 먼저, 테스트가 뒤에 오고, byRole에 역할별 전체 개수가 있어요. */
 export type Uses = Page<UseRow> & { byRole: Record<FileRole, number> };
@@ -30,15 +31,12 @@ export interface ContextBody {
   usedBy?: Page<FileLink & { uses: number }>;
 }
 
-/** 목록 전체에서 앞의 limit개만 잘라 Page로. */
-function cut<T extends Sourced>(all: T[], limit: number): Page<T> {
-  return page(all.slice(0, limit), all.length);
-}
-
 export function context(store: GraphStore, query: string, limit: number): ContextBody {
-  // 경로는 '/'로 적어요. Windows에서 '\'로 물어도 찾게 바꿔요.
-  const file = store.findFile(query.replaceAll('\\', '/'));
-  if (file) {
+  const point = resolvePoint(store, query);
+  if (point.status === 'not_found') return { query, status: 'not_found' };
+  if (point.status === 'ambiguous') return { query, status: 'ambiguous', candidates: point.candidates };
+  if (point.status === 'file') {
+    const { file } = point;
     return {
       query,
       status: 'found',
@@ -49,10 +47,7 @@ export function context(store: GraphStore, query: string, limit: number): Contex
       usedBy: cut(store.usersOf(file.path), limit),
     };
   }
-  const found = store.findSymbols(query);
-  if (found.length === 0) return { query, status: 'not_found' };
-  if (found.length > 1) return { query, status: 'ambiguous', candidates: found };
-  const { key, ...symbol } = found[0]!;
+  const { key, ...symbol } = point.symbol;
   const uses = store.usesOf(key, limit);
   return { query, status: 'found', symbol, uses: { ...page(uses.items, uses.total), byRole: uses.byRole } };
 }

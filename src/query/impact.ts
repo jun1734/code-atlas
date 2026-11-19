@@ -1,13 +1,14 @@
 // impact: 이름이나 파일을 바꾸면 영향 받는 곳. 직접 쓰는 곳에서 시작해 그곳을 쓰는 곳으로 거슬러 올라가요(graph.reach 'in').
 // 영향 받는 곳은 거리별로 세고 모듈별로 묶고, 걸린 테스트 파일은 따로 모아요. 많이 쓰이는 이름에는 hot 표시가 붙어요.
 // 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { DEFAULT_LIMIT, page, type Page, type Sourced } from '../answer.ts';
-import type { Confidence, FileRole, RelationKind, SymbolKind } from '../facts.ts';
+import { compareText, cut, DEFAULT_LIMIT, type Page, type Sourced, sourcedOf } from '../answer.ts';
+import type { FileRole, RelationKind, SymbolKind } from '../facts.ts';
 import type { GraphStore, Location, SymbolRow } from '../graph/store.ts';
 import { Graph, nodeId, type NodeId, type Reached } from '../graph/traverse.ts';
-import { moduleResolver } from '../modules.ts';
+import { type ModuleOf, repoModules } from '../modules.ts';
 import type { QueryDef } from '../queries.ts';
-import { loadRepoConfig } from '../repo-config.ts';
+import { CONFIG_PARAM } from '../repo-config.ts';
+import { locationOf, pointOfNode, resolvePoint } from './point.ts';
 
 /** "많이 쓰이는 이름"의 기본 기준: 사용처(어느 종류의 관계든)가 이만큼 이상이면 hot이에요. */
 export const DEFAULT_HOT_USES = 20;
@@ -99,26 +100,24 @@ export function impact(store: GraphStore, query: string, opts: ImpactOptions): I
   // 출발점: 파일이면 그 파일과 그 파일이 정의한 이름, 이름이면 그 심볼과 그 안의 것(멤버, 생성자).
   let starts: NodeId[];
   let target: ImpactTarget;
-  const file = store.findFile(query.replaceAll('\\', '/'));
-  if (file) {
-    starts = graph.fileNodes(file.path);
+  const point = resolvePoint(store, query);
+  if (point.status === 'not_found') return { query, status: 'not_found' };
+  if (point.status === 'ambiguous') return { query, status: 'ambiguous', candidates: point.candidates };
+  if (point.status === 'file') {
+    starts = graph.fileNodes(point.file.path);
     const names = starts.map((id) => graph.node(id)?.symbol).filter((s) => s !== undefined);
     target = {
-      ...file,
+      ...point.file,
       names: names.length,
-      hotNames: names.filter((s) => isHot(s.key)).map((s) => s.qualifiedName).sort(),
+      hotNames: names.filter((s) => isHot(s.key)).map((s) => s.qualifiedName).sort(compareText),
     };
   } else {
-    const found = store.findSymbols(query);
-    if (found.length === 0) return { query, status: 'not_found' };
-    if (found.length > 1) return { query, status: 'ambiguous', candidates: found };
-    const { key, ...symbol } = found[0]!;
-    starts = withDescendants(graph, key);
+    const { key, ...symbol } = point.symbol;
+    starts = graph.members(nodeId({ symbol: key }));
     target = { ...symbol, uses: counts.get(key) ?? 0, hot: isHot(key) };
   }
 
-  const config = loadRepoConfig(store.meta().repoRoot, opts.config);
-  const moduleOf = moduleResolver(config);
+  const { config, moduleOf } = repoModules(store, opts.config);
   // depth 다음 단계까지 한 번 더 가 보고, 그 단계는 "더 있음" 표시에만 써요.
   const reached = graph.reach(starts, 'in', opts.depth + 1).filter((r) => r.distance > 0);
   const moreBeyondDepth = reached.some((r) => r.distance > opts.depth);
@@ -147,58 +146,39 @@ export function impact(store: GraphStore, query: string, opts: ImpactOptions): I
       hotUses: opts.hotUses,
     },
     modules,
-    affected: page(items.slice(0, opts.limit), items.length),
-    tests: page(tests.slice(0, opts.limit), tests.length),
+    affected: cut(items, opts.limit),
+    tests: cut(tests, opts.limit),
   };
 }
 
-/** 심볼 하나와 그 안에 정의된 것(바깥 심볼 사슬이 그 심볼에 닿는 것)의 노드. */
-function withDescendants(graph: Graph, key: string): NodeId[] {
-  const children = new Map<string, string[]>();
-  for (const n of graph.allNodes()) {
-    const parent = n.symbol?.parentKey;
-    if (n.symbol && parent) children.set(parent, [...(children.get(parent) ?? []), n.symbol.key]);
-  }
-  const keys = [key];
-  for (let i = 0; i < keys.length; i++) keys.push(...(children.get(keys[i]!) ?? []));
-  return keys.map((k) => nodeId({ symbol: k }));
-}
-
-function toItem(graph: Graph, r: Reached, moduleOf: (path: string) => string | null, counts: Map<string, number>, hotUses: number): ImpactItem {
+function toItem(graph: Graph, r: Reached, moduleOf: ModuleOf, counts: Map<string, number>, hotUses: number): ImpactItem {
   const info = graph.node(r.node)!;
+  const point = pointOfNode(info);
   const via = r.via!;
-  const symbol = info.symbol;
-  const uses = symbol ? (counts.get(symbol.key) ?? 0) : undefined;
+  const viaNode = graph.node(via.from);
+  const uses = point.key !== undefined ? (counts.get(point.key) ?? 0) : undefined;
   return {
-    name: info.label,
-    kind: symbol ? symbol.kind : 'file',
-    path: info.path,
-    ...(symbol ? { line: symbol.definition.line } : {}),
+    name: point.name,
+    kind: point.kind,
+    path: point.path,
+    ...(point.line !== undefined ? { line: point.line } : {}),
     distance: r.distance,
     module: moduleOf(info.path),
     role: info.role,
     ...(uses !== undefined ? { uses, hot: uses >= hotUses } : {}),
-    via: { name: graph.node(via.from)?.label ?? via.from, relation: via.edge.kind, at: locationOf(via.edge.at) },
+    via: { name: viaNode ? pointOfNode(viaNode).name : via.from, relation: via.edge.kind, at: locationOf(via.edge.at) },
     confidence: r.confidence,
     source: via.edge.source,
   };
 }
 
-function locationOf(at: Location): Location {
-  return { path: at.path, line: at.line, column: at.column };
-}
-
 function byPlace(a: ImpactItem, b: ImpactItem): number {
   return (
     a.distance - b.distance ||
-    compare(a.path, b.path) ||
+    compareText(a.path, b.path) ||
     (a.line ?? 0) - (b.line ?? 0) ||
-    compare(a.name, b.name)
+    compareText(a.name, b.name)
   );
-}
-
-function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function groupByModule(items: ImpactItem[]): ImpactModule[] {
@@ -215,24 +195,25 @@ function groupByModule(items: ImpactItem[]): ImpactModule[] {
       a.nearest - b.nearest ||
       b.affected - a.affected ||
       (a.module === null ? 1 : 0) - (b.module === null ? 1 : 0) ||
-      compare(a.module ?? '', b.module ?? ''),
+      compareText(a.module ?? '', b.module ?? ''),
   );
 }
 
-/** 테스트 파일마다 가장 가까운 거리. 그 파일의 영향 받는 곳 가운데 하나라도 정밀하면 precise, 출처는 모두 모아요. */
+/**
+ * 테스트 파일마다 가장 가까운 거리. 표시는 모든 질의와 같은 규칙(sourcedOf): 그 파일의 영향 받는 곳 가운데
+ * 가장 낮은 믿음(하나라도 추정이면 추정)과 출처 모두.
+ */
 function testFiles(items: ImpactItem[]): ImpactTestFile[] {
-  const files = new Map<string, { distance: number; confidence: Confidence; sources: Set<string> }>();
+  const files = new Map<string, ImpactItem[]>();
   for (const item of items) {
     if (item.role !== 'test') continue;
-    const f = files.get(item.path) ?? { distance: item.distance, confidence: 'inferred' as Confidence, sources: new Set<string>() };
-    f.distance = Math.min(f.distance, item.distance);
-    if (item.confidence === 'precise') f.confidence = 'precise';
-    for (const s of item.source.split(',')) f.sources.add(s);
-    files.set(item.path, f);
+    const list = files.get(item.path);
+    if (list) list.push(item);
+    else files.set(item.path, [item]);
   }
   return [...files.entries()]
-    .map(([path, f]) => ({ path, distance: f.distance, confidence: f.confidence, source: [...f.sources].sort().join(',') }))
-    .sort((a, b) => a.distance - b.distance || compare(a.path, b.path));
+    .map(([path, list]) => ({ path, distance: Math.min(...list.map((i) => i.distance)), ...sourcedOf(list) }))
+    .sort((a, b) => a.distance - b.distance || compareText(a.path, b.path));
 }
 
 export const impactQuery: QueryDef = {
@@ -259,11 +240,7 @@ export const impactQuery: QueryDef = {
       default: DEFAULT_HOT_USES,
       description: `사용처가 이 수 이상인 이름에 hot 표시를 붙여요(기본 ${DEFAULT_HOT_USES}).`,
     },
-    {
-      name: 'config',
-      type: 'string',
-      description: '저장소 설정 파일 경로(모듈 기준). 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
-    },
+    CONFIG_PARAM,
   ],
   run: (store, args) =>
     impact(store, args.target as string, {
