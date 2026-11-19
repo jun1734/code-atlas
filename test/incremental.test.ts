@@ -4,16 +4,30 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { indexFixture, type IndexedFixture } from './harness.ts';
 
-/** 비교에 쓰는 질문. 고치면서 생기고 없어지는 이름도 넣어요. */
-const QUERIES = ['withTax', 'shippingFee', 'add', 'Cart', 'Cart.add', 'Cart.total', 'Wishlist.add', 'discount', 'Coupon', 'Coupon.apply'];
+/** context로 묻는 이름. 고치면서 생기고 없어지는 이름도 넣어요. */
+const NAMES = ['withTax', 'shippingFee', 'add', 'Cart', 'Cart.add', 'Cart.total', 'Wishlist.add', 'discount', 'Coupon', 'Coupon.apply'];
+
+/** 비교에 쓰는 질문(명령줄 인자). context 말고도 그래프 전체를 쓰는 질의(impact, check, trace, search, clusters)를 다 넣어요. */
+const QUESTIONS: string[][] = [
+  ...NAMES.map((q) => ['context', q]),
+  ['impact', 'withTax'],
+  ['impact', 'Cart'],
+  ['impact', 'discount'],
+  ['impact', 'lib/src/cart.dart'],
+  ['check'],
+  ['trace', 'Cart.total', '--to', 'withTax'],
+  ['trace', 'Coupon.apply', '--to', 'withTax', '--follow', 'all'],
+  ['search'],
+  ['clusters'],
+];
 
 /** 색인한 시각은 색인마다 달라서 빼고 비교해요. */
 function answers(ask: (...args: string[]) => any): Record<string, unknown> {
   return Object.fromEntries(
-    QUERIES.map((q) => {
-      const { index, ...rest } = ask('context', q);
+    QUESTIONS.map((q) => {
+      const { index, ...rest } = ask(...q);
       const { indexedAt, ...indexRest } = index;
-      return [q, { index: indexRest, ...rest }];
+      return [q.join(' '), { index: indexRest, ...rest }];
     }),
   );
 }
