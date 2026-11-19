@@ -21,6 +21,7 @@ npm ci
 
 ```sh
 # 색인: 저장소의 Dart 패키지(추적되는 pubspec.yaml마다)를 scip-dart로 색인해요.
+# 패키지마다 pub get이 먼저 돼 있어야 해요(.dart_tool/package_config.json).
 node src/cli.ts index path/to/repo
 
 # 질문: 이름 하나의 정의 위치, 종류, 사용처
@@ -30,7 +31,7 @@ node src/cli.ts context withTax --repo path/to/repo --limit 20
 ```
 
 - 답은 JSON이에요. `status`는 `found`, `ambiguous`(후보 목록 `candidates`), `not_found` 중 하나예요.
-- 모든 답에 색인 기준 커밋(`index.commit`)이 들어가요. 사용처에는 전체 개수(`total`)와 잘렸는지(`truncated`)가 들어가요.
+- 모든 답에 색인 기준 커밋(`index.commit`)과 낡았는지(`index.stale`: 색인 뒤 커밋이 바뀌었거나 작업 트리에 바뀐 파일이 있으면 `true`, git 저장소가 아니면 `null`)가 들어가요. 사용처에는 전체 개수(`total`)와 잘렸는지(`truncated`)가 들어가요.
 - 항목마다 `confidence`(`precise` 정밀 / `inferred` 추정)와 `source`(어느 색인기)가 붙어요.
 - 줄과 열은 1부터 세요.
 
@@ -39,7 +40,9 @@ node src/cli.ts context withTax --repo path/to/repo --limit 20
 ### 색인은 저장소를 바꾸지 않아요
 
 - scip-dart 산출물(`index.scip`)은 OS 임시 폴더에 쓰고 지워요.
-- `.dart_tool/package_config.json`이 없으면 `pub get`을 돌려요(Flutter 패키지면 `flutter pub get`). `pubspec.lock`이 있으면 `--enforce-lockfile`로 돌려 lock을 바꾸지 않아요. `.dart_tool/`은 보통 git이 무시하는 폴더예요.
+- `pub get`을 대신 돌리지 않아요(네트워크를 쓰고 생성 파일을 만들어서요). `.dart_tool/package_config.json`이 없으면 할 일(`dart pub get` 또는 `flutter pub get`)을 알려 주고 멈춰요.
+- 숨김 폴더(`.`으로 시작)와 `build` 폴더 안의 `pubspec.yaml`은 패키지로 보지 않아요.
+- 색인 범위: scip-dart 1.8.1은 패키지 안의 Dart 파일을 모두 색인해요(`lib`, `bin`, `test` 등). #204는 "기본은 `lib`만, 테스트는 옵션"이라고 적었지만, 그건 scip-dart의 동작을 잘못 안 것이었어요. 테스트 사용처를 따로 보여 주는 일(#204 이야기 16)은 경로로 나눠서 해요.
 
 ### 측정 (2026-11-19, Windows 11 노트북)
 

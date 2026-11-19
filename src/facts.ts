@@ -81,6 +81,17 @@ export interface Facts {
   relations: RelationFact[];
 }
 
+export function emptyFacts(): Facts {
+  return { files: [], symbols: [], relations: [] };
+}
+
+/** part의 사실을 into 뒤에 붙여요. */
+export function appendFacts(into: Facts, part: Facts): void {
+  into.files.push(...part.files);
+  into.symbols.push(...part.symbols);
+  into.relations.push(...part.relations);
+}
+
 export interface RepoInfo {
   /** 저장소 뿌리의 절대 경로. */
   root: string;

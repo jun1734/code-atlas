@@ -27,6 +27,7 @@ interface RepoInfo {
 어댑터가 지킬 것:
 
 - 저장소의 추적 파일을 바꾸지 않아요. 임시 산출물은 `workDir`(저장소 밖)에 써요.
+- 네트워크를 쓰지 않아요. 패키지 설치(`pub get`, `npm install` 등)가 필요하면 대신 돌리지 않고 할 일을 알려 줘요.
 - 경로는 저장소 뿌리 기준 상대 경로, 구분자는 항상 `/`예요.
 - 심볼 열쇠(`key`)는 저장소 안에서 심볼 하나를 가리키고, OS에 따라 달라지지 않아요.
 - 색인기가 없으면 설치 방법을 담은 오류를 내요.
@@ -89,11 +90,13 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 - 모든 간선과 심볼에 신뢰도(`precise`/`inferred`)와 출처(색인기)가 있어요.
 - `to_symbol_key`는 저장소 밖 심볼(예: `dart:core`의 `print`)도 가리킬 수 있어요. 그런 심볼은 `symbols`에 없어요.
 - 색인할 때마다 전체를 한 트랜잭션으로 바꿔요. 바뀐 파일만 반영하는 증분 색인은 뒤 티켓에서 해요.
-- 바깥에 보이는 것은 `GraphStore.replaceAll(facts, meta)`(넣기)와 질의 함수(`findSymbols`, `usesOf`, `meta`)뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
+- 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`replaceAll(facts, meta)`), 질의 함수(`findSymbols`, `usesOf`, `meta`, `counts`)뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
 
 ## 질의: context
 
-`src/query/context.ts`. 이름을 `key` → `qualifiedName` → `name` 순으로 찾고, 처음 맞는 단계의 결과를 써요.
+`src/query/context.ts`. 이름을 `key` → `qualifiedName` → `name` 순으로 찾고, 처음 맞는 단계의 결과를 써요. 파일과 매개변수(`kind`가 `file`, `parameter`)는 찾지 않아요.
+
+모든 답의 `index`에는 `commit`, `indexedAt`, `stale`(`src/freshness.ts`: HEAD가 색인 커밋과 다르거나 `git status`에 바뀐 파일이 있으면 `true`)이 들어가요.
 
 - 하나: `status: 'found'`, 정의와 사용처(앞에서부터 `--limit`개, `total`, `truncated`).
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.

@@ -3,11 +3,11 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { dartAdapter } from './adapters/dart.ts';
-import type { Facts, LanguageAdapter, RepoInfo } from './facts.ts';
+import { appendFacts, emptyFacts, type LanguageAdapter, type RepoInfo } from './facts.ts';
 import { GraphStore } from './graph/store.ts';
 import { run } from './run.ts';
 
-export const ADAPTERS: LanguageAdapter[] = [dartAdapter];
+const ADAPTERS: LanguageAdapter[] = [dartAdapter];
 
 export interface IndexSummary {
   repo: string;
@@ -40,13 +40,10 @@ export async function indexRepo(repoPath: string, dbPath: string): Promise<Index
 
   // 색인기 산출물은 저장소 밖 임시 폴더에 써서 저장소를 건드리지 않아요.
   const workDir = mkdtempSync(join(tmpdir(), 'code-atlas-'));
-  const facts: Facts = { files: [], symbols: [], relations: [] };
+  const facts = emptyFacts();
   try {
     for (const adapter of adapters) {
-      const part = await adapter.index(info, workDir);
-      facts.files.push(...part.files);
-      facts.symbols.push(...part.symbols);
-      facts.relations.push(...part.relations);
+      appendFacts(facts, await adapter.index(info, workDir));
     }
   } finally {
     rmSync(workDir, { recursive: true, force: true });

@@ -17,7 +17,9 @@ const USAGE = `사용법:
 /** 저장소 경로마다 저장소 밖에 색인 파일 자리를 하나씩 정해요. */
 function defaultDb(repo: string): string {
   const abs = resolve(repo);
-  const hash = createHash('sha1').update(abs.toLowerCase()).digest('hex').slice(0, 8);
+  // Windows 경로는 대소문자를 가리지 않아서 소문자로 맞춰요.
+  const id = process.platform === 'win32' ? abs.toLowerCase() : abs;
+  const hash = createHash('sha1').update(id).digest('hex').slice(0, 8);
   const home = process.env.CODE_ATLAS_HOME ?? join(homedir(), '.code-atlas');
   return join(home, `${basename(abs)}-${hash}.db`);
 }

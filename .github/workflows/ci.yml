@@ -24,7 +24,8 @@ jobs:
           cache: npm
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: stable
+          # scip-dart 1.8.1을 시험한 SDK예요. 올릴 때는 scip-dart와 함께 올려요.
+          sdk: 3.13.7
       - name: scip-dart 설치
         run: dart pub global activate scip_dart 1.8.1
       - run: npm ci

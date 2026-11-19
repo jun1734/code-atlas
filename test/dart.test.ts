@@ -14,25 +14,34 @@ describe('dart_sample', () => {
     const { index, ...answer } = fx.ask('context', 'withTax');
     assert.deepEqual(answer, expected('dart_sample', 'context-withTax.json'));
     assert.equal(index.commit, fx.head());
+    assert.equal(index.stale, false);
   });
 
   it('색인은 예제 저장소의 추적 파일을 바꾸지 않는다', () => {
     assert.equal(fx.gitStatus(), '');
   });
 
-  it('같은 이름이 여럿이면 하나를 고르지 않고 후보를 돌려주고, 후보 이름으로 다시 물을 수 있다', () => {
+  it('같은 이름이 여럿이면 하나를 고르지 않고 후보를 돌려준다', () => {
     const { index, ...answer } = fx.ask('context', 'add');
     assert.deepEqual(answer, expected('dart_sample', 'context-add.json'));
-    const again = fx.ask('context', 'Wishlist.add');
-    assert.equal(again.status, 'found');
-    assert.deepEqual(again.symbol.definition, { path: 'lib/src/cart.dart', line: 20, column: 8 });
-    assert.deepEqual(again.uses, { total: 0, truncated: false, items: [] });
+  });
+
+  it('후보의 바깥 타입을 붙인 이름으로 다시 물으면 그 하나를 돌려준다', () => {
+    const { index, ...answer } = fx.ask('context', 'Wishlist.add');
+    assert.deepEqual(answer, expected('dart_sample', 'context-Wishlist.add.json'));
   });
 
   it('사용처가 limit보다 많으면 잘린 사실과 전체 개수를 돌려준다', () => {
-    const answer = fx.ask('context', 'withTax', '--limit', '1');
-    assert.equal(answer.uses.total, 3);
-    assert.equal(answer.uses.truncated, true);
-    assert.equal(answer.uses.items.length, 1);
+    const { uses } = fx.ask('context', 'withTax', '--limit', '1');
+    assert.deepEqual(uses, { ...expected('dart_sample', 'context-withTax.json').uses, truncated: true, items: [expected('dart_sample', 'context-withTax.json').uses.items[0]] });
+  });
+
+  it('색인 뒤에 파일이 바뀌면 답에 낡았다고 표시한다', () => {
+    fx.append('lib/src/pricing.dart', '\n// 바뀜\n');
+    try {
+      assert.equal(fx.ask('context', 'withTax').index.stale, true);
+    } finally {
+      fx.restore();
+    }
   });
 });

@@ -3,8 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import protobuf from 'protobufjs';
-import type { Facts, Range, RelationFact, RelationKind, SymbolFact, SymbolKind } from '../facts.ts';
-import { parseSymbol, symbolNames } from './symbol.ts';
+import { emptyFacts, type Facts, type Range, type RelationFact, type RelationKind, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { parseSymbol, symbolNames, type ParsedSymbol } from './symbol.ts';
 
 const protoPath = fileURLToPath(new URL('../../proto/scip.proto', import.meta.url));
 const IndexType = protobuf.loadSync(protoPath).lookupType('scip.Index');
@@ -27,7 +27,6 @@ interface ScipSymbolInformation {
   kind?: string;
   displayName?: string;
   enclosingSymbol?: string;
-  relationships?: { symbol?: string; isImplementation?: boolean }[];
 }
 
 interface ScipDocument {
@@ -63,6 +62,7 @@ function contains(outer: Range, inner: Range): boolean {
   return startsAfter && endsBefore;
 }
 
+/** 범위의 크기. 줄 수를 먼저 견주고, 같으면 열 수로 견줘요(한 줄은 100000열을 넘지 않는다고 봐요). */
 function size(r: Range): number {
   return (r.endLine - r.startLine) * 100000 + (r.endColumn - r.startColumn);
 }
@@ -119,9 +119,9 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
     defaults: false,
   }) as { documents?: ScipDocument[] };
 
-  const join = (p: string) => (opts.pathPrefix ? `${opts.pathPrefix}/${p}` : p);
-  const facts: Facts = { files: [], symbols: [], relations: [] };
-  const docs = (decoded.documents ?? []).map((d) => ({ ...d, path: join(norm(d.relativePath ?? '')) }));
+  const withPrefix = (p: string) => (opts.pathPrefix ? `${opts.pathPrefix}/${p}` : p);
+  const facts: Facts = emptyFacts();
+  const docs = (decoded.documents ?? []).map((d) => ({ ...d, path: withPrefix(norm(d.relativePath ?? '')) }));
 
   // 1) 파일과 정의. 정의는 occurrence의 Definition 역할로 찾아요.
   const fileKeys = new Map<string, string>(); // 파일 심볼 → 경로
@@ -145,7 +145,7 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
       const range = toRange(occ.range);
       if (!names || !range) continue;
       const info = infos.get(key);
-      const parentKey = info?.enclosingSymbol ? norm(info.enclosingSymbol) : parentFromDescriptors(key);
+      const parentKey = info?.enclosingSymbol ? norm(info.enclosingSymbol) : parentFromDescriptors(key, parsed);
       defs.push({
         key,
         name: info?.displayName || names.name,
@@ -170,7 +170,7 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
       const roles = occ.symbolRoles ?? 0;
       if (!occ.symbol || roles & ROLE_DEFINITION) continue;
       const key = norm(occ.symbol);
-      if (key.startsWith('local ')) continue;
+      if (parseSymbol(key).local) continue;
       const range = toRange(occ.range);
       if (!range) continue;
       const enclosing = defs
@@ -192,8 +192,7 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
 }
 
 /** 심볼 문자열에서 마지막 기술자를 떼어 바깥 심볼의 key를 만들어요(타입 안의 멤버일 때만). */
-function parentFromDescriptors(key: string): string | undefined {
-  const parsed = parseSymbol(key);
+function parentFromDescriptors(key: string, parsed: ParsedSymbol): string | undefined {
   const parent = parsed.descriptors.at(-2);
   if (!parent || parent.suffix !== 'type') return undefined;
   const idx = key.lastIndexOf('#');

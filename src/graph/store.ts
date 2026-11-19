@@ -1,7 +1,7 @@
 // 그래프 저장소: 언어와 무관한 스키마를 SQLite 파일 하나에 둬요.
 // 바깥에는 "사실을 넣는다"(replaceAll)와 "그래프에 묻는다"(아래 질의 함수)만 보여요.
 // 스키마 설명은 docs/architecture.md에 있어요.
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Confidence, Facts, RelationKind, SymbolKind } from '../facts.ts';
@@ -83,6 +83,11 @@ export interface UseRow extends Location {
   source: string;
 }
 
+/** 저장소 안의 0부터 세는 줄·열을 답에 쓰는 1부터 세는 위치로. */
+function toLocation(path: string, line: number, col: number): Location {
+  return { path, line: line + 1, column: col + 1 };
+}
+
 export class GraphStore {
   private readonly db: DatabaseSync;
 
@@ -98,19 +103,18 @@ export class GraphStore {
     return new GraphStore(db);
   }
 
-  /** 이미 있는 색인 파일만 열어요. 없으면 null. */
+  /** 이미 있는 색인 파일만 열어요. 파일이 없으면 null, 스키마 버전이 다르면 다시 색인하라는 오류를 던져요. */
   static openExisting(path: string): GraphStore | null {
-    try {
-      const db = new DatabaseSync(path, { open: true, readOnly: true });
-      const row = db.prepare(`SELECT value FROM meta WHERE key = 'schema'`).get() as { value: string } | undefined;
-      if (row?.value !== SCHEMA_VERSION) {
-        db.close();
-        return null;
-      }
-      return new GraphStore(db);
-    } catch {
-      return null;
+    if (!existsSync(path)) return null;
+    const db = new DatabaseSync(path, { readOnly: true });
+    const row = db.prepare(`SELECT value FROM meta WHERE key = 'schema'`).get() as { value: string } | undefined;
+    if (row?.value !== SCHEMA_VERSION) {
+      db.close();
+      throw new Error(
+        `색인의 스키마 버전(${row?.value ?? '없음'})이 이 도구(${SCHEMA_VERSION})와 달라요. code-atlas index 로 다시 색인해요: ${path}`,
+      );
     }
+    return new GraphStore(db);
   }
 
   close(): void {
@@ -218,7 +222,7 @@ export class GraphStore {
           name: r.name,
           qualifiedName: r.qualifiedName,
           kind: r.kind,
-          definition: { path: r.path, line: r.line + 1, column: r.col + 1 },
+          definition: toLocation(r.path, r.line, r.col),
           confidence: r.confidence,
           source: r.source,
         }));
@@ -246,9 +250,7 @@ export class GraphStore {
     return {
       total,
       items: rows.map((r) => ({
-        path: r.path,
-        line: r.line + 1,
-        column: r.col + 1,
+        ...toLocation(r.path, r.line, r.col),
         kind: r.kind,
         ...(r.inName ? { in: r.inName } : {}),
         confidence: r.confidence,

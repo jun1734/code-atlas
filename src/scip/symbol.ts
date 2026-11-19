@@ -74,23 +74,23 @@ export function parseSymbol(symbol: string): ParsedSymbol {
     }
     const [name, next] = readName(symbol, i);
     i = next;
-    const s = symbol[i];
-    if (s === '/') {
+    const suffixChar = symbol[i];
+    if (suffixChar === '/') {
       descriptors.push({ name, suffix: 'namespace' });
       i++;
-    } else if (s === '#') {
+    } else if (suffixChar === '#') {
       descriptors.push({ name, suffix: 'type' });
       i++;
-    } else if (s === '.') {
+    } else if (suffixChar === '.') {
       descriptors.push({ name, suffix: 'term' });
       i++;
-    } else if (s === ':') {
+    } else if (suffixChar === ':') {
       descriptors.push({ name, suffix: 'meta' });
       i++;
-    } else if (s === '!') {
+    } else if (suffixChar === '!') {
       descriptors.push({ name, suffix: 'macro' });
       i++;
-    } else if (s === '(') {
+    } else if (suffixChar === '(') {
       // 메서드: name(disambiguator).
       const end = symbol.indexOf(').', i);
       i = end < 0 ? symbol.length : end + 2;
