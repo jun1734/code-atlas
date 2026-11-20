@@ -572,6 +572,32 @@ export class GraphStore {
     return new Map(rows.map((r) => [r.key, Number(r.n)]));
   }
 
+  /**
+   * 매개변수 심볼 → 그 매개변수가 적힌 자리를 감싸는 가장 안쪽의 정의(함수, 생성자 등). 감싸는 정의가 없으면 null.
+   * 매개변수는 정의 목록(definitions)에 없어서, 관계의 끝이 매개변수면(예: 매개변수 기본값 `{int x = baseFee}`가 baseFee를 읽음)
+   * 그래프 탐색이 그 끝을 감싸는 정의로 옮겨 붙일 때 써요. 색인기가 매개변수의 바깥 심볼(parent_key)을 주지 않아서
+   * 정의가 차지하는 줄(extentsIn)로 찾아요.
+   */
+  parameterOwners(): Map<string, string | null> {
+    const rows = this.db
+      .prepare(`SELECT s.key, f.path, s.line FROM symbols s JOIN files f ON f.id = s.file_id WHERE s.kind = 'parameter'`)
+      .all() as { key: string; path: string; line: number }[];
+    const extents = new Map<string, ExtentRow[]>();
+    const owners = new Map<string, string | null>();
+    for (const r of rows) {
+      let list = extents.get(r.path);
+      if (!list) extents.set(r.path, (list = this.extentsIn(r.path)));
+      const line = Number(r.line) + 1;
+      let best: ExtentRow | null = null;
+      for (const e of list) {
+        if (e.extent.start > line || e.extent.end < line) continue;
+        if (!best || e.extent.end - e.extent.start < best.extent.end - best.extent.start) best = e;
+      }
+      owners.set(r.key, best?.key ?? null);
+    }
+    return owners;
+  }
+
   /** 사용처(어느 종류의 관계든)가 하나라도 있는 심볼의 열쇠. */
   referencedKeys(): Set<string> {
     const rows = this.db

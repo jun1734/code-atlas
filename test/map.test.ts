@@ -89,7 +89,8 @@ describe('modular_sample map', () => {
   });
 
   it('지도 자료가 정답과 같다(check의 답을 그대로 쓰고, 파일마다 줄 수·변경·쓰임·테스트가 붙는다)', () => {
-    const { head, commit, date, ...rest } = data;
+    const { head, commit, date, graph, ...rest } = data;
+    assert.equal(graph, 'map-graph.html', '파일 줄이 이어 줄 그래프 화면');
     assert.match(date, /^\d{4}-\d{2}-\d{2}$/);
     assert.deepEqual(rest, expected('modular_sample', 'map.json'));
   });
@@ -113,7 +114,7 @@ describe('modular_sample map', () => {
     assert.equal(r.status, 0, r.stderr);
     assert.equal(JSON.parse(r.stdout).indexed, true);
     assert.ok(existsSync(freshDb));
-    const { head, commit, date, ...rest } = dataOf(readFileSync(out, 'utf8'));
+    const { head, commit, date, graph, ...rest } = dataOf(readFileSync(out, 'utf8'));
     assert.deepEqual(rest, expected('modular_sample', 'map.json'));
   });
 

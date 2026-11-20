@@ -10,6 +10,11 @@ export function nodeId(ref: NodeRef): NodeId {
   return 'symbol' in ref ? `s:${ref.symbol}` : `f:${ref.file}`;
 }
 
+/** nodeId의 반대: 노드 id를 관계의 끝 꼴로. */
+function refOf(id: NodeId): NodeRef {
+  return id.startsWith('s:') ? { symbol: id.slice(2) } : { file: id.slice(2) };
+}
+
 /** 노드 하나의 정보. 파일 노드는 symbol이 없어요. */
 export interface NodeInfo {
   id: NodeId;
@@ -59,9 +64,20 @@ export class Graph {
       const path = d.definition.path;
       g.nodes.set(id, { id, label: d.qualifiedName, path, role: roles.get(path) ?? 'app', symbol: d });
     }
-    for (const e of store.edges(options.kinds ? { kinds: options.kinds } : {})) {
-      const from = nodeId(e.from);
-      const to = nodeId(e.to);
+    // 매개변수는 노드가 아니에요(정의 목록에 없어요). 관계의 끝이 매개변수면 그 매개변수를 가진 함수·생성자로 옮겨 붙여요.
+    // 바깥 심볼이 없으면 출발은 사용처가 있는 파일, 도착이면 그 관계를 빼요.
+    const owners = store.parameterOwners();
+    const fold = (ref: NodeRef, filePath: string, isFrom: boolean): NodeId | null => {
+      if (!('symbol' in ref) || !owners.has(ref.symbol)) return nodeId(ref);
+      const owner = owners.get(ref.symbol);
+      if (owner) return nodeId({ symbol: owner });
+      return isFrom ? nodeId({ file: filePath }) : null;
+    };
+    for (const raw of store.edges(options.kinds ? { kinds: options.kinds } : {})) {
+      const from = fold(raw.from, raw.at.path, true);
+      const to = fold(raw.to, raw.at.path, false);
+      if (from === null || to === null) continue;
+      const e: EdgeRow = from === nodeId(raw.from) && to === nodeId(raw.to) ? raw : { ...raw, from: refOf(from), to: refOf(to) };
       if (from === to) continue;
       push(g.outEdges, from, e);
       push(g.inEdges, to, e);

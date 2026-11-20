@@ -27,7 +27,7 @@ export interface SearchBody {
 }
 
 /** 이름을 낱말로 쪼개요: cartProvider → cart, Provider / HTTPServer → HTTP, Server / snake_case → snake, case. */
-function words(name: string): string[] {
+export function words(name: string): string[] {
   return name.match(/[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+/g) ?? [];
 }
 
@@ -38,7 +38,7 @@ function words(name: string): string[] {
  *   (cartProv, CP → cartProvider). 건너뛰는 낱말이 있어도 돼요.
  * - 점(.)이 있으면 바깥 타입을 붙인 이름(qualifiedName)에서 이름 일부로 찾아요(Cart.ad → Cart.add).
  */
-function matches(query: string, row: SearchRow): boolean {
+export function matches(query: string, row: Pick<SearchRow, 'name' | 'qualifiedName'>): boolean {
   const q = query.toLowerCase();
   if (query.includes('.')) return row.qualifiedName.toLowerCase().includes(q);
   if (row.name.toLowerCase().includes(q)) return true;

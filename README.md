@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도와 이름 그래프 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -86,8 +86,13 @@ node src/cli.ts map --repo path/to/repo --out build/map.html  # 나올 파일을
 
 - 명령 한 번이면 돼요: 색인이 없거나 낡았으면(`index.stale`) 먼저 색인하고 그려요. 출력은 나온 파일(`out`), 그 전에 색인했는지(`indexed`), 브랜치·커밋과 개수를 담은 JSON이에요.
 - 구조 계산은 `check`의 답을 그대로 써요. 모듈 기준과 화면 설정(제목, 띠로 그릴 모듈, 외부 SDK 목록, 리뷰 후보 메모)은 `.code-atlas.json`(`--config`)이에요. 형식은 [docs/architecture.md](docs/architecture.md#코드-지도-map)에 있어요.
-- 파일 줄마다 `#file=<경로>`로 가리킬 수 있어요(예: `…-map.html#file=lib/src/cart.dart`). 그 파일 하나만 남기고 줄로 데려가요.
+- 파일 줄마다 `#file=<경로>`로 가리킬 수 있어요(예: `…-map.html#file=lib/src/cart.dart`). 그 파일 하나만 남기고 줄로 데려가요. 파일 이름을 누르면 아래 이름 그래프 화면의 그 파일로 가요.
 - 나온 파일만 쓰고 저장소는 바꾸지 않아요(`--out`으로 저장소 안을 고르면 거기 써요). 화면은 글꼴을 Google Fonts에서 받아요(없으면 시스템 글꼴). 코드는 밖으로 나가지 않아요.
+
+**이름 그래프 화면.** 같은 명령이 지도 옆에 `<이름>-graph.html`도 그려요(출력의 `graph`). 이름이나 파일을 검색해 고르면(검색 규칙은 `search`와 같아요: 이름 일부, 낙타 표기 조각) 가운데에 놓고, 왼쪽에 정의된 곳, 오른쪽에 그것을 쓰는 곳을 거리별로(1, 2, 3) 그려요. 노드를 누르면 그 이름으로 옮겨 가고, 아래에 사용처(줄, 관계 종류)와 영향 범위 목록이 나와요. 정밀 관계는 실선, 추정 관계는 노란 점선이에요.
+
+- 자료는 `search`·`context`·`impact`의 답을 그대로 담았어요(이름마다 사용처 50개, 영향 받는 곳 80개까지. 넘으면 명령줄로 보는 법을 적어요).
+- 밖에서 아무것도 받지 않아요(네트워크 없이 열려요). 주소는 `#symbol=<열쇠>`나 `#file=<경로>`예요.
 
 ### 다시 색인하기와 색인 요약
 

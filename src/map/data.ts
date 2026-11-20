@@ -72,6 +72,8 @@ export interface MapData {
   /** 외부 패키지의 보일 이름(설정에 적은 것만). */
   pkgNames: Record<string, string>;
   select: string | null;
+  /** 이름 단위 그래프 화면의 파일 이름(같은 폴더). 파일 줄에서 `<graph>#file=<경로>`로 이어요. `map` 명령이 그릴 때 채워요. */
+  graph?: string;
 }
 
 const git = (root: string, args: string[]) => {
