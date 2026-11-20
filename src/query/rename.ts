@@ -9,7 +9,7 @@ import { compareText, cut, DEFAULT_LIMIT, type Page } from '../answer.ts';
 import { placeKey, positionKey, type Confidence, type FileRole, type RelationKind } from '../facts.ts';
 import type { GraphStore, SymbolRow } from '../graph/store.ts';
 import { codeIdentifiersAt, inferredSource } from '../inferred/layer.ts';
-import { inferredFor } from '../languages.ts';
+import { inferredForFile } from '../languages.ts';
 import { UserError } from '../locate.ts';
 import type { QueryDef } from '../queries.ts';
 import { resolvePoint } from './point.ts';
@@ -256,7 +256,7 @@ async function unlinkedSites(
 ): Promise<Omit<RenameSite, 'endColumn' | 'oldText' | 'newText'>[]> {
   const path = target.definition.path;
   const file = store.findFile(path);
-  const rules = file ? inferredFor(file.language) : undefined;
+  const rules = file ? inferredForFile(path) : undefined;
   if (!file || !rules) return [];
   const extents = store.extentsIn(path);
   const ownerKey = parentKey ?? target.key;

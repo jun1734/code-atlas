@@ -25,7 +25,10 @@ export const LANGUAGES: LanguageSetup[] = [
   { language: 'typescript', precise: typescriptAdapter, inferred: typescriptInferred },
 ];
 
-/** 파일 사실의 language(정밀 어댑터의 language와 같은 이름)에 맞는 추정 규칙. 없으면 undefined. */
-export function inferredFor(language: string): InferredLanguage | undefined {
-  return LANGUAGES.find((l) => l.language === language)?.inferred;
+/**
+ * 파일 하나를 읽는 추정 규칙(그 규칙의 owns가 맡는 파일). 없으면 undefined.
+ * 파일의 language로 찾지 않아요: 규칙 하나가 여러 파일 언어를 맡을 수 있어요(JS/TS 규칙은 javascript와 typescript 파일).
+ */
+export function inferredForFile(path: string): InferredLanguage | undefined {
+  return LANGUAGES.find((l) => l.inferred?.owns(path))?.inferred;
 }

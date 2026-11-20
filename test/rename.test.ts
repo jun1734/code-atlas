@@ -262,6 +262,37 @@ describe('추정 층이 찾은 자리는 계획에서 따로 나온다', () => {
     }
   });
 
+  it('JavaScript 파일도 unlinked를 찾는다: 색인이 getter로 합친 setter 선언(js_sample, scip-typescript)', () => {
+    const fx = indexFixture('js_sample', {
+      extraFiles: {
+        'src/badge.js': [
+          'class Badge {',
+          '  get text() {',
+          "    return 'new';",
+          '  }',
+          '  set text(value) {',
+          '    console.log(value);',
+          '  }',
+          '}',
+          '',
+          'module.exports = { Badge };',
+          '',
+        ].join('\n'),
+      },
+    });
+    try {
+      const plan = fx.ask('rename', 'Badge.text', '--to', 'caption');
+      assert.equal(plan.status, 'found');
+      assert.deepEqual(sites(plan.edits), [['src/badge.js', 2, 7, 'definition']]);
+      assert.deepEqual(
+        plan.unlinked.items.map((s: any) => [s.path, s.line, s.column, s.kind, s.in, s.confidence, s.source]),
+        [['src/badge.js', 5, 7, 'unlinked', 'Badge', 'inferred', 'tree-sitter-typescript']],
+      );
+    } finally {
+      fx.dispose();
+    }
+  });
+
   it('정밀 색인기가 없을 때(rename_sample, scip-dart 없음): 모든 자리가 inferred에 나오고 edits는 비어 있다', () => {
     const fx = indexFixture('rename_sample', { env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-dart' } });
     try {
