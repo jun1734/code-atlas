@@ -7,7 +7,7 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Confidence, Facts, FileRole, RelationFact, RelationKind, SymbolFact, SymbolKind } from '../facts.ts';
 
-const SCHEMA_VERSION = '4';
+const SCHEMA_VERSION = '5';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS relations (
   to_path TEXT,
   confidence TEXT NOT NULL,
   kind_confidence TEXT NOT NULL,
+  doc INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS relations_to_symbol ON relations(to_symbol_key);
@@ -142,6 +143,8 @@ export interface UseRow extends Location {
   kindConfidence: Confidence;
   /** 사용처를 감싸는 심볼의 이름. 파일 최상위면 없음. */
   in?: string;
+  /** 문서 주석 안의 언급이면 true(RelationFact.doc). 코드의 사용처면 없음. */
+  doc?: true;
   confidence: Confidence;
   source: string;
 }
@@ -255,8 +258,8 @@ export class GraphStore {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       const putRelation = db.prepare(
-        `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_path, confidence, kind_confidence, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_path, confidence, kind_confidence, doc, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       // 새로 생겼거나 사실이 달라진 파일. 경로 순으로 넣어 같은 사실이면 같은 그래프가 되게 해요.
       for (const [path, part] of [...byFile].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
@@ -308,6 +311,7 @@ export class GraphStore {
             'path' in r.to ? r.to.path : null,
             r.confidence,
             r.kindConfidence,
+            r.doc ? 1 : 0,
             r.source,
           );
         }
@@ -400,7 +404,7 @@ export class GraphStore {
     for (const c of counts) byRole[c.role] = Number(c.n);
     const rows = this.db
       .prepare(
-        `SELECT f.path, f.role, r.line, r.col, r.kind, r.kind_confidence AS kindConfidence, r.confidence, r.source,
+        `SELECT f.path, f.role, r.line, r.col, r.kind, r.kind_confidence AS kindConfidence, r.doc, r.confidence, r.source,
                 (SELECT s.qualified_name FROM symbols s WHERE s.key = r.from_symbol_key) AS inName
          ${from}
          ORDER BY CASE f.role WHEN 'app' THEN 0 ELSE 1 END, f.path, r.line, r.col
@@ -416,6 +420,7 @@ export class GraphStore {
       confidence: Confidence;
       source: string;
       inName: string | null;
+      doc: number;
     }[];
     return {
       total: byRole.app + byRole.test,
@@ -426,6 +431,7 @@ export class GraphStore {
         kind: r.kind,
         kindConfidence: r.kindConfidence,
         ...(r.inName ? { in: r.inName } : {}),
+        ...(r.doc ? { doc: true as const } : {}),
         confidence: r.confidence,
         source: r.source,
       })),
@@ -493,6 +499,7 @@ export class GraphStore {
 
   /**
    * 이 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 어느 파일을 거쳐 가져왔든(barrel 포함) 이름으로 이어져요.
+   * 문서 주석 안의 언급(doc)은 쓰는 것이 아니라 빼요.
    * 앱 코드가 먼저, 테스트가 뒤에 와요.
    */
   usersOf(path: string): (FileLink & { uses: number })[] {
@@ -504,7 +511,7 @@ export class GraphStore {
          JOIN symbols s ON s.key = r.to_symbol_key
          JOIN files d ON d.id = s.file_id
          JOIN files u ON u.id = r.from_file_id
-         WHERE d.path = ? AND u.id != d.id
+         WHERE d.path = ? AND u.id != d.id AND r.doc = 0
          GROUP BY u.id
          ORDER BY CASE u.role WHEN 'app' THEN 0 ELSE 1 END, u.path`,
       )
@@ -576,7 +583,7 @@ export class GraphStore {
   }
 
   /**
-   * 심볼별 사용처 수(어느 종류의 관계든, usesOf의 total과 같아요). 사용처가 없는 심볼은 빠져요.
+   * 심볼별 사용처 수(어느 종류의 관계든, 문서 주석 안의 언급도 넣어서 usesOf의 total과 같아요). 사용처가 없는 심볼은 빠져요.
    * "많이 쓰이는 이름" 표시(impact)와 검색 정렬(search)이 같은 수를 쓰게 해요.
    */
   useCounts(): Map<string, number> {
@@ -612,16 +619,17 @@ export class GraphStore {
     return owners;
   }
 
-  /** 사용처(어느 종류의 관계든)가 하나라도 있는 심볼의 열쇠. */
+  /** 코드의 사용처(어느 종류의 관계든, 문서 주석 안의 언급은 빼요)가 하나라도 있는 심볼의 열쇠. */
   referencedKeys(): Set<string> {
     const rows = this.db
-      .prepare('SELECT DISTINCT to_symbol_key AS key FROM relations WHERE to_symbol_key IS NOT NULL')
+      .prepare('SELECT DISTINCT to_symbol_key AS key FROM relations WHERE to_symbol_key IS NOT NULL AND doc = 0')
       .all() as { key: string }[];
     return new Set(rows.map((r) => r.key));
   }
 
   /**
    * 파일마다 가리키는 저장소 밖 심볼(예: 다른 패키지의 라이브러리, dart:core의 print)의 열쇠. 같은 쌍은 한 번만, 경로·열쇠 순.
+   * 문서 주석 안의 언급은 빼요.
    * 코드 지도의 "외부 SDK가 닿는 파일"이 써요.
    */
   externalRefs(): { path: string; key: string }[] {
@@ -629,7 +637,7 @@ export class GraphStore {
       .prepare(
         `SELECT DISTINCT f.path, r.to_symbol_key AS key
          FROM relations r JOIN files f ON f.id = r.from_file_id
-         WHERE r.to_symbol_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM symbols s WHERE s.key = r.to_symbol_key)
+         WHERE r.to_symbol_key IS NOT NULL AND r.doc = 0 AND NOT EXISTS (SELECT 1 FROM symbols s WHERE s.key = r.to_symbol_key)
          ORDER BY f.path, key`,
       )
       .all() as { path: string; key: string }[];
@@ -638,10 +646,10 @@ export class GraphStore {
   /**
    * 그래프 탐색용 간선 전부. 관계 하나가 간선 하나예요.
    * 출발은 사용처를 감싸는 심볼(없으면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import)이에요.
-   * 저장소 밖 심볼(예: dart:core의 print)을 가리키는 관계는 빼요.
+   * 저장소 밖 심볼(예: dart:core의 print)을 가리키는 관계와 문서 주석 안의 언급(doc)은 빼요.
    */
   edges(filter: { kinds?: RelationKind[] } = {}): EdgeRow[] {
-    const where = ['(t.key IS NOT NULL OR tf.id IS NOT NULL)'];
+    const where = ['(t.key IS NOT NULL OR tf.id IS NOT NULL)', 'r.doc = 0'];
     const params: string[] = [];
     if (filter.kinds) {
       where.push(`r.kind IN (${filter.kinds.map(() => '?').join(', ')})`);

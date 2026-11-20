@@ -34,6 +34,8 @@ export interface RenameSite {
   role: FileRole;
   /** 이 자리를 감싸는 심볼의 이름. 파일 최상위면 없음. */
   in?: string;
+  /** 문서 주석 안의 언급(Dart `/// [withTax]` 등)이면 true. 코드가 아니지만 문서의 링크도 함께 고쳐요. */
+  doc?: true;
   confidence: Confidence;
   source: string;
 }
@@ -151,7 +153,7 @@ export async function rename(store: GraphStore, query: string, newName: string, 
     const d = t.definition;
     add({ path: d.path, line: d.line, column: d.column, kind: 'definition', role: roleOf(d.path), confidence: t.confidence, source: t.source });
     for (const u of store.usesOf(t.key, Number.MAX_SAFE_INTEGER).items) {
-      add({ path: u.path, line: u.line, column: u.column, kind: u.kind, role: u.role, ...(u.in ? { in: u.in } : {}), confidence: u.confidence, source: u.source });
+      add({ path: u.path, line: u.line, column: u.column, kind: u.kind, role: u.role, ...(u.in ? { in: u.in } : {}), ...(u.doc ? { doc: true } : {}), confidence: u.confidence, source: u.source });
     }
   }
 

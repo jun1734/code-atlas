@@ -81,6 +81,13 @@ export function refineDartFacts(raw: Facts, opts: RefineOptions): Facts {
     if (r.kind !== 'reference' || !('symbolKey' in r.to)) continue;
     const src = source(r.from.path);
     if (src === null) continue;
+    // 문서 주석 안의 언급(dartdoc 링크 `[withTax]`)은 코드의 사용처가 아니에요. 종류는 reference 그대로 두고 표시해요.
+    // 주석인지는 줄 머리의 `///`나 `/**`로 가려서(Dart 문법이 정한 꼴) 종류의 믿음은 precise예요.
+    if (inDocComment(src, r.from.range.startLine, r.from.range.startColumn)) {
+      r.doc = true;
+      r.kindConfidence = 'precise';
+      continue;
+    }
     const kind = classify(src, r, r.to.symbolKey, r.from.symbolKey ? byKey.get(r.from.symbolKey) : undefined);
     r.kind = kind.kind;
     r.kindConfidence = kind.confidence;
@@ -98,6 +105,29 @@ function toSource(text: string): Source {
   const lineStarts = [0];
   for (let i = 0; i < text.length; i++) if (text[i] === '\n') lineStarts.push(i + 1);
   return { text, lineStarts };
+}
+
+/**
+ * 0부터 세는 줄·열이 문서 주석 안인지. Dart의 문서 주석은 `///`로 시작하는 줄과 `/**` … `*\/` 묶음이에요.
+ * 글(문자열) 안의 `///`로 잘못 가리지 않게 줄 머리(공백 뒤)에 나온 것만 봐요. 코드 뒤에 붙은 `///`는 문서 주석으로 치지 않아요.
+ */
+function inDocComment(src: Source, line: number, column: number): boolean {
+  const start = src.lineStarts[line];
+  if (start === undefined) return false;
+  const head = /^[ \t]*(\/\/\/|\/\*\*)/.exec(src.text.slice(start, start + column));
+  if (head?.[1] === '///') return true;
+  // `/**` 묶음: 이 줄이나 위 줄에서 줄 머리의 `/**`로 열고 아직 `*/`로 닫지 않았으면 안이에요.
+  const at = start + column;
+  for (let l = line; l >= 0; l--) {
+    const from = src.lineStarts[l]!;
+    const text = src.text.slice(from, l === line ? at : (src.lineStarts[l + 1] ?? src.text.length));
+    const close = text.lastIndexOf('*/');
+    const open = /^[ \t]*\/\*\*/.exec(text);
+    if (open) return close < open[0].length;
+    if (close >= 0) return false;
+    if (l < line && !/^[ \t]*\*/.test(text)) return false; // 묶음의 가운데 줄은 `*`로 시작해요. 아니면 묶음 밖이에요.
+  }
+  return false;
 }
 
 /** 0부터 세는 줄·열을 글 안의 위치로. scip-dart의 열은 UTF-16 단위라 JS 문자열 위치와 같아요. */

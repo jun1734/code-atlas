@@ -56,6 +56,7 @@ export const contextQuery: QueryDef = {
   name: 'context',
   description:
     '이름(심볼) 하나의 정의 위치, 종류, 사용처를 돌려줘요. 사용처마다 앱 코드인지 테스트인지(role)와 읽기·쓰기·호출·상속·구현 중 무엇인지(kind, 그 믿음은 kindConfidence)가 붙어요. ' +
+    '문서 주석 안의 언급(링크)은 doc: true가 붙어요(코드가 기대는 곳이 아니에요). ' +
     '같은 이름이 여럿이면 하나를 고르지 않고 후보(candidates)를 돌려주니, 후보의 qualifiedName이나 key로 다시 물어요. ' +
     '저장소 기준 파일 경로를 주면 그 파일이 정의하는 이름, 가져다 쓰는 파일, 쓰이는 파일을 돌려줘요.',
   params: [

@@ -107,6 +107,11 @@ export interface RelationFact {
   kindConfidence: Confidence;
   /** 이 관계를 낸 색인기 이름. 예: scip-dart */
   source: string;
+  /**
+   * 문서 주석 안의 언급(Dart `/// [withTax]`의 링크 등)이면 true. 코드가 기대는 것이 아니라서 그래프 탐색(impact, trace, flows, clusters)과
+   * 쓰이지 않는 이름 검사(check)는 셈하지 않아요. 사용처 목록(context)과 이름 바꾸기(rename)에는 표시와 함께 나와요. 종류는 `reference`예요.
+   */
+  doc?: boolean;
 }
 
 export interface Facts {

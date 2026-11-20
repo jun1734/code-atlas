@@ -76,10 +76,16 @@ interface RelationFact {
   confidence: 'precise' | 'inferred';     // 관계가 있다는 것(어디서 무엇을)을 믿는 정도
   kindConfidence: 'precise' | 'inferred'; // 종류(kind)를 믿는 정도. 색인기가 알려 줬거나 색인기의 사실로 확인했으면 precise, 문법으로만 가렸으면 inferred
   source: string;
+  doc?: boolean;                          // 문서 주석 안의 언급(Dart `/// [withTax]`)이면 true. 종류는 reference
 }
 ```
 
 관계 종류의 뜻: `import`(파일을 가져오거나 다시 내보냄), `read`/`write`/`call`(값을 읽음, 값에 씀, 함수·메서드·생성자를 부름), `extends`(상속, mixin을 섞는 것 포함)/`implements`(구현), `reference`(그 밖의 언급: 타입 표기 등).
+
+**문서 주석 안의 언급(`doc`)**: 문서의 링크(Dart `/// [withTax]`, `/// [Cart.add]`)는 이름을 가리키지만 코드가 그 이름에 기대는 것이 아니에요. 종류는 `reference`이고 `doc: true`가 붙어요. 질의마다 이렇게 다뤄요:
+
+- 보여 주는 질의: context의 사용처 목록(`uses`)에 `doc: true`와 함께 나와요(개수 `total`·`byRole`에도 들어요). rename은 고칠 자리에 넣고 `doc: true`를 붙여요(이름을 바꾸면 문서의 링크도 고쳐야 해요). 사용처 수(`useCounts`: search 정렬, impact의 hot)도 context와 같게 넣어 셈해요.
+- 의존을 보는 질의: 그래프 탐색의 간선(`edges`: impact, detect_changes의 영향, trace, flows, clusters, rename의 상속 관계), 쓰인 이름(`referencedKeys`: check의 쓰이지 않는 이름), 파일을 쓰는 파일(`usersOf`: context 파일 답의 `usedBy`, 코드 지도의 테스트 열), 저장소 밖 심볼(`externalRefs`)에는 넣지 않아요.
 
 ### 기본으로 빼는 파일
 
@@ -112,6 +118,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
   - `write` (`inferred`): 값(`.`으로 끝나는 열쇠)이나 메서드 뒤에 대입 연산자(`=`, `+=`, `??=` 등)나 `++`/`--`가 오거나, 앞에 `++`/`--`가 있어요.
   - `read` (`inferred`): 그 밖의 값·메서드(함수를 값으로 넘기는 tear-off 포함).
   - `reference` (`inferred`): 그 밖의 타입 언급(타입 표기, `find.byType(X)` 등).
+  - 문서 주석 안의 언급(`reference`, `doc: true`, `kindConfidence: 'precise'`): scip-dart는 dartdoc 링크(`/// [withTax]`)도 사용처로 줘요. 줄 머리(공백 뒤)가 `///`인 줄, 또는 줄 머리의 `/**`로 열어 아직 닫지 않은 묶음(가운데 줄은 `*`로 시작) 안이면 문서 주석이에요. 코드 뒤에 붙은 `///`와 가운데 줄이 `*`로 시작하지 않는 `/** */` 묶음은 가리지 못해 코드의 사용처로 남아요.
 - **`part of` 빼기** (`src/adapters/dart.ts`의 `dropPartOf`): `part of 'a.dart';` 지시문은 scip-dart가 a.dart로 가는 import처럼 적지만 넣지 않아요. part 파일은 a.dart와 한 라이브러리라 기대는 방향이 아니고, a.dart의 `part` 지시문이 이미 이어 줘요. 넣으면 라이브러리마다 서로 물린 파일 묶음이 생겨요.
 
 ### Python 어댑터가 더 하는 일
@@ -373,11 +380,11 @@ JavaScript 예제(`test/fixtures/js_sample`): 설정 파일(`package.json`, `tsc
 | `meta` | `key`, `value` | `schema`(스키마 버전), `repoRoot`, `commit`(색인 기준 커밋), `worktree`(색인할 때의 작업 트리 지문), `indexedAt` |
 | `files` | `id`, `path`, `language`, `role`, `hash` | 파일 노드. `role`은 `app` 또는 `test`, `hash`는 그 파일의 사실 전체의 해시(역할 포함) |
 | `symbols` | `id`, `key`, `name`, `qualified_name`, `kind`, `file_id`, `line`, `col`, `end_line`, `end_col`, `body_line`, `body_end_line`, `parent_key`, `confidence`, `source` | 심볼 노드와 정의 위치(0부터). `body_line`~`body_end_line`은 정의 전체(본문 포함, 사실의 `enclosingRange`)의 줄이고, 색인기가 주지 않으면 이름이 적힌 줄이에요 |
-| `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_path`, `confidence`, `kind_confidence`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_path`(import한 파일의 경로) |
+| `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_path`, `confidence`, `kind_confidence`, `doc`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_path`(import한 파일의 경로). `doc`은 문서 주석 안의 언급이면 1 |
 
 - 모든 간선과 심볼에 신뢰도(`precise`/`inferred`)와 출처(색인기)가 있어요.
 - `to_symbol_key`는 저장소 밖 심볼(예: `dart:core`의 `print`)도 가리킬 수 있어요. 그런 심볼은 `symbols`에 없어요.
-- 스키마 버전은 `4`예요(#212가 `files.role`, `relations.kind_confidence`를, #222가 `symbols.body_line`, `symbols.body_end_line`을 더했어요).
+- 스키마 버전은 `5`예요(#212가 `files.role`, `relations.kind_confidence`를, #222가 `symbols.body_line`, `symbols.body_end_line`을, 문서 주석 언급이 `relations.doc`을 더했어요).
 - 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`applyFacts(facts, meta)`), 질의 함수뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
   - `meta()`, `counts()`, `languages()`
   - `findSymbols(query)`: 이름으로 심볼 찾기.
@@ -423,7 +430,7 @@ JavaScript 예제(`test/fixtures/js_sample`): 설정 파일(`package.json`, `tsc
 
 봉투의 `stale`은 HEAD가 색인 커밋과 다르거나 작업 트리가 색인할 때와 다르면 `true`예요(`src/freshness.ts`). 색인은 작업 트리를 읽으니 고친 채로 색인했다면 낡지 않았어요. 그래서 색인할 때 `git status`에 나오는 파일들의 상태와 내용으로 지문(`meta.worktree`)을 남기고, 물을 때 다시 재서 비교해요.
 
-- 하나: `status: 'found'`, 정의와 사용처(`uses`: 앞에서부터 `limit`개, `total`, `truncated`, 역할별 개수 `byRole`). 사용처마다 `role`(`app`/`test`), `kind`, `kindConfidence`, 감싸는 심볼 `in`.
+- 하나: `status: 'found'`, 정의와 사용처(`uses`: 앞에서부터 `limit`개, `total`, `truncated`, 역할별 개수 `byRole`). 사용처마다 `role`(`app`/`test`), `kind`, `kindConfidence`, 감싸는 심볼 `in`. 문서 주석 안의 언급이면 `doc: true`(코드의 사용처는 이 칸이 없어요).
 - 파일: `status: 'found'`, `file`(`path`, `language`, `role`), `defines`(정의하는 이름), `imports`(가져오거나 다시 내보내는 파일), `importedBy`(가져오는 파일), `usedBy`(이름을 쓰는 파일과 `uses` 수, barrel을 거친 것 포함). 넷 다 `Page`예요.
 - 여럿: `status: 'ambiguous'`, `candidates`. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 - 없음: `status: 'not_found'`.
@@ -528,7 +535,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - **구조**: 양쪽에 check를 돌려(규칙은 둘 다 지금 저장소의 설정: `check`·`repoModules`의 `root` 인자) 비교해요. 옮긴 파일은 바꾸기 전 경로를 바꾼 뒤 경로로 맞춰요.
   - 순환(`structure.cycles`): 바꾼 뒤의 묶음이 바꾸기 전에도 똑같이 있었으면 `existing`(개수만), 겹치는 묶음이 있었으면 `status: 'changed'`, 없었으면 `'new'`로 `introduced`(`Page`)에 나와요. `resolved`는 바꾼 뒤 어느 묶음과도 겹치지 않는 바꾸기 전 묶음의 수예요.
   - 경계 위반(`structure.violations`): 흐름을 거스르는 import 가운데 허용 목록에 없는 것(check의 새 위반). (가져다 쓰는 파일, 대상)이 바꾸기 전에도 위반이었으면 `existing`, 아니면 `introduced`예요. `newImport`는 그 import 자체가 이 변경으로 생겼는지예요. `false`면 이미 있던 import가, 새 import 때문에 모듈 순서(흐름을 거스르는 수가 가장 적은 순서)가 바뀌며 위반이 된 거예요.
-- 줄 범위를 쓰려고 그래프 저장소에 정의 전체의 줄(`body_line`, `body_end_line`)을 둬요(스키마 4).
+- 줄 범위를 쓰려고 그래프 저장소에 정의 전체의 줄(`body_line`, `body_end_line`)을 둬요(스키마 4부터).
 - 질의 실행기는 이 질의 때문에 `run`이 Promise를 돌려줄 수 있고 색인 파일 자리(`ctx.db`)를 받아요(`src/queries.ts`).
 - **봉투**: 답을 만든 색인을 `ctx.describeIndex`로 알려요. `--head`면 head 커밋의 색인(`stale: false`), 아니면 저장소 색인이고, 둘 다 `base`(바꾸기 전 커밋과 그 색인을 만든 때)를 더해요(docs/contract.md 약속 1).
 
