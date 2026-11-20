@@ -53,6 +53,9 @@ export const pythonAdapter: LanguageAdapter = {
 
   applies: (repo) => [...listRepoFiles(repo)].some((p) => ownsPython(p) && !isExcludedPython(p, '')),
 
+  // 아직 기본 라이브러리를 따로 가리지 않아요(지금까지와 같아요).
+  isStandardLibrary: () => false,
+
   async index(repo, workDir) {
     const entry = scipPythonEntry();
     if (!entry) throw new IndexerMissing(`scip-python을 찾지 못했어요.`, SCIP_PYTHON_INSTALL);

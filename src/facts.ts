@@ -152,6 +152,11 @@ export interface LanguageAdapter {
   /** 이 저장소에 이 언어가 있는지. */
   applies(repo: RepoInfo): boolean;
   /**
+   * 심볼 열쇠의 패키지 이름이 언어 기본 라이브러리(SDK)인지. 코드 지도의 "외부 SDK가 닿는 파일"에서 빼요.
+   * 예: scip-dart는 `dart:async`를 패키지 이름으로 적어요.
+   */
+  isStandardLibrary(pkg: string): boolean;
+  /**
    * 저장소를 색인해 사실을 내요. 저장소의 추적 파일을 바꾸면 안 돼요.
    * 임시 파일은 workDir(저장소 밖)에 써요.
    * 색인기가 설치되어 있지 않으면 IndexerMissing을 던져요. 그 밖의 실패는 보통의 오류예요.

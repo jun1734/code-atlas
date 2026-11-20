@@ -17,6 +17,7 @@ interface LanguageAdapter {
   readonly language: string;             // 예: 'dart'
   readonly install: string;              // 색인기 설치 명령. 예: 'dart pub global activate scip_dart 1.8.1'
   applies(repo: RepoInfo): boolean;      // 이 저장소에 이 언어가 있는지
+  isStandardLibrary(pkg: string): boolean; // 심볼 열쇠의 패키지 이름이 언어 기본 라이브러리(SDK)인지. 예: Dart의 'dart:async'
   index(repo: RepoInfo, workDir: string): Promise<Facts>;
 }
 
@@ -620,7 +621,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   - `check`의 답: 모듈 순서와 층(`modules`), 흐름을 거스르는 import와 허용 표시(`backwardImports`), 서로 물린 파일(`cycles`), 리뷰 후보(`reviewCandidates`), 최소인지(`summary.minimal`).
   - check와 같은 import 집합(`scopedImports`, `src/query/check.ts`): 모듈 사이 import(`medges`), 파일마다 쓰이는 곳·가져다 쓰는 곳 수. 서로 도는 모듈은 check의 `stronglyConnected`로 묶어요.
   - 테스트 열: 테스트 파일(`role: 'test'`)이 직접 import하면 2(`importersOf`), 그 파일이 정의한 이름을 다른 파일(barrel 등)을 거쳐 쓰면 1(`usersOf`), 아니면 0이에요. barrel에 들었어도 테스트가 그 이름을 쓰지 않으면 0이에요(옛 코드 지도는 1이었어요).
-  - 외부 SDK: `externalRefs()`의 열쇠 가운데 라이브러리(파일) 자체를 가리키는 것(SCIP 기술자가 모두 namespace)의 패키지 이름(`src/map/packages.ts`). 그 패키지를 import한 파일이에요. 언어 기본 라이브러리(`dart:async`처럼 ':'이 든 이름)와 저장소 자신의 패키지는 빼요.
+  - 외부 SDK: `externalRefs()`의 열쇠 가운데 라이브러리(파일) 자체를 가리키는 것(SCIP 기술자가 모두 namespace)의 패키지 이름(`src/map/packages.ts`). 그 패키지를 import한 파일이에요. 언어 기본 라이브러리(정밀 어댑터의 `isStandardLibrary`: Dart는 `dart:async`처럼 ':'이 든 이름, Python·TS는 아직 가리지 않아요)와 저장소 자신의 패키지는 빼요.
   - 그래프에 없는 둘: 줄 수(작업 트리의 파일, 끝 줄바꿈도 한 줄로 셈)와 최근 90일 변경 횟수(`git log --since="90 days ago" --no-merges`). 브랜치는 그릴 때의 `git rev-parse --abbrev-ref HEAD`, 커밋은 색인 기준 커밋이에요(낡았으면 다시 색인하니 둘이 맞아요).
 - `template.html`: 화면. 그리는 것만 해요(띠 모듈 배치, 요약 문장, 표). 파일 표의 줄마다 `id="file=<경로>"`가 있고, 주소의 `#file=<경로>`를 읽어 그 파일을 보여 줘요. 파일 이름은 이름 단위 그래프 화면의 그 파일(`<graph>#file=<경로>`, `MapData.graph`)로 가는 링크예요.
 - 시험은 `test/map.test.ts`(예제를 색인하고 `map`을 불러 HTML에 든 자료를 정답과 비교)와 `npm run verify:hijo`(hijo_app 7ba0197에서 옛 코드 지도와 비교)예요. 화면의 생김새는 브라우저로 띄워 확인해요.

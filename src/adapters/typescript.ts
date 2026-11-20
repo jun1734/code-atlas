@@ -74,6 +74,9 @@ export const typescriptAdapter: LanguageAdapter = {
     return sourceFiles(view).length > 0;
   },
 
+  // 아직 기본 라이브러리를 따로 가리지 않아요(지금까지와 같아요).
+  isStandardLibrary: () => false,
+
   async index(repo: RepoInfo, workDir: string) {
     if (!scipTypeScriptInstalled()) {
       throw new IndexerMissing(`scip-typescript를 찾지 못했어요.`, SCIP_TYPESCRIPT_INSTALL);

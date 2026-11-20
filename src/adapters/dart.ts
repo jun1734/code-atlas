@@ -82,6 +82,9 @@ export const dartAdapter: LanguageAdapter = {
 
   applies: (repo) => dartPackages(repo).length > 0,
 
+  // `dart:async`처럼 ':'이 든 이름은 SDK 라이브러리예요(pub 패키지 이름에는 ':'이 없어요).
+  isStandardLibrary: (pkg) => pkg.includes(':'),
+
   async index(repo, workDir) {
     const probe = run('dart', ['pub', 'global', 'run', 'scip_dart', '--version']);
     if (!probe.ok) {
