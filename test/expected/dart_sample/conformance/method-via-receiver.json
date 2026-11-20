@@ -1,0 +1,70 @@
+{
+  "query": "Cart.total",
+  "status": "found",
+  "symbol": {
+    "name": "total",
+    "qualifiedName": "Cart.total",
+    "kind": "method",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 19,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.dart",
+        "line": 10,
+        "column": 14,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "lib/src/providers.dart",
+        "line": 7,
+        "column": 70,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "totalProvider",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "line": 8,
+        "column": 36,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "line": 9,
+        "column": 14,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ],
+    "byRole": {
+      "app": 2,
+      "test": 2
+    }
+  }
+}

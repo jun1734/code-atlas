@@ -117,6 +117,8 @@ export interface IndexedFixture {
   indexFresh(): { summary: any; ask(...args: string[]): any };
   /** 처음 색인할 때 나온 요약. */
   readonly firstSummary: any;
+  /** 처음 색인할 때 stderr에 나온 글(정밀 색인기가 없을 때의 안내 등). */
+  readonly firstLog: string;
   /** 사본의 작업 트리를 커밋 상태로 되돌려요. */
   restore(): void;
   dispose(): void;
@@ -130,6 +132,10 @@ export interface FixtureOptions {
   home?: string;
   /** 커밋 전에 사본에 더할 파일(저장소 기준 경로 → 내용). */
   extraFiles?: Record<string, string>;
+  /** 모든 도구 프로세스에 더할 환경 변수. 예: 정밀 색인기를 없는 것으로 치는 `CODE_ATLAS_DISABLE_INDEXERS`. */
+  env?: Record<string, string>;
+  /** `dart pub get`을 돌릴 폴더(저장소 기준). 없으면 뿌리에 pubspec.yaml이 있을 때 뿌리만. */
+  pubGetIn?: string[];
 }
 
 function git(cwd: string, ...args: string[]): string {
@@ -155,15 +161,17 @@ export function indexFixture(name: string, opts: FixtureOptions = {}): IndexedFi
   git(repo, 'config', 'core.autocrlf', 'false');
   git(repo, 'add', '-A');
   git(repo, '-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'fixture');
-  if (existsSync(join(repo, 'pubspec.yaml'))) {
-    execSync('dart pub get --enforce-lockfile', { cwd: repo, stdio: 'ignore' });
+  for (const dir of opts.pubGetIn ?? (existsSync(join(repo, 'pubspec.yaml')) ? [''] : [])) {
+    execSync('dart pub get --enforce-lockfile', { cwd: join(repo, dir), stdio: 'ignore' });
   }
   // 색인 명령의 꼴(어느 색인 파일에 쓰는지)과 질문 꼴. home을 주면 기본 자리, 아니면 --db.
-  const env: Record<string, string> = opts.home ? { CODE_ATLAS_HOME: opts.home } : {};
+  const env: Record<string, string> = { ...opts.env, ...(opts.home ? { CODE_ATLAS_HOME: opts.home } : {}) };
   const db = join(work, 'atlas.db');
   const where = opts.home ? ['--repo', repo] : ['--db', db];
   const indexArgs = opts.home ? ['index', repo] : ['index', repo, '--db', db];
-  const firstSummary = runCli(indexArgs, env);
+  const first = runCliRaw(indexArgs, env);
+  if (first.status !== 0) throw new Error(`색인 실패(${first.status}): ${indexArgs.join(' ')}\n${first.stderr}`);
+  const firstSummary = JSON.parse(first.stdout);
   const ask = (...args: string[]) => runCli([...args, ...where], env);
   let fresh = 0;
   return {
@@ -185,10 +193,11 @@ export function indexFixture(name: string, opts: FixtureOptions = {}): IndexedFi
     reindex: () => runCli(indexArgs, env),
     indexFresh: () => {
       const freshDb = join(work, `fresh-${++fresh}.db`);
-      const summary = runCli(['index', repo, '--db', freshDb]);
-      return { summary, ask: (...args) => runCli([...args, '--db', freshDb]) };
+      const summary = runCli(['index', repo, '--db', freshDb], env);
+      return { summary, ask: (...args) => runCli([...args, '--db', freshDb], env) };
     },
     firstSummary,
+    firstLog: first.stderr,
     restore: () => {
       git(repo, 'checkout', '--', '.');
     },

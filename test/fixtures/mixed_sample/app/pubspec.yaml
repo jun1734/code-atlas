@@ -1,0 +1,6 @@
+name: mixed_app
+description: code-atlas 추정 층 테스트용 예제. 패키지(app/) 밖의 스크립트(scripts/)는 정밀 색인기가 덮지 못해 추정 층이 메워요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

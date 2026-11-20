@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@repomix/tree-sitter-wasms": "0.1.17",
     "protobufjs": "^7.6.6",
+    "web-tree-sitter": "0.27.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {

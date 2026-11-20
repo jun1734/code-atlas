@@ -1,0 +1,25 @@
+{
+  "query": "Cart.total",
+  "status": "found",
+  "symbol": {
+    "name": "total",
+    "qualifiedName": "Cart.total",
+    "kind": "method",
+    "definition": {
+      "path": "lib/src/cart.dart",
+      "line": 19,
+      "column": 7
+    },
+    "confidence": "inferred",
+    "source": "tree-sitter-dart"
+  },
+  "uses": {
+    "total": 0,
+    "truncated": false,
+    "items": [],
+    "byRole": {
+      "app": 0,
+      "test": 0
+    }
+  }
+}

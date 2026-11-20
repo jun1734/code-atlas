@@ -5,11 +5,13 @@
 // 같은 모양의 예제 저장소가 갖출 것(이름은 언어와 무관하게 같아요):
 // - 모듈 수준 함수 withTax, 상수 shippingFee, 변수 discountPercent(어딘가에서 쓰고 어딘가에서 읽어요).
 // - provider(그 언어의 모듈 수준 값) cartProvider, totalProvider. totalProvider는 cartProvider를 읽어요.
-// - 타입: 인터페이스 Totaled, mixin(없는 언어는 바탕 타입) Labeled와 그 getter label,
-//   Cart(Labeled를 섞고 Totaled를 구현),
+// - 타입: 인터페이스 Totaled(메서드 total), mixin(없는 언어는 바탕 타입) Labeled와 그 getter label,
+//   Cart(Labeled를 섞고 Totaled를 구현해 total을 정의),
 //   GiftCart(Cart를 상속), Wishlist. Cart와 Wishlist에는 이름이 같은 메서드 add가 있어요.
 // - 다시 내보내는 파일(barrel)이 위 이름을 모두 내보내고, 앱 진입점과 테스트는 barrel만 가져다 써요.
 //   앱 진입점과 테스트는 barrel을 거쳐 Cart를 만들고(생성자 호출) 타입으로도 써요.
+// - Cart.total은 수신자의 타입을 알아야 고를 수 있는 곳에서 불려요: provider가 돌려준 값, 생성자를 부른 결과
+//   (Totaled.total과 이름이 같아요). 앱(provider 안, 진입점)과 테스트에서 불러요.
 // - 앱 진입점과 테스트에 각각 main이 있어요(이름이 같은 함수).
 // - receipt 함수가 생성된 파일, 빌드 산출물 폴더, git이 무시하는 폴더에 하나씩 있어요. 셋 다 색인에서 빠져야 해요.
 //
@@ -73,6 +75,11 @@ export const QUESTIONS: ConformanceQuestion[] = [
     id: 'getter',
     why: 'getter를 하위 타입의 값으로 읽는 곳',
     args: ['context', 'label'],
+  },
+  {
+    id: 'method-via-receiver',
+    why: '수신자의 타입으로만 가릴 수 있는 메서드 사용처(인터페이스에 같은 이름 메서드가 있어요)',
+    args: ['context', 'Cart.total'],
   },
   {
     id: 'same-name-method',

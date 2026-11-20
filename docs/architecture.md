@@ -1,10 +1,10 @@
 # 구조: 그래프 스키마와 언어 어댑터
 
 ```
-저장소 ──▶ 언어 어댑터(언어마다 하나) ──▶ 사실(Facts) ──▶ 그래프 저장소(SQLite) ──▶ 질의(context …) ──▶ 실행기(봉투) ──▶ 명령줄 / MCP
+저장소 ──▶ 언어마다 정밀 어댑터 → (없거나 실패하거나 덮지 못한 파일) 추정 층 ──▶ 사실(Facts) ──▶ 그래프 저장소(SQLite) ──▶ 질의(context …) ──▶ 실행기(봉투) ──▶ 명령줄 / MCP
 ```
 
-언어를 아는 곳은 어댑터뿐이에요. 그래프 저장소와 질의는 공통 형식의 사실만 알아요. 새 언어는 어댑터 하나와 예제 저장소 하나를 더해 붙여요.
+언어를 아는 곳은 어댑터(정밀 어댑터, 추정 규칙)뿐이에요. 그래프 저장소와 질의는 공통 형식의 사실만 알아요. 새 언어는 `src/languages.ts`의 `LANGUAGES`에 한 줄(정밀 어댑터, 추정 규칙, 또는 둘 다)과 예제 저장소 하나를 더해 붙여요.
 새 질의는 `QueryDef` 하나를 `QUERIES`에 더해 붙여요. 명령줄과 MCP는 고치지 않아요(아래 "질의 실행기와 바깥 껍데기").
 
 ## 언어 어댑터 인터페이스
@@ -15,6 +15,7 @@
 interface LanguageAdapter {
   readonly name: string;                 // 색인기 이름. 관계의 source로 남아요. 예: 'scip-dart'
   readonly language: string;             // 예: 'dart'
+  readonly install: string;              // 색인기 설치 명령. 예: 'dart pub global activate scip_dart 1.8.1'
   applies(repo: RepoInfo): boolean;      // 이 저장소에 이 언어가 있는지
   index(repo: RepoInfo, workDir: string): Promise<Facts>;
 }
@@ -31,12 +32,12 @@ interface RepoInfo {
 - 네트워크를 쓰지 않아요. 패키지 설치(`pub get`, `npm install` 등)가 필요하면 대신 돌리지 않고 할 일을 알려 줘요.
 - 경로는 저장소 뿌리 기준 상대 경로, 구분자는 항상 `/`예요.
 - 심볼 열쇠(`key`)는 저장소 안에서 심볼 하나를 가리키고, OS에 따라 달라지지 않아요.
-- 색인기가 없으면 설치 방법을 담은 오류를 내요.
+- 색인기가 없으면 `IndexerMissing`(`src/facts.ts`)을 던져요. 그 밖의 실패는 보통의 오류예요. 어느 쪽이든 색인 전체는 멈추지 않고, 색인기(`src/indexer.ts`)가 안내를 내고 그 언어를 추정 층으로 색인해요(아래 "추정 층").
 
 두 종류가 있어요.
 
 - **정밀 어댑터**: 그 언어의 SCIP 색인기를 돌리고 `src/scip/to-facts.ts`로 SCIP 색인을 사실로 옮겨요. `confidence: 'precise'`. 지금은 Dart(`src/adapters/dart.ts`, scip-dart)만 있어요.
-- **추정 어댑터**(뒤 티켓): Tree-sitter로 구문을 읽고 이름으로 이어요. `confidence: 'inferred'`.
+- **추정 층**: Tree-sitter로 구문을 읽고 이름으로 이어요. `confidence: 'inferred'`. 언어마다 문법 하나와 작은 규칙(`InferredLanguage`)이에요. 지금은 Dart(`src/inferred/dart.ts`)가 있어요. 아래 "추정 층".
 
 ### 사실(Facts)
 
@@ -106,6 +107,101 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
   - `reference` (`inferred`): 그 밖의 타입 언급(타입 표기, `find.byType(X)` 등).
 - **`part of` 빼기** (`src/adapters/dart.ts`의 `dropPartOf`): `part of 'a.dart';` 지시문은 scip-dart가 a.dart로 가는 import처럼 적지만 넣지 않아요. part 파일은 a.dart와 한 라이브러리라 기대는 방향이 아니고, a.dart의 `part` 지시문이 이미 이어 줘요. 넣으면 라이브러리마다 서로 물린 파일 묶음이 생겨요.
 
+## 추정 층
+
+정밀 색인기가 없거나 실패한 언어, 그리고 정밀 색인기가 덮지 못한 파일(예: Dart 패키지 밖의 스크립트)을 Tree-sitter로 읽어 색인해요. 여기서 나온 심볼과 관계는 모두 `confidence: 'inferred'`, `kindConfidence: 'inferred'`, `source: 'tree-sitter-<언어>'`예요.
+
+### 색인기의 순서와 대신 색인하기
+
+`src/indexer.ts`의 `indexLanguage`. 언어 목록은 `src/languages.ts`의 `LANGUAGES`(`{ language, precise?, inferred? }`)예요.
+
+1. 언어가 있는지: 정밀 어댑터의 `applies`가 참이거나, 추정 규칙의 `owns`에 맞는 파일이 있으면.
+2. 정밀 어댑터를 돌려요. 이름이 환경 변수 `CODE_ATLAS_DISABLE_INDEXERS`(쉼표로 여럿)에 있으면 돌리지 않고 "설치되어 있지 않음"으로 쳐요. 테스트가 색인기를 지우지 않고 "없을 때"를 만드는 장치예요(정밀 색인기가 말썽일 때 추정 층만 쓰는 데도 써요).
+3. 정밀 어댑터가 `IndexerMissing`을 던지면 `reason: 'missing'`, 다른 오류면 `'failed'`예요. stderr에 무엇이 없는지(실패했는지), 설치 명령(`install`), 그 언어를 추정 층으로 색인했다는 것을 적고, 색인 요약의 `fallbacks`에 남겨요. 색인 전체는 멈추지 않아요. 추정 규칙이 없는 언어는 안내만 내고 건너뛰어요(`inferredBy: null`).
+   - Dart: `scip-dart`가 없으면 missing, 패키지 설정(`.dart_tool/package_config.json`)이 없는 패키지가 있으면 failed예요(지금은 패키지 하나만 실패해도 그 언어 전체가 추정 층으로 가요).
+4. 정밀 사실이 덮지 못한 이 언어의 파일(정밀 사실의 `files`에 없고, 추정 규칙의 `excluded`에도 걸리지 않는 파일)이 있으면 추정 층을 돌려요. 없으면 돌리지 않아요(정밀 색인이 모두 덮은 저장소는 Tree-sitter를 읽지도 않아요).
+
+**정밀 사실은 덮어쓰지 않아요.** 추정 층은 정밀 사실이 있는 파일을 읽기는 하지만(이름 잇기에 그 파일의 정의와 import가 필요해요) 그 파일의 사실(파일, 정의, 그 파일에 적힌 관계)은 내지 않아요(`InferredRun.emit`). 색인기가 한 번 더 걸러요(`withoutCovered`). 추정 층의 관계가 정밀 파일의 이름을 가리킬 때는 같은 자리(경로, 이름의 줄·열)의 정밀 심볼 열쇠로 이어요. 그래서 패키지 밖 스크립트에서 패키지의 `Cart`를 쓰면, 정의는 정밀 그대로이고 그 사용처 하나만 추정으로 붙어요.
+
+### 언어 하나의 추정 규칙 (`InferredLanguage`)
+
+정의: `src/inferred/layer.ts`. 새 언어는 이것 하나를 만들어 `LANGUAGES`에 올려요. 이름 잇기, 파일 고르기, 정밀 사실과 섞기, 열쇠 만들기는 공통 부품이 해요.
+
+```ts
+interface InferredLanguage {
+  language: string;                       // 정밀 어댑터의 language와 같게(예: 'dart')
+  grammar: string;                        // @repomix/tree-sitter-wasms의 문법 이름(dart, python, javascript, typescript, tsx …)
+  grammarFor?(path: string): string;      // 파일마다 문법이 다를 때(.tsx 등)
+  owns(path: string): boolean;            // 이 언어의 파일인지(확장자)
+  excluded(path: string, text: string, repo: RepoView): boolean; // 생성된 코드, 빌드 산출물
+  role(path: string, repo: RepoView): 'app' | 'test';
+  extract(root: SyntaxNode, text: string): FileSyntax;          // 구문 나무 → 정의, 사용처, import
+  resolveImport(fromPath: string, spec: string, repo: RepoView): string | null; // import 대상 → 저장소 안 경로(밖이면 null)
+}
+
+interface FileSyntax {
+  definitions: { name; kind; range; enclosingRange; parent?: number }[];  // parent: 바깥 정의의 번호(멤버면 그 타입)
+  references: { name; range; kind; in?: number; member?: { qualifier?: string } }[];
+  imports: { spec; range; reexport: boolean; emit: boolean; sharesScope?: boolean }[];
+}
+```
+
+- `references[].kind`는 문법으로 가린 종류(`call`, `read`, `write`, `reference`, `extends`, `implements`)예요. 이은 대상이 타입인데 `read`면 공통 부품이 `reference`로 바꿔요.
+- `member`: `수신자.이름`의 이름이면 붙여요. `qualifier`는 수신자가 이름 하나일 때 그 이름이에요. `this.x`(Python `self.x`)는 `member` 없이 내요(감싸는 타입의 멤버부터 찾아요).
+- 지역 이름(매개변수, 지역 변수)은 규칙이 걸러서 `references`에 넣지 않아요.
+- `imports`: `reexport`는 가져온 파일의 이름을 다시 내보내는지(Dart `export`·`part`, JS `export * from`), `emit`은 파일→파일 `import` 관계로 넣을지, `sharesScope`는 가져온 파일과 이름 공간을 함께 쓰는지(Dart `part of`)예요.
+- 파서는 `src/inferred/tree-sitter.ts`의 `parserFor(grammar)`예요. web-tree-sitter의 노드는 꺼낼 때마다 새 객체라 `===`로 비교하지 않고 `same(a, b)`를 써요.
+- 저장소의 파일 목록은 `git ls-files --cached --others --exclude-standard`(git이 무시하는 파일 빼고, 커밋하지 않은 새 파일 포함)예요. git 저장소가 아니면 숨김 폴더와 `node_modules`를 빼고 훑어요.
+
+### 이름 잇기 (`runInferred`)
+
+- **보이는 파일**: 파일 자신, 가져온 파일과 그 파일이 다시 내보내는 파일(이어서), `sharesScope`로 묶인 파일이 보는 파일. barrel을 거친 사용처가 이렇게 이어져요.
+- **이름**(`member` 없음): 감싸는 타입들의 멤버 가운데 그 이름 → 보이는 파일의 최상위 정의 가운데 그 이름. 하나뿐일 때만 이어요.
+- **멤버**(`member` 있음): `qualifier`가 타입 이름으로 풀리면 그 타입의 멤버. 아니면 같은 이름의 멤버가 저장소에 하나뿐일 때, 그다음 보이는 파일에 하나뿐일 때 이어요.
+- **여럿이면 잇지 않아요.** 같은 이름이 여럿인데 하나를 고르면 다른 것을 가리키는 관계가 생겨서요. 놓치는 쪽을 골랐어요(아래 적합성 표의 `method-via-receiver`).
+- 저장소 밖 이름(SDK, 패키지)은 잇지 않아요(정밀 층은 저장소 밖 심볼로 잇지만, 그런 심볼은 답에 나오지 않아요).
+- **열쇠**: `<출처> <경로> <바깥 정의부터의 기술자>`(타입 `Name#`, 부르는 것 `name().`, 값 `name.`). 예: `tree-sitter-dart lib/src/cart.dart Cart#add().` 경로와 이름에서만 나와서 OS와 무관하고 다시 색인해도 같아요. 같은 열쇠가 또 나오면(getter와 setter) 뒤에 `~2`를 붙여요.
+
+### Dart 규칙 (`src/inferred/dart.ts`)
+
+- 파일 고르기와 역할은 정밀 어댑터와 같은 관례(`src/adapters/dart-conventions.ts`)를 가장 가까운 `pubspec.yaml` 폴더 기준으로 써요. 패키지 밖 파일은 저장소 뿌리 기준이에요.
+- 정의: 클래스(`abstract interface class`는 `interface`), mixin, enum(값은 `field`), extension, typedef(`type`), 함수, 메서드, getter, setter, 이름 있는 생성자(`constructor`), 필드, 최상위 변수(`const`면 `constant`). 이름 없는 생성자는 정의를 만들지 않고 클래스에 속해요(정밀 어댑터가 클래스로 합치는 것과 같아요). 함수와 메서드의 `enclosingRange`는 시그니처부터 본문 끝까지예요.
+- 사용처의 종류: `extends`·`with` 뒤 타입은 `extends`, `implements`·mixin의 `on` 뒤 타입은 `implements`, 뒤에 인자 목록이 오거나 `new`/`const`로 만들면 `call`, 대입의 왼쪽 끝이나 `++`/`--`면 `write`, 그 밖의 값은 `read`, 타입 표기는 `reference`예요.
+- import: `import`·`export`(다시 내보냄)·`part`(다시 내보냄)는 관계로 넣고, `part of`는 넣지 않고 이름 공간만 함께 써요(정밀 어댑터의 `dropPartOf`와 같은 결과). `package:<이름>/…`는 저장소 안 `pubspec.yaml`의 `name`이 같은 패키지의 `lib/`로, 상대 경로는 파일 폴더 기준으로 풀어요. `dart:`와 저장소 밖 패키지는 잇지 않아요.
+
+### 추정 층이 놓치는 것 (Dart)
+
+- 수신자의 타입을 알아야 고를 수 있는 멤버(같은 이름 멤버가 여럿일 때): 이어지지 않아요. 같은 이름 멤버가 하나뿐이면 수신자가 무엇이든 이어요(예: `List`의 `add`를 저장소의 유일한 `add` 메서드로 이을 수 있어요).
+- 같은 이름의 최상위 정의가 보이는 파일에 여럿이면 잇지 않아요. `show`/`hide`는 보지 않아요. import 접두사를 거친 사용처(`import … as p` 뒤의 `p.withTax`)는 놓쳐요.
+- 지역 이름은 정의가 든 함수 전체에서 하나의 범위로 봐요. 그래서 함수 안 어디서든 같은 이름의 지역 이름이 있으면 그 함수 안의 같은 이름 최상위 정의 사용처를 놓쳐요.
+- tree-sitter-dart가 `Provider<Cart>(…)` 같은 제네릭 호출을 비교식으로 읽어요. 그래도 `Cart`는 타입으로 이어져 `reference`가 되고, `Provider`는 저장소 밖이라 잇지 않아요.
+- 추정 층의 `extends`·`implements`도 `kindConfidence: inferred`예요(정밀 층은 scip-dart의 타입 관계로 확인해 `precise`).
+
+### 추정 층 적합성: dart_sample
+
+언어 적합성 묶음(`test/conformance.test.ts`)을 추정 층으로도 돌린 결과예요. 정밀 색인기를 없는 것으로 치고 색인해, 표시(`confidence`, `kindConfidence`, `source`, `key`)를 뺀 답이 정밀 정답과 같으면 통과, 다르면 놓침이에요. 이 표는 테스트가 읽어서 실제와 맞는지 봐요(질문이 늘거나 결과가 바뀌면 테스트가 실패해요). 놓친 질문의 답은 `test/expected/dart_sample/conformance-inferred/`에 있어요.
+
+| 질문 | 결과 | 비고 |
+| --- | --- | --- |
+| `module-function` | 통과 | 호출, 함수 값으로 읽기, barrel을 거친 사용처, 앱/테스트 |
+| `module-constant` | 통과 | |
+| `module-variable` | 통과 | 쓰기(`=`, `+=`)와 읽기 |
+| `provider` | 통과 | |
+| `provider-dependent` | 통과 | |
+| `class` | 통과 | 생성자 호출, 상속, 타입 표기. 상속의 `kindConfidence`만 정밀 층(`precise`)과 달라요 |
+| `interface` | 통과 | 구현(`kindConfidence: inferred`) |
+| `mixin` | 통과 | 섞기(`extends`, `kindConfidence: inferred`) |
+| `getter` | 통과 | 같은 이름 멤버가 하나뿐이라 이어져요 |
+| `method-via-receiver` | 놓침 | `Cart.total`의 사용처 4곳을 모두 놓쳐요. 수신자(provider가 돌려준 값, `Cart()`의 결과)의 타입을 모르고 `Totaled.total`과 이름이 같아서 잇지 않아요 |
+| `same-name-method` | 통과 | |
+| `same-name-method-pick` | 통과 | |
+| `same-name-function-pick-by-key` | 통과 | 추정 열쇠로 다시 물어도 하나가 나와요 |
+| `file` | 통과 | |
+| `file-barrel` | 통과 | |
+| `excluded-symbol` | 통과 | |
+| `excluded-file` | 통과 | |
+
+
 ## 그래프 스키마
 
 정의: `src/graph/store.ts`. SQLite 파일 하나, 저장소 밖에 둬요.
@@ -151,7 +247,8 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 | `languages.<언어>` | 언어별 `files`, `symbols`, `relations`, 관계 중 정밀(`precise`)·추정(`inferred`) 비율(0~1, 관계가 없으면 `null`). 심볼과 관계의 언어는 적힌 파일의 언어예요 |
 | `changes` | 이번에 그래프에 반영한 파일 수(`added`, `modified`, `removed`, `unchanged`). 처음 색인이면 모두 `added` |
 | `ms` | 걸린 시간(밀리초). `indexers`(색인기 실행), `graph`(그래프 반영), `total`(전체) |
-| `repo`, `db`, `commit`, `adapters`, `dbBytes` | 저장소, 색인 파일, 기준 커밋, 돈 색인기, 색인 파일 크기 |
+| `repo`, `db`, `commit`, `adapters`, `dbBytes` | 저장소, 색인 파일, 기준 커밋, 사실을 낸 색인기(정밀 어댑터 이름, 추정 층 `tree-sitter-<언어>`), 색인 파일 크기 |
+| `fallbacks` | 정밀 색인기가 없거나(`reason: 'missing'`) 실패해서(`'failed'`, `error`) 추정 층으로 색인한 언어. 칸은 `language`, `indexer`, `reason`, `install`(설치 명령), `inferredBy`(대신 색인한 추정 층, 추정 규칙이 없는 언어면 `null`). 같은 안내가 stderr에도 나와요 |
 
 ## 질의: context
 
@@ -290,7 +387,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 구간마다 두 믿음이 따로 붙어요. 경로의 `confidence`·`kindConfidence`는 구간 가운데 가장 낮은 것이라, 경로 하나만 보고도 추정을 거쳤는지 알아요.
 
-- `confidence`: 그 관계가 있다는 것(어디서 무엇을 쓰는지)의 믿음. 정밀 어댑터(scip-dart)의 관계는 `precise`, 추정 어댑터(Tree-sitter, 뒤 티켓)의 관계는 `inferred`예요. `inferred` 구간은 이름으로 이은 것이라 다른 같은 이름일 수 있어요.
+- `confidence`: 그 관계가 있다는 것(어디서 무엇을 쓰는지)의 믿음. 정밀 어댑터(scip-dart)의 관계는 `precise`, 추정 층(Tree-sitter)의 관계는 `inferred`예요. `inferred` 구간은 이름으로 이은 것이라 다른 같은 이름일 수 있어요.
 - `kindConfidence`: 그 관계의 종류(`kind`)의 믿음. Dart에서 `call`·`read`·`write`·`reference`는 문법으로 가려 `inferred`, `import`와 상속·구현은 `precise`예요. 그래서 Dart의 `follow: calls` 경로는 늘 `kindConfidence: inferred`예요: 관계는 정밀하지만, 그것이 "호출"이라는 것은 문법으로 가린 추정이에요(예: 함수를 값으로 넘기는 곳은 `read`로 가려져 호출 경로에서 빠져요).
 
 ## 질의 실행기와 바깥 껍데기
@@ -312,3 +409,5 @@ src/mcp.ts ─┘   QUERIES, checkArgs             └─▶ src/answer.ts   (�
 `test/conformance/questions.ts`(질문)와 `test/conformance.test.ts`(돌리는 틀). 질문은 언어와 무관하고, 언어마다 같은 모양의 예제 저장소(이름이 같은 함수·상수·변수·provider·타입, barrel, 빼야 할 파일)에 던져 그 언어의 정답(`test/expected/<예제>/conformance/<질문>.json`)과 비교해요. 파일 경로처럼 언어마다 다른 값은 `conformance/fixture.json`의 자리표시자(`{pricingFile}` 등)로 채워요. 예제가 갖출 모양은 `questions.ts` 머리에 적혀 있어요.
 
 질문에는 GitNexus 1.6.12가 hijo_app에서 놓친 경우(최상위 변수·provider의 사용처, barrel을 거친 사용처, 같은 이름 메서드)가 들어 있어요. 정답에는 항목마다 `confidence`와 `kindConfidence`가 적혀 있어서, 그 언어가 무엇을 정밀하게 내고 무엇을 추정으로 내는지가 정답 파일에 기록돼요.
+
+같은 묶음을 추정 층으로도 돌려요(`RUNS`의 `layer: 'inferred'`: 정밀 색인기를 `CODE_ATLAS_DISABLE_INDEXERS`로 없는 것으로 쳐요). 결과는 언어마다 "추정 층 적합성: <예제>" 표(위 "추정 층")에 적어요. #220(Python)·#221(JS/TS)처럼 추정 규칙만 있는 언어도 같은 방법으로 표를 만들어요.
