@@ -37,6 +37,22 @@ export interface RepoConfig {
   openToOtherModules: { files: string[]; symbols: SymbolMatcher[] };
   /** 쓰이지 않는 공개 이름 검사. `private`에 맞는 이름은 공개가 아니에요. `ignore`는 일부러 빼는 이름(진입점 등). */
   unused: { private: string; ignore: string[] };
+  /** 코드 지도 화면(`map` 명령)만 쓰는 칸. 검사 결과는 바꾸지 않아요. */
+  map: MapConfig;
+}
+
+/** 코드 지도 화면의 설정. 모두 선택이에요. */
+export interface MapConfig {
+  /** 화면 제목. 없으면 "<저장소 폴더 이름> 코드 지도". */
+  title?: string;
+  /** 모듈 지도에서 넓은 띠로 그릴 모듈과 그 메모. 띠로 내려가는 선은 그리지 않아요. 없으면 shared에서 composers를 뺀 모듈(메모 없음). */
+  bands?: Record<string, string>;
+  /** "외부 SDK가 닿는 파일" 표에 올릴 패키지와 보일 이름(적은 순서대로). 없으면 저장소 밖 패키지 전부(언어 기본 라이브러리 제외). */
+  packages?: Record<string, string>;
+  /** 리뷰 후보 가운데 대상 모듈이 `modules`에 든 것에 붙일 꼬리표(`label`)와 메모(`note`). 맞는 것이 없으면 "helper". */
+  reviewNotes?: { modules: string[]; label: string; note: string }[];
+  /** 처음 열 때 모듈 지도에서 골라 둘 모듈. 없으면 흐름을 거스르는 import가 닿는 첫 모듈. */
+  select?: string;
 }
 
 /**
@@ -65,6 +81,7 @@ const DEFAULTS: Omit<RepoConfig, 'path'> = {
   allowlist: [],
   openToOtherModules: { files: [], symbols: [] },
   unused: { private: '_*', ignore: ['main'] },
+  map: {},
 };
 
 const toSlash = (p: string) => p.replaceAll('\\', '/');
@@ -100,6 +117,7 @@ export function loadRepoConfig(repoRoot: string, explicitPath?: string): RepoCon
       private: raw.unused?.private ?? DEFAULTS.unused.private,
       ignore: raw.unused?.ignore ?? DEFAULTS.unused.ignore,
     },
+    map: raw.map ?? DEFAULTS.map,
   };
 }
 

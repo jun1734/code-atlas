@@ -130,6 +130,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
   - `importsOf(path)`, `importersOf(path)`: 파일이 가져오는(다시 내보내는) 파일, 파일을 가져오는 파일.
   - `usersOf(path)`: 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 이름으로 이어서 barrel을 거친 곳도 나와요.
   - `filePaths()`, `definitions()`(정의 전부와 바로 바깥 심볼 `parentKey`), `referencedKeys()`(사용처가 있는 열쇠): 저장소 전체를 훑는 검사(check)용.
+  - `externalRefs()`: 파일마다 가리키는 저장소 밖 심볼의 열쇠(같은 쌍은 한 번). 코드 지도의 "외부 SDK가 닿는 파일"용.
 - `open`은 스키마 버전이 다른 옛 색인을 비우고 새로 만들어요. 그러면 다음 넣기가 처음부터 색인이 돼요.
 
 ### 증분 반영
@@ -208,7 +209,14 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
     "files": ["**/*_page.dart"],
     "symbols": [{ "kinds": ["class"], "name": "*Page" }, { "kinds": ["variable"], "name": "*Provider" }]
   },
-  "unused": { "private": "_*", "ignore": ["main"] } // 비공개 이름 모양, 일부러 뺄 이름(진입점 등)
+  "unused": { "private": "_*", "ignore": ["main"] }, // 비공개 이름 모양, 일부러 뺄 이름(진입점 등)
+  "map": {                       // 코드 지도 화면(map 명령)만 쓰는 칸. 검사 결과는 바꾸지 않음
+    "title": "우리 앱 코드 지도",                       // 없으면 "<저장소 폴더 이름> 코드 지도"
+    "bands": { "shared": "모두가 쓰는 도우미" },        // 넓은 띠로 그릴 모듈과 메모. 없으면 shared에서 composers를 뺀 모듈
+    "packages": { "http": "HTTP" },                    // 외부 SDK 표에 올릴 패키지와 보일 이름. 없으면 밖 패키지 전부
+    "reviewNotes": [{ "modules": ["models"], "label": "데이터 타입", "note": "…" }], // 리뷰 후보의 꼬리표·메모(없으면 helper)
+    "select": "orders"                                 // 처음 골라 둘 모듈. 없으면 흐름을 거스르는 import가 닿는 첫 모듈
+  }
 }
 ```
 
@@ -312,6 +320,20 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 - `confidence`: 그 관계가 있다는 것(어디서 무엇을 쓰는지)의 믿음. 정밀 어댑터(scip-dart)의 관계는 `precise`, 추정 어댑터(Tree-sitter, 뒤 티켓)의 관계는 `inferred`예요. `inferred` 구간은 이름으로 이은 것이라 다른 같은 이름일 수 있어요.
 - `kindConfidence`: 그 관계의 종류(`kind`)의 믿음. Dart에서 `call`·`read`·`write`·`reference`는 문법으로 가려 `inferred`, `import`와 상속·구현은 `precise`예요. 그래서 Dart의 `follow: calls` 경로는 늘 `kindConfidence: inferred`예요: 관계는 정밀하지만, 그것이 "호출"이라는 것은 문법으로 가린 추정이에요(예: 함수를 값으로 넘기는 곳은 `read`로 가려져 호출 경로에서 빠져요).
+
+## 코드 지도 (map)
+
+`src/map/`. 질의가 아니라 명령 하나(`code-atlas map`)예요. 답이 JSON이 아니라 HTML 파일이라 `QUERIES`에 넣지 않았어요.
+
+- `draw.ts`: `drawCodeMap({ repo, db, config, out })`. 색인이 없거나 낡았으면(`isStale`) `indexRepo`로 먼저 색인하고, 자료를 뽑아 `template.html`의 `code-map-data` 자리(`<script type="application/json">`)에 JSON으로 넣어 써요. `out`이 없으면 색인 파일 옆 `<이름>-map.html`이에요.
+- `data.ts`: `codeMapData(store, config)`가 화면 자료(`MapData`)를 만들어요. 구조 계산은 다시 하지 않아요.
+  - `check`의 답: 모듈 순서와 층(`modules`), 흐름을 거스르는 import와 허용 표시(`backwardImports`), 서로 물린 파일(`cycles`), 리뷰 후보(`reviewCandidates`), 최소인지(`summary.minimal`).
+  - check와 같은 import 집합(`scopedImports`, `src/query/check.ts`): 모듈 사이 import(`medges`), 파일마다 쓰이는 곳·가져다 쓰는 곳 수. 서로 도는 모듈은 check의 `stronglyConnected`로 묶어요.
+  - 테스트 열: 테스트 파일(`role: 'test'`)이 직접 import하면 2(`importersOf`), 그 파일이 정의한 이름을 다른 파일(barrel 등)을 거쳐 쓰면 1(`usersOf`), 아니면 0이에요. barrel에 들었어도 테스트가 그 이름을 쓰지 않으면 0이에요(옛 코드 지도는 1이었어요).
+  - 외부 SDK: `externalRefs()`의 열쇠 가운데 라이브러리(파일) 자체를 가리키는 것(SCIP 기술자가 모두 namespace)의 패키지 이름(`src/map/packages.ts`). 그 패키지를 import한 파일이에요. 언어 기본 라이브러리(`dart:async`처럼 ':'이 든 이름)와 저장소 자신의 패키지는 빼요.
+  - 그래프에 없는 둘: 줄 수(작업 트리의 파일, 끝 줄바꿈도 한 줄로 셈)와 최근 90일 변경 횟수(`git log --since="90 days ago" --no-merges`). 브랜치는 그릴 때의 `git rev-parse --abbrev-ref HEAD`, 커밋은 색인 기준 커밋이에요(낡았으면 다시 색인하니 둘이 맞아요).
+- `template.html`: 화면. 그리는 것만 해요(띠 모듈 배치, 요약 문장, 표). 파일 표의 줄마다 `id="file=<경로>"`가 있고, 주소의 `#file=<경로>`를 읽어 그 파일을 보여 줘요. 다른 화면(이름 단위 그래프 등)이 파일로 이어 줄 자리예요.
+- 시험은 `test/map.test.ts`(예제를 색인하고 `map`을 불러 HTML에 든 자료를 정답과 비교)와 `npm run verify:hijo`(hijo_app 7ba0197에서 옛 코드 지도와 비교)예요. 화면의 생김새는 브라우저로 띄워 확인해요.
 
 ## 질의 실행기와 바깥 껍데기
 

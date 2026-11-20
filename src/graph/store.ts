@@ -581,6 +581,21 @@ export class GraphStore {
   }
 
   /**
+   * 파일마다 가리키는 저장소 밖 심볼(예: 다른 패키지의 라이브러리, dart:core의 print)의 열쇠. 같은 쌍은 한 번만, 경로·열쇠 순.
+   * 코드 지도의 "외부 SDK가 닿는 파일"이 써요.
+   */
+  externalRefs(): { path: string; key: string }[] {
+    return this.db
+      .prepare(
+        `SELECT DISTINCT f.path, r.to_symbol_key AS key
+         FROM relations r JOIN files f ON f.id = r.from_file_id
+         WHERE r.to_symbol_key IS NOT NULL AND NOT EXISTS (SELECT 1 FROM symbols s WHERE s.key = r.to_symbol_key)
+         ORDER BY f.path, key`,
+      )
+      .all() as { path: string; key: string }[];
+  }
+
+  /**
    * 그래프 탐색용 간선 전부. 관계 하나가 간선 하나예요.
    * 출발은 사용처를 감싸는 심볼(없으면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import)이에요.
    * 저장소 밖 심볼(예: dart:core의 print)을 가리키는 관계는 빼요.
