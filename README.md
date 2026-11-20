@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart·Python 저장소 색인(정밀: scip-dart·scip-python, 추정: Tree-sitter. 한 저장소에 섞여 있어도 한 번에 색인해요), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart·Python 저장소 색인(정밀: scip-dart·scip-python, 추정: Tree-sitter. 한 저장소에 섞여 있어도 한 번에 색인해요), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`, `rename`, `flows`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -61,13 +61,23 @@ node src/cli.ts search total --kind function,method --language dart --folder lib
 # 묶음: 서로 촘촘히 엮인 이름들(Louvain). 묶음마다 이름, 파일, 대표 이름, 여러 모듈에 걸쳤는지(crossModule)
 node src/cli.ts clusters --repo path/to/repo
 
+# 실행 흐름: 진입점(불리지 않는 이름, 설정의 flows.entries)에서 호출을 따라 거치는 이름들
+node src/cli.ts flows --repo path/to/repo
+node src/cli.ts flows --depth 5 --length 10 --limit 20 --repo path/to/repo  # 깊이, 흐름마다 이름 수, 흐름 수
+node src/cli.ts flows petMotionOffProvider --repo path/to/repo             # 이 이름이 든 묶음과 이 이름을 거치는 흐름
+
 # 두 지점 사이 경로: from이 어떤 호출을 거쳐 to까지 가나(가장 짧은 것부터, --limit개까지)
 node src/cli.ts trace OrderButton --to writeRow --repo path/to/repo
 node src/cli.ts trace lib/ui/a.dart --to lib/data/db.dart --follow all --repo path/to/repo  # 참조·import도 따라가요
 node src/cli.ts trace OrderButton --to logAudit --depth 15 --repo path/to/repo             # 더 긴 경로까지(기본 10)
+
+# 이름 바꾸기 계획: 고칠 자리(파일, 줄, 열) 전부. 파일은 고치지 않아요(고치는 것은 부르는 쪽).
+# 정밀 층의 자리는 edits, 추정 층과 색인이 잇지 못한 같은 이름 식별자는 inferred, 겹치는 이름은 warnings
+node src/cli.ts rename withTax --to addTax --repo path/to/repo
+node src/cli.ts rename Money.cents --to amount --repo path/to/repo   # 멤버는 바깥 타입을 붙여 묻고, 새 이름은 짧게
 ```
 
-trace의 답과 표시(구간마다 `confidence`와 `kindConfidence`)는 [docs/architecture.md](docs/architecture.md#질의-trace)에 있어요.
+trace의 답과 표시(구간마다 `confidence`와 `kindConfidence`)는 [docs/architecture.md](docs/architecture.md#질의-trace)에, rename의 계획 모양과 놓치는 것은 [docs/architecture.md](docs/architecture.md#질의-rename)에 있어요.
 
 check와 impact의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.
 

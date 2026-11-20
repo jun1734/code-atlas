@@ -512,6 +512,20 @@ export class GraphStore {
     return rows.map((r) => ({ ...toLink(r), uses: Number(r.n) }));
   }
 
+  /**
+   * 파일에 적힌 관계(import 빼고)가 시작하는 자리 전부. 대상이 저장소 밖 심볼이어도 들어가요.
+   * rename이 "색인이 이미 무엇인가로 이은 자리"를 고칠 자리 찾기에서 뺄 때 써요.
+   */
+  relationSitesIn(path: string): Location[] {
+    const rows = this.db
+      .prepare(
+        `SELECT f.path, r.line, r.col FROM relations r JOIN files f ON f.id = r.from_file_id
+         WHERE f.path = ? AND r.kind != 'import' ORDER BY r.line, r.col`,
+      )
+      .all(path) as { path: string; line: number; col: number }[];
+    return rows.map((r) => toLocation(r.path, r.line, r.col));
+  }
+
   /** 색인된 파일 경로 전부(경로순). */
   filePaths(): string[] {
     return (this.db.prepare('SELECT path FROM files ORDER BY path').all() as { path: string }[]).map((r) => r.path);

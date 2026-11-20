@@ -1,0 +1,6 @@
+name: flow_sample
+description: code-atlas flows 테스트용 예제. 진입점(main, refund, 서로만 부르는 ping/pong)에서 시작하는 호출 흐름이 뚜렷한 작은 Dart 앱이에요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

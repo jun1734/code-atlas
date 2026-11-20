@@ -1,0 +1,6 @@
+name: rename_sample
+description: code-atlas rename 테스트용 예제. getter·setter 짝, 이름 있는/없는 생성자, show·hide로 고르는 barrel, 글 사이에 끼운 이름이 있어요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

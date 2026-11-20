@@ -40,7 +40,12 @@ const ITEM_QUESTIONS: string[][] = [
   ['trace', 'main', '--to', 'withTax'],
   ['search', 'cart'],
   ['clusters'],
+  ['flows'],
+  ['flows', 'withTax'],
   ['detect_changes'],
+  ['rename', 'Cart', '--to', 'Basket'],
+  ['rename', 'Cart.total', '--to', 'add'],
+  ['rename', 'add', '--to', 'push'],
 ];
 
 describe('답의 계약 (명령줄과 MCP)', () => {
