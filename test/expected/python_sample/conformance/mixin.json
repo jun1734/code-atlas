@@ -1,0 +1,47 @@
+{
+  "query": "Labeled",
+  "status": "found",
+  "symbol": {
+    "name": "Labeled",
+    "qualifiedName": "Labeled",
+    "kind": "class",
+    "definition": {
+      "path": "shop/cart.py",
+      "line": 13,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "shop/__init__.py",
+        "line": 2,
+        "column": 35,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/cart.py",
+        "line": 21,
+        "column": 12,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "Cart",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ],
+    "byRole": {
+      "app": 2,
+      "test": 0
+    }
+  }
+}

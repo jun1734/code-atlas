@@ -1,0 +1,89 @@
+{
+  "query": "cartProvider",
+  "status": "found",
+  "symbol": {
+    "name": "cartProvider",
+    "qualifiedName": "cartProvider",
+    "kind": "variable",
+    "definition": {
+      "path": "shop/providers.py",
+      "line": 4,
+      "column": 1
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 6,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.py",
+        "line": 1,
+        "column": 34,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "bin/checkout.py",
+        "line": 6,
+        "column": 12,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/__init__.py",
+        "line": 4,
+        "column": 24,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/providers.py",
+        "line": 6,
+        "column": 25,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "totalProvider",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "tests/test_pricing.py",
+        "line": 1,
+        "column": 24,
+        "role": "test",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "tests/test_pricing.py",
+        "line": 7,
+        "column": 8,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ],
+    "byRole": {
+      "app": 4,
+      "test": 2
+    }
+  }
+}

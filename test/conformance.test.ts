@@ -26,6 +26,8 @@ interface Run {
 const RUNS: Run[] = [
   { fixture: 'dart_sample', layer: 'precise' },
   { fixture: 'dart_sample', layer: 'inferred', env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-dart' }, inferredSource: 'tree-sitter-dart' },
+  { fixture: 'python_sample', layer: 'precise' },
+  { fixture: 'python_sample', layer: 'inferred', env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-python' }, inferredSource: 'tree-sitter-python' },
 ];
 
 /** 표시(믿음, 출처, 열쇠)를 뺀 답. 추정 층이 정밀 층과 같은 것을 찾았는지 볼 때 써요. */

@@ -1,0 +1,69 @@
+{
+  "query": "discountPercent",
+  "status": "found",
+  "symbol": {
+    "name": "discountPercent",
+    "qualifiedName": "discountPercent",
+    "kind": "variable",
+    "definition": {
+      "path": "shop/pricing.py",
+      "line": 13,
+      "column": 1
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "path": "shop/__init__.py",
+        "line": 3,
+        "column": 22,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "inferred",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/cart.py",
+        "line": 26,
+        "column": 52,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "Cart.add",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/pricing.py",
+        "line": 17,
+        "column": 12,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "in": "setDiscount",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/pricing.py",
+        "line": 18,
+        "column": 5,
+        "role": "app",
+        "kind": "write",
+        "kindConfidence": "inferred",
+        "in": "setDiscount",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ],
+    "byRole": {
+      "app": 4,
+      "test": 0
+    }
+  }
+}

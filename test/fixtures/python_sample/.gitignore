@@ -1,0 +1,3 @@
+# local/은 git이 무시하는 폴더의 예예요. code-atlas 저장소에는 git add -f로 넣어 뒀어요.
+local/
+__pycache__/

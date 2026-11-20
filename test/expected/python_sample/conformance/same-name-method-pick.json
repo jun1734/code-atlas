@@ -1,0 +1,25 @@
+{
+  "query": "Wishlist.add",
+  "status": "found",
+  "symbol": {
+    "name": "add",
+    "qualifiedName": "Wishlist.add",
+    "kind": "method",
+    "definition": {
+      "path": "shop/cart.py",
+      "line": 43,
+      "column": 9
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 0,
+    "truncated": false,
+    "items": [],
+    "byRole": {
+      "app": 0,
+      "test": 0
+    }
+  }
+}

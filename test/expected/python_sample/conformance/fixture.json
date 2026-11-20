@@ -1,0 +1,5 @@
+{
+  "pricingFile": "shop/pricing.py",
+  "barrelFile": "shop/__init__.py",
+  "generatedFile": "shop/receipt_pb2.py"
+}
