@@ -1,6 +1,6 @@
 # 답의 계약
 
-모든 도구(context, impact, check, trace, search, clusters …)의 답이 지키는 약속이에요. 명령줄과 MCP 서버는 같은 답을 내요.
+모든 도구(context, impact, check, detect_changes, trace, search, clusters …)의 답이 지키는 약속이에요. 명령줄과 MCP 서버는 같은 답을 내요.
 지키는 곳은 `src/answer.ts`(봉투, 목록, 항목)와 `src/queries.ts`(실행기) 한곳이고, 시험은 `test/contract.test.ts`가 도구 호출 경계에서 해요.
 
 ## 답의 모양
@@ -39,8 +39,8 @@
    - `confidence`: `precise`(컴파일러 수준 색인기) 또는 `inferred`(이름으로 이은 추정). `inferred`면 직접 확인해요.
    - `source`: 그 항목을 낸 색인기(예: `scip-dart`).
    - `Page<T>`의 `T`는 `Sourced`(이 두 칸)를 가져야 해서 타입이 빠뜨림을 막아요.
-   - 항목은 답의 목록(배열)에 든 객체와 답이 가리키는 심볼(context의 `symbol`, impact의 `target`, trace의 `from`·`to`와 경로의 `nodes`)이에요. 항목 안의 설명 객체(위치 `definition`·`at`, impact의 `via`, clusters의 `representative`)와 안쪽 목록(`InnerList`)은 바깥 항목의 표시를 따라요.
-   - 예외 둘. **집계**: impact와 check의 `modules[]`(모듈별 개수와 층), `summary`는 여러 항목을 센 것이라 표시가 없어요. 그 안의 항목은 각 목록(`affected`, `backwardImports` 등)에서 표시와 함께 봐요. **파일 지점**: 파일 자체를 가리키는 것(context의 `file`, impact의 파일 `target`, trace의 `kind: "file"` 지점)은 색인기가 짐작한 것이 아니라 저장소에 있는 파일이라 표시가 없어요. 파일에서 나가고 들어오는 관계(`imports`, `affected`의 파일 항목, 경로의 `steps`)에는 표시가 있어요.
+   - 항목은 답의 목록(배열)에 든 객체와 답이 가리키는 심볼(context의 `symbol`, impact의 `target`, trace의 `from`·`to`와 경로의 `nodes`)이에요. detect_changes의 바뀐 파일 항목(`kind: "file"`)은 git이 알려 준 사실이라 `confidence: "precise"`, `source: "git"`이에요. 항목 안의 설명 객체(위치 `definition`·`at`, impact의 `via`, clusters의 `representative`)와 안쪽 목록(`InnerList`)은 바깥 항목의 표시를 따라요.
+   - 예외 둘. **집계**: impact·check·detect_changes의 `modules[]`(모듈별 개수와 층), `summary`, detect_changes 항목의 `impact` 요약과 `structure`의 개수(`existing`, `resolved`)는 여러 항목을 센 것이라 표시가 없어요. 그 안의 항목은 각 목록(`affected`, `backwardImports` 등)에서 표시와 함께 봐요. **파일 지점**: 파일 자체를 가리키는 것(context의 `file`, impact의 파일 `target`, trace의 `kind: "file"` 지점)은 색인기가 짐작한 것이 아니라 저장소에 있는 파일이라 표시가 없어요. 파일에서 나가고 들어오는 관계(`imports`, `affected`의 파일 항목, 경로의 `steps`)에는 표시가 있어요.
    - `test/contract.test.ts`의 "답의 항목마다 정밀/추정과 출처가 붙는다"가 모든 질의의 답을 훑어 이 규칙과 예외를 봐요.
 4. **모호하면 고르지 않아요.** 이름이 여럿에 맞으면 `status: "ambiguous"`와 후보 목록을 돌려줘요. 하나를 골라 그 `qualifiedName`이나 `key`로 다시 물어요.
 5. **저장소를 골라 물어요.** 저장소마다 따로 색인해요(색인 파일은 `~/.code-atlas/<저장소이름>-<경로해시>.db`, `CODE_ATLAS_HOME`으로 폴더를 바꿔요). 명령줄은 `--repo`(또는 `--db`), MCP는 도구 인자 `repo`로 골라요. MCP에서 `repo`가 없으면 서버를 띄운 저장소(`code-atlas mcp --repo`, 없으면 서버의 작업 폴더)예요.
@@ -81,6 +81,7 @@
    ```
 
    - `run`은 몸통만 돌려줘요(`index`는 넣지 않아요). 목록은 `page(items, total)`로, 항목에는 `confidence`와 `source`를 붙여요.
+   - `run(store, args, ctx)`는 몸통이나 그 Promise를 돌려줘요. 봉투는 `run`이 끝난 뒤의 색인 상태로 씌워요. `ctx.db`는 물은 저장소의 색인 파일 자리예요(detect_changes가 다시 색인하거나 그 옆에 커밋 색인을 둘 때 써요). 다른 질의는 `store`와 `args`만 써요.
    - `params`는 명령줄 옵션(`--depth 3`, 위치 인자 하나)과 MCP 입력 스키마(zod)가 둘 다 여기서 만들어져요. 인자 검사(필수, 정수, 가장 작은 값, 고를 수 있는 값 `choices`)는 `checkArgs`가 해요. `choices`는 MCP 입력 스키마에서 enum이 돼요. 인자가 여럿이면 질의 함수는 옵션 객체로 받아요(위치 인자를 늘어놓지 않아요). 저장소 설정 인자는 `CONFIG_PARAM`을 그대로 넣어요. 타입은 지금 `string`과 `integer`뿐이고, 더 필요하면 `Param.type`과 `checkArgs`, `src/mcp.ts`의 `schemaOf`, 이 문서를 같이 고쳐요.
    - `repo`, `db`는 실행기가 따로 받아요. `params`에 넣지 않아요.
    - 이름 있는 인자는 질의끼리 이름이 같아도 돼요(명령줄은 모든 질의의 옵션을 글로 받아요).

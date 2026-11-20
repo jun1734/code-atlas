@@ -12,6 +12,7 @@ import {
   NO_NETWORK,
   runCliRaw,
   startMcp,
+  unmarked,
   type IndexedFixture,
   type McpSession,
 } from './harness.ts';
@@ -39,39 +40,8 @@ const ITEM_QUESTIONS: string[][] = [
   ['trace', 'main', '--to', 'withTax'],
   ['search', 'cart'],
   ['clusters'],
+  ['detect_changes'],
 ];
-
-/**
- * 답에서 항목인데 정밀/추정(confidence)이나 출처(source)가 없는 곳의 경로를 모아요.
- * 항목: 목록(배열)에 든 객체, 답이 가리키는 심볼(symbol, target, trace의 from·to).
- * 예외(계약 문서에 적은 것): 집계(impact·check의 modules[]), 파일 지점(context의 file, impact의 파일 target,
- * trace의 파일 노드). 항목 안의 설명 객체(definition, at, via, representative)는 바깥 항목의 표시를 따라요.
- */
-function unmarked(answer: any): string[] {
-  const bad: string[] = [];
-  const isFilePoint = (o: any) => o.kind === 'file' || ('language' in o && !('kind' in o));
-  const need = (o: any, path: string) => {
-    if (!['precise', 'inferred'].includes(o.confidence) || typeof o.source !== 'string') bad.push(path);
-  };
-  const walk = (value: any, path: string, key: string) => {
-    if (Array.isArray(value)) {
-      value.forEach((v, i) => {
-        if (v && typeof v === 'object' && !Array.isArray(v) && key !== 'modules' && !(key === 'nodes' && isFilePoint(v))) {
-          need(v, `${path}[${i}]`);
-        }
-        walk(v, `${path}[${i}]`, key);
-      });
-    } else if (value && typeof value === 'object') {
-      for (const [k, v] of Object.entries(value)) walk(v, `${path}.${k}`, k);
-    }
-  };
-  for (const k of ['symbol', 'target', 'from', 'to']) {
-    const o = answer[k];
-    if (o && typeof o === 'object' && !isFilePoint(o)) need(o, k);
-  }
-  walk(answer, '', '');
-  return bad;
-}
 
 describe('답의 계약 (명령줄과 MCP)', () => {
   let home: string;

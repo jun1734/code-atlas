@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `impact`, `search`, `trace`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -39,6 +39,12 @@ node src/cli.ts check --repo path/to/repo --config path/to/code-atlas.json
 node src/cli.ts impact withTax --repo path/to/repo
 node src/cli.ts impact lib/src/cart.dart --repo path/to/repo --depth 2 --limit 50
 node src/cli.ts impact withTax --repo path/to/repo --hot 50   # 사용처가 50개 이상인 이름에 hot 표시(기본 20)
+
+# 변경 영향: 작업 트리의 diff(새 파일 포함)가 건드린 이름(added/removed/modified/moved)과 그 영향 범위, 닿는 모듈과 테스트,
+# 이 변경으로 새로 생긴 순환과 경계 위반(이미 있던 것과 구분). 색인이 낡았으면 먼저 다시 색인해요.
+node src/cli.ts detect_changes --repo path/to/repo
+node src/cli.ts detect_changes --base main --head feat/x --repo path/to/repo           # 두 커밋(브랜치) 사이
+node src/cli.ts detect_changes --base $(git merge-base main HEAD) --repo path/to/repo # PR: 갈라진 지점부터 작업 트리까지
 
 # 검색: 정확한 이름을 몰라도 시작점 찾기(이름 일부, 대소문자 무시, 낙타 표기 조각). 많이 쓰이는 것이 먼저.
 # 결과의 key를 그대로 context에 넘겨요.
@@ -111,6 +117,7 @@ claude mcp list
 - scip-dart 산출물(`index.scip`)은 OS 임시 폴더에 쓰고 지워요.
 - `pub get`을 대신 돌리지 않아요(네트워크를 쓰고 생성 파일을 만들어서요). `.dart_tool/package_config.json`이 없으면 할 일(`dart pub get` 또는 `flutter pub get`)을 알려 주고 멈춰요.
 - 숨김 폴더(`.`으로 시작)와 `build` 폴더 안의 `pubspec.yaml`은 패키지로 보지 않아요.
+- detect_changes는 작업 트리를 git 색인의 임시 사본에 담아 비교해요(staging은 그대로, 새 파일의 blob이 `.git/objects`에 남을 수 있어요). base 커밋은 임시 폴더의 로컬 복제(`git clone --shared`)에서 한 번 색인해 저장소 색인 옆(`…@<커밋>.db`)에 두고 다시 써요. 처음 한 번은 저장소 색인만큼 걸려요.
 - 색인 범위: scip-dart 1.8.1은 패키지 안의 Dart 파일을 모두 색인해요(`lib`, `bin`, `test` 등). #204는 "기본은 `lib`만, 테스트는 옵션"이라고 적었지만, 그건 scip-dart의 동작을 잘못 안 것이었어요. 테스트 사용처는 파일의 역할(`test/`, `integration_test/`, `test_driver/`, `*_test.dart`)로 나눠요.
 
 ### 측정 (2026-11-19, Windows 11 노트북)

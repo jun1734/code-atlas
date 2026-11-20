@@ -26,6 +26,11 @@ export function defaultDb(repo: string): string {
   return join(home, `${basename(abs)}-${hash}.db`);
 }
 
+/** 질문할 저장소의 색인 파일 자리(절대 경로). */
+export function dbOf(target: Target): string {
+  return resolve(target.db ?? defaultDb(resolve(target.repo)));
+}
+
 /** 저장소의 색인을 열어요. 없으면 색인하는 명령을 담은 UserError를 던져요. */
 export function openIndex(target: Target): GraphStore {
   const repo = resolve(target.repo);

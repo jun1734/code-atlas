@@ -7,7 +7,7 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { Confidence, Facts, FileRole, RelationFact, RelationKind, SymbolFact, SymbolKind } from '../facts.ts';
 
-const SCHEMA_VERSION = '3';
+const SCHEMA_VERSION = '4';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS symbols (
   col INTEGER NOT NULL,
   end_line INTEGER NOT NULL,
   end_col INTEGER NOT NULL,
+  body_line INTEGER NOT NULL,
+  body_end_line INTEGER NOT NULL,
   parent_key TEXT,
   confidence TEXT NOT NULL,
   source TEXT NOT NULL
@@ -249,8 +251,8 @@ export class GraphStore {
       const putFile = db.prepare('INSERT INTO files(path, language, role, hash) VALUES (?, ?, ?, ?)');
       const updateFile = db.prepare('UPDATE files SET language = ?, role = ?, hash = ? WHERE id = ?');
       const putSymbol = db.prepare(
-        `INSERT OR IGNORE INTO symbols(key, name, qualified_name, kind, file_id, line, col, end_line, end_col, parent_key, confidence, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR IGNORE INTO symbols(key, name, qualified_name, kind, file_id, line, col, end_line, end_col, body_line, body_end_line, parent_key, confidence, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       const putRelation = db.prepare(
         `INSERT INTO relations(kind, from_file_id, from_symbol_key, line, col, end_line, end_col, to_symbol_key, to_path, confidence, kind_confidence, source)
@@ -285,6 +287,9 @@ export class GraphStore {
             s.range.startColumn,
             s.range.endLine,
             s.range.endColumn,
+            // 정의 전체(본문 포함)의 줄. 색인기가 주지 않으면 이름이 적힌 줄이에요.
+            (s.enclosingRange ?? s.range).startLine,
+            (s.enclosingRange ?? s.range).endLine,
             s.parentKey ?? null,
             s.confidence,
             s.source,
@@ -444,6 +449,26 @@ export class GraphStore {
       )
       .all(path) as unknown as SymbolSqlRow[];
     return rows.map(toSymbolRow);
+  }
+
+  /**
+   * 파일이 정의하는 이름(파일과 매개변수는 빼요)과 정의 전체(본문 포함)가 차지하는 줄(`extent`, 1부터, 끝 포함). 위치 순.
+   * 바뀐 줄을 이름으로 옮길 때(detect_changes) 써요. 색인기가 정의 전체의 범위를 주지 않은 이름은 이름이 적힌 줄뿐이에요.
+   */
+  extentsIn(path: string): ExtentRow[] {
+    const rows = this.db
+      .prepare(
+        `SELECT ${SYMBOL_COLUMNS}, s.parent_key AS parentKey, s.body_line AS bodyLine, s.body_end_line AS bodyEndLine
+         FROM symbols s JOIN files f ON f.id = s.file_id
+         WHERE f.path = ? AND s.kind NOT IN ('file', 'parameter')
+         ORDER BY s.line, s.col`,
+      )
+      .all(path) as unknown as (SymbolSqlRow & { parentKey: string | null; bodyLine: number; bodyEndLine: number })[];
+    return rows.map((r) => ({
+      ...toSymbolRow(r),
+      parentKey: r.parentKey,
+      extent: { start: Number(r.bodyLine) + 1, end: Number(r.bodyEndLine) + 1 },
+    }));
   }
 
   /** 이 파일이 가져오거나 다시 내보내는 저장소 안의 파일(import 관계). */
@@ -693,4 +718,9 @@ export interface SearchRow extends SymbolRow {
 /** 정의 하나와 바로 바깥 심볼(최상위 선언이면 null). */
 export interface DefinitionRow extends SymbolRow {
   parentKey: string | null;
+}
+
+/** 정의 하나와 그 정의 전체(본문 포함)가 차지하는 줄(1부터, 끝 포함). */
+export interface ExtentRow extends DefinitionRow {
+  extent: { start: number; end: number };
 }

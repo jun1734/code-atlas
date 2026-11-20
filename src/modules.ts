@@ -75,9 +75,14 @@ export function moduleResolver(config: Pick<RepoConfig, 'modules'>): ModuleOf {
 
 /**
  * 색인한 저장소의 설정을 읽고 "파일 경로 → 모듈" 함수를 만들어요. check, impact, clusters가 모두 이것을 써요.
- * configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)이에요.
+ * configPath가 없으면 색인한 저장소 뿌리(root를 주면 그 폴더)의 .code-atlas.json(없으면 기본 설정)이에요.
+ * root는 색인한 자리가 지금은 없는 색인(detect_changes의 커밋 색인)에 지금 저장소의 설정을 쓸 때 줘요.
  */
-export function repoModules(store: GraphStore, configPath?: string): { config: RepoConfig; moduleOf: ModuleOf } {
-  const config = loadRepoConfig(store.meta().repoRoot, configPath);
+export function repoModules(
+  store: GraphStore,
+  configPath?: string,
+  root: string = store.meta().repoRoot,
+): { config: RepoConfig; moduleOf: ModuleOf } {
+  const config = loadRepoConfig(root, configPath);
   return { config, moduleOf: moduleResolver(config) };
 }
