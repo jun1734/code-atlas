@@ -172,7 +172,7 @@ claude mcp list
 
 hijo_app의 hook과 스크립트로 맞춰 본 결과는 [docs/measurements.md](docs/measurements.md#javascript-hook과-스크립트-2026-11-20-hijo_app-322c149-221)에 있어요.
 
-**code-atlas 자신을 색인하기**: `node src/cli.ts index .`로 이 저장소도 색인돼요(TypeScript 63개, JavaScript 7개 파일, 6초 남짓). `context runInferred`, `impact runInferred` 같은 질문이 돼요.
+**code-atlas 자신을 색인하기**: `node src/cli.ts index .`로 이 저장소도 색인돼요(TypeScript 63개, JavaScript 7개 파일, 6초 남짓). `context runInferred`, `impact runInferred` 같은 질문이 돼요(시험: `test/self.test.ts`).
 - `test/fixtures/`의 예제 저장소도 색인에 들어가요. 추적되는 코드이고 테스트 폴더(`test/`) 아래라 모두 `role: test`예요. 그래서 예제에만 있는 이름(`withTax`, `Cart`, `main` …)을 물으면 예제 여러 곳이 후보로 나오지만, 도구 자신의 이름(`runInferred`, `indexRepo` …)에는 섞이지 않아요. 빼는 설정을 따로 두지 않았어요.
 - Dart 예제는 `.dart_tool`이 없어서(pub get을 하지 않은 체크아웃) scip-dart가 실패하고 추정 층으로 색인돼요(`fallbacks`에 남아요).
 - 루트 `tsconfig.json`은 `test/fixtures`를 타입 검사에서 빼요(예제는 각자의 설정을 가진 따로 된 저장소예요). 색인은 이 설정과 상관없이 예제 파일도 읽어요.
