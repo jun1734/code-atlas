@@ -64,6 +64,38 @@ describe('정밀 색인기가 없을 때(dart_sample, scip-dart 없음)', () => 
   });
 });
 
+/** 추정 층 Dart 규칙을 보는 작은 파일(dart_sample에 더해요). */
+const PALETTE = [
+  'class Palette {',
+  '  const Palette({required this.primary});',
+  '  final int primary;',
+  '}',
+  '',
+  'class Swatch {',
+  '  Swatch(this.shade);',
+  '  final int shade;',
+  '}',
+  '',
+  'const defaultPalette = Palette(primary: 1);',
+  'final defaultSwatch = Swatch(2);',
+  '',
+].join('\n');
+
+describe('추정 층 Dart 규칙(dart_sample + lib/src/palette.dart, scip-dart 없음)', () => {
+  let fx: IndexedFixture;
+  before(() => {
+    fx = indexFixture('dart_sample', { env: NO_SCIP_DART, extraFiles: { 'lib/src/palette.dart': PALETTE } });
+  });
+  after(() => fx?.dispose());
+
+  const uses = (answer: any) => answer.uses.items.map((u: any) => [u.path, u.line, u.column, u.kind]);
+
+  it('이름 없는 생성자 선언(const든 아니든)은 클래스의 사용처가 아니다', () => {
+    assert.deepEqual(uses(fx.ask('context', 'Palette')), [['lib/src/palette.dart', 11, 24, 'call']]);
+    assert.deepEqual(uses(fx.ask('context', 'Swatch')), [['lib/src/palette.dart', 12, 23, 'call']]);
+  });
+});
+
 describe('정밀 층과 추정 층이 섞인 저장소(mixed_sample: app/ 패키지는 scip-dart, 패키지 밖 scripts/는 추정 층)', () => {
   let fx: IndexedFixture;
   before(() => {

@@ -217,7 +217,7 @@ interface FileSyntax {
 ### Dart 규칙 (`src/inferred/dart.ts`)
 
 - 파일 고르기와 역할은 정밀 어댑터와 같은 관례(`src/adapters/dart-conventions.ts`)를 가장 가까운 `pubspec.yaml` 폴더 기준으로 써요. 패키지 밖 파일은 저장소 뿌리 기준이에요.
-- 정의: 클래스(`abstract interface class`는 `interface`), mixin, enum(값은 `field`), extension, typedef(`type`), 함수, 메서드, getter, setter, 이름 있는 생성자(`constructor`), 필드, 최상위 변수(`const`면 `constant`). 이름 없는 생성자는 정의를 만들지 않고 클래스에 속해요(정밀 어댑터가 클래스로 합치는 것과 같아요). 함수와 메서드의 `enclosingRange`는 시그니처부터 본문 끝까지예요.
+- 정의: 클래스(`abstract interface class`는 `interface`), mixin, enum(값은 `field`), extension, typedef(`type`), 함수, 메서드, getter, setter, 이름 있는 생성자(`constructor`), 필드, 최상위 변수(`const`면 `constant`). 이름 없는 생성자(`const` 생성자 포함)는 정의를 만들지 않고 클래스에 속해요(정밀 어댑터가 클래스로 합치는 것과 같아요). 그 선언에 적힌 클래스 이름(`const Palette({…})`의 `Palette`)은 선언이라 클래스의 사용처가 아니에요. 함수와 메서드의 `enclosingRange`는 시그니처부터 본문 끝까지예요.
 - 사용처의 종류: `extends`·`with` 뒤 타입은 `extends`, `implements`·mixin의 `on` 뒤 타입은 `implements`, 뒤에 인자 목록이 오거나 `new`/`const`로 만들면 `call`, 대입의 왼쪽 끝이나 `++`/`--`면 `write`, 그 밖의 값은 `read`, 타입 표기는 `reference`예요.
 - import: `import`·`export`(다시 내보냄)·`part`(다시 내보냄)는 관계로 넣고, `part of`는 넣지 않고 이름 공간만 함께 써요(정밀 어댑터의 `dropPartOf`와 같은 결과). `package:<이름>/…`는 저장소 안 `pubspec.yaml`의 `name`이 같은 패키지의 `lib/`로, 상대 경로는 파일 폴더 기준으로 풀어요. `dart:`와 저장소 밖 패키지는 잇지 않아요.
 

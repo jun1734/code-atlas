@@ -123,6 +123,7 @@ class Extractor {
       case 'setter_signature':
         return this.callable(sig, body, 'setter', parent, whole);
       case 'constructor_signature':
+      case 'constant_constructor_signature':
       case 'factory_constructor_signature':
       case 'redirecting_factory_constructor_signature':
         return this.ctor(sig, body, parent, whole);
@@ -141,7 +142,7 @@ class Extractor {
         this.variables(c, parent, isConst ? 'constant' : parent === undefined ? 'variable' : 'field');
       } else if (c.type === 'initializers' || c.type === 'redirection') {
         // 생성자 뒤의 초기화 목록은 그 생성자(이름 없는 생성자면 클래스)에 속해요. 아래 ctor가 함께 읽어요.
-      } else if (['function_signature', 'getter_signature', 'setter_signature', 'constructor_signature', 'factory_constructor_signature', 'redirecting_factory_constructor_signature'].includes(c.type)) {
+      } else if (['function_signature', 'getter_signature', 'setter_signature', 'constructor_signature', 'constant_constructor_signature', 'factory_constructor_signature', 'redirecting_factory_constructor_signature'].includes(c.type)) {
         const rest = parts.filter((p) => p.type === 'initializers' || p.type === 'redirection');
         if (c.type.includes('constructor')) this.ctor(c, undefined, parent, n, rest);
         else this.signature(c, n, undefined, parent);
