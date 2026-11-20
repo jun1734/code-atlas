@@ -2,6 +2,7 @@
 // 정밀 어댑터(typescript.ts)와 추정 층의 규칙(src/inferred/typescript.ts)이 같은 규칙을 써요.
 import { posix } from 'node:path';
 import type { FileRole } from '../facts.ts';
+import { hasGeneratedMark } from './conventions.ts';
 
 /** JavaScript/TypeScript 파일의 꼬리. */
 const TS_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'];
@@ -45,7 +46,7 @@ export function isGeneratedJsTs(path: string, head: string, packageRoots: Readon
   while (dir !== '.' && !packageRoots.has(dir)) dir = posix.dirname(dir);
   const inPackage = dir === '.' ? path : path.slice(dir.length + 1);
   if (OUTPUT_DIRS.some((d) => inPackage.startsWith(d))) return true;
-  return GENERATED_MARK.test(head.slice(0, 1000));
+  return hasGeneratedMark(head, GENERATED_MARK);
 }
 
 /** 테스트 파일인지: test/·tests/·__tests__/·spec/ 폴더 아래이거나 이름이 *.test.*·*.spec.*이면 test. */

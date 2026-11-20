@@ -3,15 +3,8 @@
 import { posix } from 'node:path';
 import { dartRole, isGeneratedDart } from '../adapters/dart-conventions.ts';
 import type { Range, RelationKind, SymbolKind } from '../facts.ts';
-import type { FileSyntax, InferredLanguage, RepoView } from './layer.ts';
-import { namedChildren, same, type SyntaxNode } from './tree-sitter.ts';
-
-const rangeOf = (n: SyntaxNode): Range => ({
-  startLine: n.startPosition.row,
-  startColumn: n.startPosition.column,
-  endLine: n.endPosition.row,
-  endColumn: n.endPosition.column,
-});
+import { perRepo, type FileSyntax, type InferredLanguage, type RepoView } from './layer.ts';
+import { namedChildren, rangeOf, same, type SyntaxNode } from './tree-sitter.ts';
 
 const spanOf = (a: SyntaxNode, b: SyntaxNode): Range => ({ ...rangeOf(a), endLine: b.endPosition.row, endColumn: b.endPosition.column });
 
@@ -319,23 +312,16 @@ interface DartPackage {
   name: string | null;
 }
 
-const packageCache = new WeakMap<RepoView, DartPackage[]>();
-
-function packages(repo: RepoView): DartPackage[] {
-  let list = packageCache.get(repo);
-  if (!list) {
-    list = [...repo.files]
-      .filter((f) => f === 'pubspec.yaml' || f.endsWith('/pubspec.yaml'))
-      .map((f) => {
-        const dir = f.slice(0, -'pubspec.yaml'.length).replace(/\/$/, '');
-        const name = /^name:\s*([\w]+)/m.exec(repo.read(f) ?? '')?.[1] ?? null;
-        return { dir, name };
-      })
-      .sort((a, b) => b.dir.length - a.dir.length); // 깊은 것부터: 가장 가까운 패키지를 먼저 찾아요.
-    packageCache.set(repo, list);
-  }
-  return list;
-}
+const packages = perRepo((repo): DartPackage[] =>
+  [...repo.files]
+    .filter((f) => f === 'pubspec.yaml' || f.endsWith('/pubspec.yaml'))
+    .map((f) => {
+      const dir = f.slice(0, -'pubspec.yaml'.length).replace(/\/$/, '');
+      const name = /^name:\s*([\w]+)/m.exec(repo.read(f) ?? '')?.[1] ?? null;
+      return { dir, name };
+    })
+    .sort((a, b) => b.dir.length - a.dir.length), // 깊은 것부터: 가장 가까운 패키지를 먼저 찾아요.
+);
 
 /** 파일이 든 가장 가까운 패키지 뿌리 기준 경로. 패키지 밖이면 저장소 뿌리 기준. */
 function inPackage(path: string, repo: RepoView): string {

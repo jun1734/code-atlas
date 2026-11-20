@@ -9,11 +9,11 @@
 //    (supertypes)로 확인한 것만 precise예요. scip-typescript가 주지 않은 정의 전체의 자리(enclosingRange)도 구문으로 채워요.
 // 6) scip-typescript가 아무것도 잇지 못한 자리(occurrence가 하나도 없는 자리)는 추정 층이 이은 것을 추정으로 붙여요.
 //    예: JSDoc의 `@implements {X}`·`@type {X}`. 수신자.이름(수신자가 any)은 메우지 않아요(fillGaps).
-import { emptyFacts, type Facts, type Range, type RelationFact, type RelationKind, type RepoInfo, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { emptyFacts, placeKey, positionKey, type Facts, type Range, type RelationFact, type RelationKind, type RepoInfo, type SymbolFact, type SymbolKind } from '../facts.ts';
 import { inferredSource, runInferred, type RepoView } from '../inferred/layer.ts';
 import { parserFor } from '../inferred/tree-sitter.ts';
 import { extractJsTs, typescriptInferred, type JsTsSyntax } from '../inferred/typescript.ts';
-import { parseSymbol, symbolNames } from '../scip/symbol.ts';
+import { canonicalKey, parseSymbol, symbolNames } from '../scip/symbol.ts';
 import { jsTsGrammar, jsTsLanguage, jsTsRole } from './typescript-conventions.ts';
 
 export interface RefineOptions {
@@ -22,8 +22,6 @@ export interface RefineOptions {
   /** 파일마다 scip-typescript의 occurrence가 있는 자리('줄:열', 지역 이름과 저장소 밖 이름 포함). */
   positions: Record<string, string[]>;
 }
-
-const at = (path: string, line: number, column: number) => `${path}:${line}:${column}`;
 
 export async function refineTypeScriptFacts(raw: Facts, opts: RefineOptions): Promise<Facts> {
   // 1) 파일
@@ -40,7 +38,7 @@ export async function refineTypeScriptFacts(raw: Facts, opts: RefineOptions): Pr
   // 3) 열쇠 맞추기
   const accessorKind = new Map<string, SymbolKind>();
   const rename = (key: string): string => {
-    const renamed = renameKey(key);
+    const renamed = canonicalKey(key);
     if (renamed.accessor && !accessorKind.has(renamed.key)) accessorKind.set(renamed.key, renamed.accessor);
     return renamed.key;
   };
@@ -76,16 +74,16 @@ export async function refineTypeScriptFacts(raw: Facts, opts: RefineOptions): Pr
     const s: JsTsSyntax = extractJsTs(tree.rootNode);
     tree.delete();
     syntax.set(f.path, {
-      kinds: new Map(s.references.map((r) => [`${r.range.startLine}:${r.range.startColumn}`, r.kind])),
-      bindings: new Set(s.bindings.map((b) => `${b.startLine}:${b.startColumn}`)),
-      members: new Set(s.references.filter((r) => r.member).map((r) => `${r.range.startLine}:${r.range.startColumn}`)),
+      kinds: new Map(s.references.map((r) => [positionKey(r.range.startLine, r.range.startColumn), r.kind])),
+      bindings: new Set(s.bindings.map((b) => positionKey(b.startLine, b.startColumn))),
+      members: new Set(s.references.filter((r) => r.member).map((r) => positionKey(r.range.startLine, r.range.startColumn))),
     });
     // scip-typescript는 여러 줄에 걸친 변수 선언(`export const x = { … }`) 등에 정의 전체의 자리(enclosingRange)를 주지 않아요.
     // 같은 자리의 구문 정의로 채워요. 그 안의 사용처를 감싸는 심볼(in)과 impact의 출발점이 이것으로 정해져요.
-    const extents = new Map(s.definitions.map((d) => [`${d.range.startLine}:${d.range.startColumn}`, d.enclosingRange]));
+    const extents = new Map(s.definitions.map((d) => [positionKey(d.range.startLine, d.range.startColumn), d.enclosingRange]));
     for (const sym of symbols) {
       if (sym.path !== f.path || sym.enclosingRange) continue;
-      const extent = extents.get(`${sym.range.startLine}:${sym.range.startColumn}`);
+      const extent = extents.get(positionKey(sym.range.startLine, sym.range.startColumn));
       if (extent) sym.enclosingRange = extent;
     }
   }
@@ -96,7 +94,7 @@ export async function refineTypeScriptFacts(raw: Facts, opts: RefineOptions): Pr
     if ('symbolKey' in r0.to && unwanted(r0.to.symbolKey)) continue;
     // CommonJS의 `module.exports`는 scip-typescript가 그 파일 자신을 가리키는 occurrence로 적어요. 자기 자신을 가져오는 import가 아니에요.
     if ('path' in r0.to && r0.to.path === r0.from.path) continue;
-    const pos = `${r0.from.range.startLine}:${r0.from.range.startColumn}`;
+    const pos = positionKey(r0.from.range.startLine, r0.from.range.startColumn);
     const fileSyntax = syntax.get(r0.from.path);
     if (r0.kind !== 'import' && fileSyntax?.bindings.has(pos)) continue;
     const fromKey = r0.from.symbolKey ? rename(r0.from.symbolKey) : innermost(r0.from.path, r0.from.range);
@@ -160,10 +158,10 @@ async function fillGaps(
   memberAt: (path: string) => Set<string>,
 ): Promise<RelationFact[]> {
   const guessed = await runInferred(typescriptInferred, opts.repo, { emit: (p) => covered.has(p), precise: emptyFacts() });
-  const preciseAt = new Map(symbols.map((s) => [at(s.path, s.range.startLine, s.range.startColumn), s.key]));
+  const preciseAt = new Map(symbols.map((s) => [placeKey(s.path, s.range.startLine, s.range.startColumn), s.key]));
   const toPrecise = new Map<string, string>();
   for (const s of guessed.symbols) {
-    const key = preciseAt.get(at(s.path, s.range.startLine, s.range.startColumn));
+    const key = preciseAt.get(placeKey(s.path, s.range.startLine, s.range.startColumn));
     if (key) toPrecise.set(s.key, key);
   }
   const occupied = new Map(Object.entries(opts.positions).map(([path, list]) => [path, new Set(list)]));
@@ -171,7 +169,7 @@ async function fillGaps(
   const out: RelationFact[] = [];
   for (const r of guessed.relations) {
     if (r.kind === 'import' || !('symbolKey' in r.to)) continue;
-    const pos = `${r.from.range.startLine}:${r.from.range.startColumn}`;
+    const pos = positionKey(r.from.range.startLine, r.from.range.startColumn);
     if (occupied.get(r.from.path)?.has(pos)) continue;
     // 수신자.이름은 메우지 않아요. scip-typescript가 잇지 못한 멤버는 수신자가 any(대개 저장소 밖 값: JSON, 외부 모듈)라서
     // 이름만으로 이으면 틀린 것이 더 많았어요(code-atlas 자신에서 288개 가운데 대부분이 RepoConfig.map, CliResult.status 같은 잘못 이음).
@@ -191,16 +189,3 @@ async function fillGaps(
   return out;
 }
 
-/**
- * scip-typescript의 열쇠를 사람이 묻는 이름에 맞춰요.
- *   Cart#`<constructor>`().   → Cart#          (생성자를 부르는 곳(new Cart())은 클래스를 쓰는 곳이에요)
- *   Labeled#`<get>label`().   → Labeled#label. (getter)
- *   Labeled#`<set>label`().   → Labeled#label. (setter)
- */
-function renameKey(key: string): { key: string; accessor?: SymbolKind } {
-  if (key.endsWith('#`<constructor>`().')) return { key: key.slice(0, -'`<constructor>`().'.length) };
-  const m = /`<(get|set)>([^`]+)`(?:\(\))?\.$/.exec(key);
-  if (!m) return { key };
-  const name = /^[\w+$-]+$/.test(m[2]!) ? m[2]! : `\`${m[2]}\``;
-  return { key: `${key.slice(0, m.index)}${name}.`, accessor: m[1] === 'get' ? 'getter' : 'setter' };
-}

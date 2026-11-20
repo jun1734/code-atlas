@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { GraphStore } from './graph/store.ts';
 import { indexRepo } from './indexer.ts';
-import { runOrThrow } from './run.ts';
+import { git } from './git.ts';
 
 /**
  * 색인기가 읽지만 git이 무시해서 커밋에 없는 파일(패키지 설정). 꺼낸 커밋에는 없으니 지금 작업 트리의 같은 자리에서 빌려 와요.
@@ -45,10 +45,10 @@ export async function indexCommit(root: string, mainDb: string, commit: string):
   const work = mkdtempSync(join(tmpdir(), 'code-atlas-commit-'));
   try {
     const clone = join(work, basename(root));
-    runOrThrow('git', ['clone', '--quiet', '--shared', '--no-checkout', root, clone]);
-    runOrThrow('git', ['-c', 'advice.detachedHead=false', 'checkout', '--quiet', '--detach', commit], clone);
+    git(root, ['clone', '--quiet', '--shared', '--no-checkout', root, clone]);
+    git(clone, ['-c', 'advice.detachedHead=false', 'checkout', '--quiet', '--detach', commit]);
     const dirs = new Set(['']);
-    for (const f of runOrThrow('git', ['ls-files', '-z'], clone).split('\0')) {
+    for (const f of git(clone, ['ls-files', '-z']).split('\0')) {
       for (let d = dirname(f); d !== '.' && d !== '' && !dirs.has(d); d = dirname(d)) dirs.add(d);
     }
     for (const dir of dirs) {

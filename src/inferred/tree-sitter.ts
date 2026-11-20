@@ -2,6 +2,7 @@
 // 네이티브 빌드 없이 Windows와 Linux에서 같게 돌아요. 라이선스는 README의 라이선스 방침에 있어요.
 import { createRequire } from 'node:module';
 import { Language, Parser, type Node } from 'web-tree-sitter';
+import type { Range } from '../facts.ts';
 
 export type { Node as SyntaxNode } from 'web-tree-sitter';
 
@@ -35,4 +36,9 @@ export function namedChildren(node: Node): Node[] {
 /** 같은 노드인지. web-tree-sitter는 노드를 꺼낼 때마다 새 객체를 줘서 ===로는 비교할 수 없어요. */
 export function same(a: Node | null | undefined, b: Node | null | undefined): boolean {
   return !!a && !!b && a.id === b.id;
+}
+
+/** 노드의 자리(0부터 세는 줄과 열, 끝은 포함하지 않아요). */
+export function rangeOf(n: Node): Range {
+  return { startLine: n.startPosition.row, startColumn: n.startPosition.column, endLine: n.endPosition.row, endColumn: n.endPosition.column };
 }

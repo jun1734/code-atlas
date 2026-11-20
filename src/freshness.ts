@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { IndexMeta } from './graph/store.ts';
-import { run } from './run.ts';
+import { gitRun } from './git.ts';
 
 /**
  * 작업 트리에서 커밋과 다른 파일들(`git status`에 나오는 것, 무시된 파일 제외)의 상태와 내용으로 낸 지문.
@@ -13,7 +13,7 @@ import { run } from './run.ts';
  */
 export function worktreeFingerprint(root: string): string | null {
   // -z: 경로를 따옴표로 감싸지 않아요. -uall: 추적하지 않는 폴더도 파일 단위로 보여요.
-  const status = run('git', ['status', '--porcelain', '-z', '-uall'], root);
+  const status = gitRun(root, ['status', '--porcelain', '-z', '-uall']);
   if (!status.ok) return null;
   const entries = status.stdout.split('\0').filter(Boolean);
   if (entries.length === 0) return '';
@@ -34,7 +34,7 @@ export function worktreeFingerprint(root: string): string | null {
 /** 낡았으면 true, 그대로면 false, git 저장소가 아니라 알 수 없으면 null. */
 export function isStale(meta: IndexMeta): boolean | null {
   if (!meta.commit || !meta.repoRoot) return null;
-  const head = run('git', ['rev-parse', 'HEAD'], meta.repoRoot);
+  const head = gitRun(meta.repoRoot, ['rev-parse', 'HEAD']);
   if (!head.ok) return null;
   if (head.stdout.trim() !== meta.commit) return true;
   const now = worktreeFingerprint(meta.repoRoot);

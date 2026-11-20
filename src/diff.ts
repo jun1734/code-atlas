@@ -1,9 +1,9 @@
 // git이 말하는 변경: 두 커밋 사이, 또는 커밋과 작업 트리 사이에서 바뀐 파일과 줄.
 // 저장소는 바꾸지 않아요. 작업 트리를 볼 때는 임시 git 색인 파일에 담아 비교해요(사용자의 staging은 그대로).
-import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
+import { gitRun } from './git.ts';
 import { UserError } from './locate.ts';
 
 /** 줄 범위(1부터, 끝 포함). */
@@ -22,22 +22,17 @@ export interface FileDiff {
   newLines: LineSpan[];
 }
 
+/** 경로를 따옴표로 감싸지 않게(core.quotePath=false) git을 돌려요. 실패하면 고칠 방법을 담은 UserError. */
 function git(root: string, args: string[], env: Record<string, string> = {}): string {
-  // git은 실행 파일이라 셸을 거치지 않아요(Windows에서도). 큰 diff를 받을 수 있게 버퍼를 넉넉히 둬요.
-  const r = spawnSync('git', ['-c', 'core.quotePath=false', ...args], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
-    maxBuffer: 1 << 30,
-  });
-  if (r.status !== 0) throw new UserError(`git ${args.join(' ')} 실패: ${(r.stderr || String(r.error ?? '')).trim()}`);
+  const r = gitRun(root, ['-c', 'core.quotePath=false', ...args], env);
+  if (!r.ok) throw new UserError(`git ${args.join(' ')} 실패: ${r.stderr.trim()}`);
   return r.stdout;
 }
 
 /** 커밋을 가리키는 글(커밋, 브랜치, 태그, HEAD~1 …)을 커밋 해시로. 없으면 UserError. */
 export function resolveCommit(root: string, ref: string): string {
-  const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: root, encoding: 'utf8' });
-  if (r.status !== 0) throw new UserError(`커밋을 찾지 못했어요: ${ref}`);
+  const r = gitRun(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+  if (!r.ok) throw new UserError(`커밋을 찾지 못했어요: ${ref}`);
   return r.stdout.trim();
 }
 

@@ -10,6 +10,7 @@ import { closeSync, existsSync, openSync, readFileSync, writeFileSync, writeSync
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { positionKey } from '../facts.ts';
 
 interface Group {
   config: string | null;
@@ -83,7 +84,7 @@ const positions: Record<string, string[]> = {};
 const writeIndex = (index: { documents?: { relativePath: string; occurrences: { range: number[] }[] }[] }) => {
   for (const doc of index.documents ?? []) {
     const path = doc.relativePath.replaceAll('\\', '/');
-    (positions[path] ??= []).push(...doc.occurrences.map((o) => `${o.range[0]}:${o.range[1]}`));
+    (positions[path] ??= []).push(...doc.occurrences.map((o) => positionKey(o.range[0]!, o.range[1]!)));
   }
   writeSync(out, toBinary(IndexSchema, index));
 };

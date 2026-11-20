@@ -2,6 +2,7 @@
 // 모듈 이름(import 대상)을 어느 파일로 푸는지. 정밀 어댑터(python.ts, python-refine.ts)와 추정 규칙(src/inferred/python.ts)이 같은 규칙을 써요.
 import { posix } from 'node:path';
 import type { FileRole } from '../facts.ts';
+import { hasGeneratedMark } from './conventions.ts';
 
 /** 이 파일이 있는 폴더를 Python 프로젝트 뿌리로 봐요. scip-python은 뿌리마다 한 번 돌아요. */
 const PROJECT_MARKERS = ['pyproject.toml', 'setup.py', 'setup.cfg', 'requirements.txt', 'Pipfile'];
@@ -31,7 +32,7 @@ function underSkippedDir(path: string): boolean {
 export function isExcludedPython(path: string, head: string): boolean {
   if (underSkippedDir(path)) return true;
   if (GENERATED_SUFFIXES.some((s) => path.endsWith(s))) return true;
-  return GENERATED_MARK.test(head.slice(0, 1000));
+  return hasGeneratedMark(head, GENERATED_MARK);
 }
 
 /** 테스트 파일인지: test/·tests/ 폴더 아래, 또는 이름이 test_*.py, *_test.py, conftest.py. */

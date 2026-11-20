@@ -2,19 +2,9 @@
 // 이름 잇기는 추정 층(layer.ts)이 해요. 파일 고르기(생성된 코드, 테스트)와 모듈 풀기는 정밀 어댑터와 같은 Python 관례를 써요.
 // 정밀 어댑터(src/adapters/python-refine.ts)도 이 구문 읽기(pythonSyntax)로 정의의 종류와 사용처의 종류를 가려요.
 import { isExcludedPython, ownsPython, pythonProjects, pythonRole, resolvePythonModule } from '../adapters/python-conventions.ts';
-import type { Range, RelationKind, SymbolKind } from '../facts.ts';
-import type { FileSyntax, InferredLanguage, RepoView } from './layer.ts';
-import { namedChildren, same, type SyntaxNode } from './tree-sitter.ts';
-
-const rangeOf = (n: SyntaxNode): Range => ({
-  startLine: n.startPosition.row,
-  startColumn: n.startPosition.column,
-  endLine: n.endPosition.row,
-  endColumn: n.endPosition.column,
-});
-
-/** 자리 열쇠: 이름이 시작하는 줄과 열(0부터). */
-export const positionKey = (line: number, column: number) => `${line}:${column}`;
+import { positionKey, type Range, type RelationKind, type SymbolKind } from '../facts.ts';
+import { perRepo, type FileSyntax, type InferredLanguage, type RepoView } from './layer.ts';
+import { namedChildren, rangeOf, same, type SyntaxNode } from './tree-sitter.ts';
 
 /** 한 파일의 구문 읽기 결과. file은 추정 층이 쓰고, kindAt은 정밀 어댑터가 사용처의 종류를 가릴 때 써요. */
 export interface PythonSyntax {
@@ -468,12 +458,7 @@ export function pythonSyntax(root: SyntaxNode): PythonSyntax {
   return { file: x.out, kindAt: x.kindAt, importedNames: x.importedNames };
 }
 
-const projectCache = new WeakMap<RepoView, string[]>();
-const projectsOf = (repo: RepoView) => {
-  let p = projectCache.get(repo);
-  if (!p) projectCache.set(repo, (p = pythonProjects(repo.files)));
-  return p;
-};
+const projectsOf = perRepo((repo) => pythonProjects(repo.files));
 
 export const pythonInferred: InferredLanguage = {
   language: 'python',

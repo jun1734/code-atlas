@@ -5,8 +5,8 @@
 // 설명은 docs/architecture.md의 "추정 층"에 있어요.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Facts, FileRole, Range, RelationFact, RelationKind, RepoInfo, SymbolFact, SymbolKind } from '../facts.ts';
-import { run } from '../run.ts';
+import { placeKey, TYPE_KINDS, type Facts, type FileRole, type Range, type RelationFact, type RelationKind, type RepoInfo, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { gitRun } from '../git.ts';
 import { parserFor, type SyntaxNode } from './tree-sitter.ts';
 
 /** 파일 안의 정의 하나. */
@@ -97,12 +97,10 @@ export interface InferredRun {
   precise: Facts;
 }
 
-const TYPE_KINDS = new Set<SymbolKind>(['class', 'interface', 'enum', 'mixin', 'extension', 'type']);
-
 /** 저장소에서 이 언어의 파일을 모두 골라요(git이 무시하는 파일 빼고, 추적하지 않는 새 파일 포함). */
 export function listRepoFiles(repo: RepoInfo): Set<string> {
   if (repo.trackedFiles !== null) {
-    const r = run('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], repo.root);
+    const r = gitRun(repo.root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard']);
     if (r.ok) return new Set(r.stdout.split('\0').filter(Boolean));
   }
   const out = new Set<string>();
@@ -117,6 +115,18 @@ export function listRepoFiles(repo: RepoInfo): Set<string> {
   };
   walk(repo.root, '');
   return out;
+}
+
+/**
+ * 저장소마다 한 번만 셈하는 값(패키지·프로젝트 뿌리 목록 등). 같은 RepoView로 다시 부르면 처음 셈한 값을 돌려줘요.
+ * 언어 규칙이 파일마다 불리는 함수(excluded, role, resolveImport)에서 저장소 전체를 다시 훑지 않게 써요.
+ */
+export function perRepo<T>(compute: (repo: RepoView) => T): (repo: RepoView) => T {
+  const cache = new WeakMap<RepoView, T>();
+  return (repo) => {
+    if (!cache.has(repo)) cache.set(repo, compute(repo));
+    return cache.get(repo)!;
+  };
 }
 
 export function repoView(repo: RepoInfo, files: Set<string>): RepoView {
@@ -152,7 +162,7 @@ export async function runInferred(lang: InferredLanguage, repo: RepoInfo, opts: 
   const files = listRepoFiles(repo);
   const view = repoView(repo, files);
   const preciseAt = new Map<string, string>();
-  for (const s of opts.precise.symbols) preciseAt.set(`${s.path}:${s.range.startLine}:${s.range.startColumn}`, s.key);
+  for (const s of opts.precise.symbols) preciseAt.set(placeKey(s.path, s.range.startLine, s.range.startColumn), s.key);
 
   // 1) 읽기: 이 언어의 파일마다 구문을 뽑아요.
   const parsed = new Map<string, ParsedFile>();
@@ -168,7 +178,7 @@ export async function runInferred(lang: InferredLanguage, repo: RepoInfo, opts: 
     const emit = opts.emit(path);
     const qualified = syntax.definitions.map((_, i) => qualifiedName(syntax.definitions, i));
     const keys = syntax.definitions.map((d, i) =>
-      emit ? null : (preciseAt.get(`${path}:${d.range.startLine}:${d.range.startColumn}`) ?? null),
+      emit ? null : (preciseAt.get(placeKey(path, d.range.startLine, d.range.startColumn)) ?? null),
     );
     if (emit) assignKeys(source, path, syntax.definitions, keys);
     parsed.set(path, { path, syntax, keys, qualified, emit, role: lang.role(path, view), imports: [] });

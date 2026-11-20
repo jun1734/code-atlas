@@ -7,7 +7,7 @@ import { compareText } from '../answer.ts';
 import type { GraphStore } from '../graph/store.ts';
 import { repoModules } from '../modules.ts';
 import { check, scopedImports, stronglyConnected } from '../query/check.ts';
-import { run } from '../run.ts';
+import { gitOrNull } from '../git.ts';
 import { externalPackageOf } from './packages.ts';
 
 /** 파일 찾아보기의 한 줄. 칸 이름이 짧은 건 자료가 HTML에 그대로 들어가서예요. */
@@ -76,11 +76,6 @@ export interface MapData {
   graph?: string;
 }
 
-const git = (root: string, args: string[]) => {
-  const r = run('git', args, root);
-  return r.ok ? r.stdout : null;
-};
-
 /** 경로들이 함께 가진 폴더 앞부분('/'로 끝나요). 없으면 ''. */
 function commonDir(paths: string[]): string {
   if (paths.length === 0) return '';
@@ -107,7 +102,7 @@ export function codeMapData(store: GraphStore, configPath?: string): MapData {
     ins.set(i.to, (ins.get(i.to) ?? 0) + 1);
   }
   const churn = new Map<string, number>();
-  const log = git(root, ['log', '--since=90 days ago', '--no-merges', '--name-only', '--format=%x00']) ?? '';
+  const log = gitOrNull(root, ['log', '--since=90 days ago', '--no-merges', '--name-only', '--format=%x00']) ?? '';
   for (const line of log.split('\n')) {
     const file = line.trim();
     if (inScope.has(file)) churn.set(file, (churn.get(file) ?? 0) + 1);
@@ -184,7 +179,7 @@ export function codeMapData(store: GraphStore, configPath?: string): MapData {
     config.map.bands ?? Object.fromEntries(config.shared.filter((m) => !composers.has(m) && moduleNames.includes(m)).map((m) => [m, '']));
 
   const commit = meta.commit;
-  const branch = git(root, ['rev-parse', '--abbrev-ref', 'HEAD'])?.trim() ?? null;
+  const branch = gitOrNull(root, ['rev-parse', '--abbrev-ref', 'HEAD'])?.trim() ?? null;
   return {
     title: config.map.title ?? `${basename(root)} 코드 지도`,
     repo: basename(root),

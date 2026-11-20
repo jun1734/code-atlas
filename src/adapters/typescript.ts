@@ -5,6 +5,7 @@
 // - 파일마다 가장 가까운 tsconfig.json/jsconfig.json의 컴파일러 설정을 쓰고, 없으면 기본 설정(allowJs 등)이에요.
 // - scip-typescript가 주지 않는 것은 이 어댑터가 채워요(typescript-refine.ts): 사용처의 종류, 이름을 가져오기만 하는 자리 빼기,
 //   그리고 scip-typescript가 아무것도 잇지 못한 이름 자리(JSDoc의 @implements·@type 등)는 추정 층으로 이어 추정으로 붙여요.
+import { HEAD_LENGTH } from './conventions.ts';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -39,7 +40,7 @@ function scipTypeScriptInstalled(): boolean {
 /** 색인할 JS/TS 파일(생성된 코드, 빌드 산출물, node_modules 빼고). */
 function sourceFiles(view: RepoView): string[] {
   return [...view.files]
-    .filter((p) => typescriptInferred.owns(p) && !typescriptInferred.excluded(p, view.read(p)?.slice(0, 1000) ?? '', view))
+    .filter((p) => typescriptInferred.owns(p) && !typescriptInferred.excluded(p, view.read(p)?.slice(0, HEAD_LENGTH) ?? '', view))
     .sort();
 }
 

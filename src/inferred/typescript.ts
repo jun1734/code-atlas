@@ -11,15 +11,8 @@ import {
   packageRootsOf,
 } from '../adapters/typescript-conventions.ts';
 import type { Range, RelationKind, SymbolKind } from '../facts.ts';
-import type { FileSyntax, InferredLanguage, RepoView } from './layer.ts';
-import { namedChildren, same, type SyntaxNode } from './tree-sitter.ts';
-
-const rangeOf = (n: SyntaxNode): Range => ({
-  startLine: n.startPosition.row,
-  startColumn: n.startPosition.column,
-  endLine: n.endPosition.row,
-  endColumn: n.endPosition.column,
-});
+import { perRepo, type FileSyntax, type InferredLanguage, type RepoView } from './layer.ts';
+import { namedChildren, rangeOf, same, type SyntaxNode } from './tree-sitter.ts';
 
 /** JS/TS 파일의 구문. FileSyntax에 더해, 이름을 가져오거나 내보내기만 하는 자리(bindings)를 알려 줘요. */
 export interface JsTsSyntax extends FileSyntax {
@@ -659,26 +652,19 @@ function resolveFile(base: string, files: ReadonlySet<string>): string | null {
 }
 
 /** 저장소 안 패키지(package.json의 name → 폴더). 작업 공간(workspace) 패키지를 이름으로 가져올 때 써요. */
-const packageCache = new WeakMap<RepoView, { roots: Set<string>; byName: Map<string, string> }>();
-
-function packagesOf(repo: RepoView): { roots: Set<string>; byName: Map<string, string> } {
-  let p = packageCache.get(repo);
-  if (!p) {
-    const roots = packageRootsOf(repo.files);
-    const byName = new Map<string, string>();
-    for (const dir of roots) {
-      try {
-        const name = JSON.parse(repo.read(dir ? `${dir}/package.json` : 'package.json') ?? '{}').name;
-        if (typeof name === 'string') byName.set(name, dir);
-      } catch {
-        // 읽지 못한 package.json은 건너뛰어요.
-      }
+const packagesOf = perRepo((repo): { roots: Set<string>; byName: Map<string, string> } => {
+  const roots = packageRootsOf(repo.files);
+  const byName = new Map<string, string>();
+  for (const dir of roots) {
+    try {
+      const name = JSON.parse(repo.read(dir ? `${dir}/package.json` : 'package.json') ?? '{}').name;
+      if (typeof name === 'string') byName.set(name, dir);
+    } catch {
+      // 읽지 못한 package.json은 건너뛰어요.
     }
-    p = { roots, byName };
-    packageCache.set(repo, p);
   }
-  return p;
-}
+  return { roots, byName };
+});
 
 export const typescriptInferred: InferredLanguage = {
   language: 'typescript',

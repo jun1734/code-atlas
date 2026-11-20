@@ -30,6 +30,9 @@ export const SYMBOL_KINDS = [
 /** 심볼의 종류. */
 export type SymbolKind = (typeof SYMBOL_KINDS)[number];
 
+/** 타입인 종류(멤버를 가지고 상속·구현의 대상이 될 수 있어요). */
+export const TYPE_KINDS: ReadonlySet<SymbolKind> = new Set<SymbolKind>(['class', 'interface', 'enum', 'mixin', 'extension', 'type']);
+
 /**
  * 관계의 종류.
  * - import: 파일이 다른 파일을 가져오거나 다시 내보내요(Dart의 export 포함).
@@ -41,6 +44,15 @@ export type RelationKind = 'import' | 'reference' | 'read' | 'write' | 'call' | 
 
 /** 파일의 역할. 테스트 파일인지는 언어 어댑터가 그 언어의 관례로 정해요. */
 export type FileRole = 'app' | 'test';
+
+/**
+ * 자리 열쇠: 줄과 열을 이은 글. 같은 자리를 견주는 표의 열쇠로 써요(줄·열을 0부터 셌는지 1부터 셌는지는 쓰는 쪽이 한 가지로 맞춰요).
+ * 경로까지 붙인 열쇠는 placeKey.
+ */
+export const positionKey = (line: number, column: number): string => `${line}:${column}`;
+
+/** 경로를 붙인 자리 열쇠. */
+export const placeKey = (path: string, line: number, column: number): string => `${path}:${positionKey(line, column)}`;
 
 /** 0부터 세는 줄과 열. 끝은 포함하지 않아요. */
 export interface Range {

@@ -1,6 +1,7 @@
 // Dart 관례: 어느 파일이 생성된 코드·빌드 산출물이고 어느 파일이 테스트인지.
 // 정밀 어댑터(dart-refine.ts)와 추정 층의 Dart 규칙(src/inferred/dart.ts)이 같은 규칙을 써요.
 import type { FileRole } from '../facts.ts';
+import { hasGeneratedMark } from './conventions.ts';
 
 /** build_runner 등이 만드는 파일의 꼬리. */
 const GENERATED_SUFFIXES = ['.g.dart', '.freezed.dart', '.mocks.dart', '.gr.dart', '.gen.dart'];
@@ -19,7 +20,7 @@ const TEST_DIRS = ['test/', 'integration_test/', 'test_driver/'];
 export function isGeneratedDart(inPackage: string, head: string): boolean {
   if (OUTPUT_DIRS.some((d) => inPackage.startsWith(d))) return true;
   if (GENERATED_SUFFIXES.some((s) => inPackage.endsWith(s))) return true;
-  return GENERATED_MARK.test(head.slice(0, 1000));
+  return hasGeneratedMark(head, GENERATED_MARK);
 }
 
 /** 테스트 파일인지. inPackage는 패키지 뿌리 기준 경로. */

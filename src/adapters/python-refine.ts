@@ -12,9 +12,10 @@
 //    패키지를 빼고 적어서 심볼 이름으로는 풀 수 없어요).
 // 5) 사용처의 종류: 문법으로 가리고(kindConfidence: inferred), 상속은 scip-python이 준 타입 관계(supertypes)로 확인한 것만
 //    extends로 부르고 precise로 둬요. Python의 바탕 타입은 하나의 방법(상속)이라 implements는 쓰지 않아요.
-import { dropFiles, type Facts, type Range, type RelationFact, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { HEAD_LENGTH } from './conventions.ts';
+import { dropFiles, placeKey, positionKey, TYPE_KINDS, type Facts, type Range, type RelationFact, type SymbolFact, type SymbolKind } from '../facts.ts';
 import { parserFor } from '../inferred/tree-sitter.ts';
-import { positionKey, pythonSyntax, type PythonSyntax } from '../inferred/python.ts';
+import { pythonSyntax, type PythonSyntax } from '../inferred/python.ts';
 import { parseSymbol } from '../scip/symbol.ts';
 import { isExcludedPython, ownsPython, pythonRole, resolvePythonModule } from './python-conventions.ts';
 
@@ -26,8 +27,6 @@ export interface PythonRefineOptions {
   /** Python 프로젝트 뿌리들(python-conventions.ts의 pythonProjects). */
   projects: string[];
 }
-
-const TYPE_KINDS = new Set<SymbolKind>(['class', 'interface', 'enum', 'mixin', 'extension', 'type']);
 
 function contains(outer: Range, inner: Range): boolean {
   const after = inner.startLine > outer.startLine || (inner.startLine === outer.startLine && inner.startColumn >= outer.startColumn);
@@ -58,7 +57,7 @@ function fallbackKind(s: SymbolFact, parentIsType: boolean): SymbolKind {
 
 export async function refinePythonFacts(raw: Facts, opts: PythonRefineOptions): Promise<Facts> {
   // 1) 뺄 파일과 역할
-  const facts = dropFiles(raw, (path) => !ownsPython(path) || isExcludedPython(path, opts.readText(path)?.slice(0, 1000) ?? ''));
+  const facts = dropFiles(raw, (path) => !ownsPython(path) || isExcludedPython(path, opts.readText(path)?.slice(0, HEAD_LENGTH) ?? ''));
   for (const f of facts.files) f.role = pythonRole(f.path);
 
   const parser = await parserFor('python');
@@ -75,13 +74,13 @@ export async function refinePythonFacts(raw: Facts, opts: PythonRefineOptions): 
   // 2), 3) 정의
   const defAt = new Map<string, { kind: SymbolKind; enclosingRange: Range }>();
   for (const [path, s] of syntax) {
-    for (const d of s.file.definitions) defAt.set(`${path}:${positionKey(d.range.startLine, d.range.startColumn)}`, d);
+    for (const d of s.file.definitions) defAt.set(placeKey(path, d.range.startLine, d.range.startColumn), d);
   }
   const typeKeys = new Set(facts.symbols.filter((s) => parseSymbol(s.key).descriptors.at(-1)?.suffix === 'type').map((s) => s.key));
   const symbols: SymbolFact[] = facts.symbols
     .filter((s) => !isParameter(s.key))
     .map((s) => {
-      const d = defAt.get(`${s.path}:${positionKey(s.range.startLine, s.range.startColumn)}`);
+      const d = defAt.get(placeKey(s.path, s.range.startLine, s.range.startColumn));
       const kind = d?.kind ?? fallbackKind(s, s.parentKey !== undefined && typeKeys.has(s.parentKey));
       const enclosingRange = s.enclosingRange ?? d?.enclosingRange;
       return { ...s, kind, ...(enclosingRange ? { enclosingRange } : {}) };
@@ -141,7 +140,7 @@ function importedNameGaps(
   opts: PythonRefineOptions,
   enclosing: (path: string, range: Range) => SymbolFact | undefined,
 ): RelationFact[] {
-  const linked = new Set(relations.filter((r) => 'symbolKey' in r.to).map((r) => `${r.from.path}:${positionKey(r.from.range.startLine, r.from.range.startColumn)}`));
+  const linked = new Set(relations.filter((r) => 'symbolKey' in r.to).map((r) => placeKey(r.from.path, r.from.range.startLine, r.from.range.startColumn)));
   const topLevel = new Map<string, SymbolFact>();
   for (const s of symbols) if (s.parentKey === undefined) topLevel.set(`${s.path}:${s.name}`, s);
   /** 모듈 파일에서 이름의 최상위 정의를 찾아요. 그 파일이 다시 가져온 이름이면 따라가요(5번까지). */
@@ -159,7 +158,7 @@ function importedNameGaps(
   const out: RelationFact[] = [];
   for (const [path, s] of syntax) {
     for (const n of s.importedNames) {
-      if (linked.has(`${path}:${positionKey(n.range.startLine, n.range.startColumn)}`)) continue;
+      if (linked.has(placeKey(path, n.range.startLine, n.range.startColumn))) continue;
       const file = resolvePythonModule(path, n.module, opts.files, opts.projects);
       const target = file ? find(file, n.name, 5) : undefined;
       if (!target) continue;

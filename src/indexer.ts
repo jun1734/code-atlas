@@ -9,7 +9,7 @@ import { worktreeFingerprint } from './freshness.ts';
 import { GraphStore, type FileChanges, type LanguageCounts } from './graph/store.ts';
 import { inferredSource, listRepoFiles, repoView, runInferred } from './inferred/layer.ts';
 import { LANGUAGES, type LanguageSetup } from './languages.ts';
-import { run } from './run.ts';
+import { gitRun } from './git.ts';
 
 /**
  * 정밀 색인기를 설치되지 않은 것으로 칠 이름(쉼표로 여럿). 예: CODE_ATLAS_DISABLE_INDEXERS=scip-dart
@@ -55,9 +55,9 @@ export interface IndexSummary {
 }
 
 function repoInfo(root: string): { info: RepoInfo; commit: string | null; isIgnored: (path: string) => boolean } {
-  const ls = run('git', ['ls-files', '-z'], root);
+  const ls = gitRun(root, ['ls-files', '-z']);
   if (!ls.ok) return { info: { root, trackedFiles: null }, commit: null, isIgnored: () => false };
-  const head = run('git', ['rev-parse', 'HEAD'], root);
+  const head = gitRun(root, ['rev-parse', 'HEAD']);
   return {
     info: { root, trackedFiles: ls.stdout.split('\0').filter(Boolean) },
     commit: head.ok ? head.stdout.trim() : null,
@@ -70,7 +70,7 @@ function repoInfo(root: string): { info: RepoInfo; commit: string | null; isIgno
  * 이미 추적 중인 파일은 무시 규칙에 걸려도 여기 나오지 않아요(git과 같아요).
  */
 function gitIgnored(root: string): (path: string) => boolean {
-  const r = run('git', ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory'], root);
+  const r = gitRun(root, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory']);
   if (!r.ok) return () => false;
   const entries = r.stdout.split('\0').filter(Boolean);
   const files = new Set(entries.filter((e) => !e.endsWith('/')));

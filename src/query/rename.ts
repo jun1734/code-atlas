@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { compareText, cut, DEFAULT_LIMIT, type Page } from '../answer.ts';
-import type { Confidence, FileRole, RelationKind } from '../facts.ts';
+import { placeKey, positionKey, type Confidence, type FileRole, type RelationKind } from '../facts.ts';
 import type { GraphStore, SymbolRow } from '../graph/store.ts';
 import { inferredSource } from '../inferred/layer.ts';
 import { parserFor, type SyntaxNode } from '../inferred/tree-sitter.ts';
@@ -119,7 +119,6 @@ export async function rename(store: GraphStore, query: string, newName: string, 
     return out;
   };
   const roleOf = (path: string): FileRole => store.findFile(path)?.role ?? 'app';
-  const at = (path: string, line: number, column: number) => `${path}:${line}:${column}`;
 
   // 1) 색인이 알려 준 자리: 정의와 사용처.
   const sites = new Map<string, RenameSite>();
@@ -138,7 +137,7 @@ export async function rename(store: GraphStore, query: string, newName: string, 
       });
       return;
     }
-    const id = at(site.path, site.line, site.column);
+    const id = placeKey(site.path, site.line, site.column);
     const before = sites.get(id);
     if (before && (before.confidence === 'precise' || site.confidence === 'inferred')) return;
     sites.set(id, { ...site, endColumn: site.column + oldName.length, oldText: oldName, newText: newName });
@@ -258,9 +257,9 @@ async function unlinkedSites(
   const owner = extents.find((e) => e.key === ownerKey) ?? extents.find((e) => e.key === target.key);
   if (!owner) return [];
   const taken = new Set<string>();
-  for (const e of extents) taken.add(`${e.definition.line}:${e.definition.column}`);
-  for (const r of store.relationSitesIn(path)) taken.add(`${r.line}:${r.column}`);
-  for (const s of known.values()) if (s.path === path) taken.add(`${s.line}:${s.column}`);
+  for (const e of extents) taken.add(positionKey(e.definition.line, e.definition.column));
+  for (const r of store.relationSitesIn(path)) taken.add(positionKey(r.line, r.column));
+  for (const s of known.values()) if (s.path === path) taken.add(positionKey(s.line, s.column));
 
   const lines = linesOf(path);
   const found: { line: number; column: number }[] = [];
@@ -269,7 +268,7 @@ async function unlinkedSites(
   for (let line = owner.extent.start; line <= owner.extent.end; line++) {
     for (const m of (lines[line - 1] ?? '').matchAll(pattern)) {
       const column = m.index + 1;
-      if (!taken.has(`${line}:${column}`)) found.push({ line, column });
+      if (!taken.has(positionKey(line, column))) found.push({ line, column });
     }
   }
   if (found.length === 0) return [];

@@ -7,9 +7,10 @@
 // 5) 사용처의 종류(읽기, 쓰기, 호출, 상속, 구현)를 가려요. scip-dart 1.8.1은 읽기/쓰기 역할을 주지 않아서
 //    소스의 문법으로 가리고 kindConfidence를 inferred로 둬요. 상속·구현은 scip-dart가 준 타입 관계
 //    (supertypes)로 확인한 것만 그렇게 부르고 precise로 둬요.
+import { HEAD_LENGTH } from './conventions.ts';
 import type { Facts, RelationFact, RelationKind, SymbolFact, SymbolKind } from '../facts.ts';
 import { dropFiles } from '../facts.ts';
-import { parseSymbol, symbolNames } from '../scip/symbol.ts';
+import { canonicalKey, parseSymbol, symbolNames } from '../scip/symbol.ts';
 import { dartRole, isGeneratedDart } from './dart-conventions.ts';
 
 export interface RefineOptions {
@@ -31,7 +32,7 @@ export function refineDartFacts(raw: Facts, opts: RefineOptions): Facts {
   };
 
   // 1) 생성된 코드와 빌드 산출물
-  const generated = (path: string) => isGeneratedDart(inPackage(path), source(path)?.text.slice(0, 1000) ?? '');
+  const generated = (path: string) => isGeneratedDart(inPackage(path), source(path)?.text.slice(0, HEAD_LENGTH) ?? '');
   const facts = dropFiles(raw, generated);
 
   // 2) 테스트 파일
@@ -40,7 +41,7 @@ export function refineDartFacts(raw: Facts, opts: RefineOptions): Facts {
   // 3) 열쇠 맞추기
   const accessorKind = new Map<string, SymbolKind>(); // 바꾼 열쇠 → getter/setter
   const rename = (key: string): string => {
-    const renamed = renameKey(key);
+    const renamed = canonicalKey(key);
     if (renamed.accessor && !accessorKind.has(renamed.key)) accessorKind.set(renamed.key, renamed.accessor);
     return renamed.key;
   };
@@ -85,20 +86,6 @@ export function refineDartFacts(raw: Facts, opts: RefineOptions): Facts {
     r.kindConfidence = kind.confidence;
   }
   return { files: facts.files, symbols, relations };
-}
-
-/**
- * scip-dart의 열쇠를 사람이 묻는 이름에 맞춰요.
- *   Cart#`<constructor>`().   → Cart#          (이름 없는 생성자를 부르는 곳은 클래스를 쓰는 곳이에요)
- *   Labeled#`<get>label`.     → Labeled#label. (getter)
- *   Labeled#`<set>label`.     → Labeled#label. (setter)
- */
-function renameKey(key: string): { key: string; accessor?: SymbolKind } {
-  if (key.endsWith('#`<constructor>`().')) return { key: key.slice(0, -'`<constructor>`().'.length) };
-  const m = /`<(get|set)>([^`]+)`\.$/.exec(key);
-  if (!m) return { key };
-  const name = /^[\w+$-]+$/.test(m[2]!) ? m[2]! : `\`${m[2]}\``;
-  return { key: `${key.slice(0, m.index)}${name}.`, accessor: m[1] === 'get' ? 'getter' : 'setter' };
 }
 
 /** 소스 글과 줄마다의 시작 위치. */
