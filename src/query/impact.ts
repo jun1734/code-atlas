@@ -118,13 +118,7 @@ export function impact(store: GraphStore, query: string, opts: ImpactOptions): I
   }
 
   const { config, moduleOf } = repoModules(store, opts.config);
-  // depth 다음 단계까지 한 번 더 가 보고, 그 단계는 "더 있음" 표시에만 써요.
-  const reached = graph.reach(starts, 'in', opts.depth + 1).filter((r) => r.distance > 0);
-  const moreBeyondDepth = reached.some((r) => r.distance > opts.depth);
-  const items = reached
-    .filter((r) => r.distance <= opts.depth)
-    .map((r) => toItem(graph, r, moduleOf, counts, opts.hotUses))
-    .sort(byPlace);
+  const { items, moreBeyondDepth } = reachImpact({ graph, moduleOf, counts, hotUses: opts.hotUses, depth: opts.depth }, starts);
 
   const byDistance: Record<string, number> = {};
   for (const item of items) byDistance[item.distance] = (byDistance[item.distance] ?? 0) + 1;
@@ -151,6 +145,31 @@ export function impact(store: GraphStore, query: string, opts: ImpactOptions): I
   };
 }
 
+/** 영향 범위를 찾는 데 필요한 것. 한 번 만들어 여러 출발점에 써요(detect_changes는 바뀐 이름마다). */
+export interface ImpactScope {
+  graph: Graph;
+  moduleOf: ModuleOf;
+  /** 심볼별 사용처 수(GraphStore.useCounts). */
+  counts: Map<string, number>;
+  hotUses: number;
+  depth: number;
+}
+
+/**
+ * 출발점에서 쓰는 쪽으로 depth까지 거슬러 올라간 영향 받는 곳(거리, 경로, 줄, 이름 순)과,
+ * depth 바로 다음 단계에도 닿는 곳이 있는지.
+ */
+export function reachImpact(scope: ImpactScope, starts: NodeId[]): { items: ImpactItem[]; moreBeyondDepth: boolean } {
+  const { graph, depth } = scope;
+  // depth 다음 단계까지 한 번 더 가 보고, 그 단계는 "더 있음" 표시에만 써요.
+  const reached = graph.reach(starts, 'in', depth + 1).filter((r) => r.distance > 0);
+  const items = reached
+    .filter((r) => r.distance <= depth)
+    .map((r) => toItem(graph, r, scope.moduleOf, scope.counts, scope.hotUses))
+    .sort(byPlace);
+  return { items, moreBeyondDepth: reached.some((r) => r.distance > depth) };
+}
+
 function toItem(graph: Graph, r: Reached, moduleOf: ModuleOf, counts: Map<string, number>, hotUses: number): ImpactItem {
   const info = graph.node(r.node)!;
   const point = pointOfNode(info);
@@ -172,7 +191,7 @@ function toItem(graph: Graph, r: Reached, moduleOf: ModuleOf, counts: Map<string
   };
 }
 
-function byPlace(a: ImpactItem, b: ImpactItem): number {
+export function byPlace(a: ImpactItem, b: ImpactItem): number {
   return (
     a.distance - b.distance ||
     compareText(a.path, b.path) ||
@@ -203,7 +222,7 @@ function groupByModule(items: ImpactItem[]): ImpactModule[] {
  * 테스트 파일마다 가장 가까운 거리. 표시는 모든 질의와 같은 규칙(sourcedOf): 그 파일의 영향 받는 곳 가운데
  * 가장 낮은 믿음(하나라도 추정이면 추정)과 출처 모두.
  */
-function testFiles(items: ImpactItem[]): ImpactTestFile[] {
+export function testFiles(items: ImpactItem[]): ImpactTestFile[] {
   const files = new Map<string, ImpactItem[]>();
   for (const item of items) {
     if (item.role !== 'test') continue;

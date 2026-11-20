@@ -119,7 +119,11 @@ export interface IndexedFixture {
   readonly firstSummary: any;
   /** 처음 색인할 때 stderr에 나온 글(정밀 색인기가 없을 때의 안내 등). */
   readonly firstLog: string;
-  /** 사본의 작업 트리를 커밋 상태로 되돌려요. */
+  /** 사본에서 git 명령을 돌리고 출력(앞뒤 공백 뺌)을 받아요. */
+  git(...args: string[]): string;
+  /** 사본의 작업 트리 전부(새 파일 포함)를 커밋하고 새 HEAD를 돌려줘요. */
+  commit(message: string): string;
+  /** 사본의 작업 트리를 커밋 상태로 되돌려요(추적하지 않는 새 파일도 지워요. 무시된 파일은 둬요). */
   restore(): void;
   dispose(): void;
 }
@@ -198,8 +202,15 @@ export function indexFixture(name: string, opts: FixtureOptions = {}): IndexedFi
     },
     firstSummary,
     firstLog: first.stderr,
+    git: (...args) => git(repo, ...args),
+    commit: (message) => {
+      git(repo, 'add', '-A');
+      git(repo, '-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', message);
+      return git(repo, 'rev-parse', 'HEAD');
+    },
     restore: () => {
       git(repo, 'checkout', '--', '.');
+      git(repo, 'clean', '-fdq');
     },
     dispose: () => rmSync(work, { recursive: true, force: true }),
   };
@@ -213,4 +224,36 @@ export function expectedPath(fixture: string, file: string): string {
 /** `test/expected/<fixture>/<file>`의 정답 JSON. */
 export function expected(fixture: string, file: string): any {
   return JSON.parse(readFileSync(expectedPath(fixture, file), 'utf8'));
+}
+
+/**
+ * 답에서 항목인데 정밀/추정(confidence)이나 출처(source)가 없는 곳의 경로를 모아요.
+ * 항목: 목록(배열)에 든 객체, 답이 가리키는 심볼(symbol, target, trace의 from·to).
+ * 예외(계약 문서에 적은 것): 집계(impact·check의 modules[]), 파일 지점(context의 file, impact의 파일 target,
+ * trace의 파일 노드). 항목 안의 설명 객체(definition, at, via, representative)는 바깥 항목의 표시를 따라요.
+ */
+export function unmarked(answer: any): string[] {
+  const bad: string[] = [];
+  const isFilePoint = (o: any) => o.kind === 'file' || ('language' in o && !('kind' in o));
+  const need = (o: any, path: string) => {
+    if (!['precise', 'inferred'].includes(o.confidence) || typeof o.source !== 'string') bad.push(path);
+  };
+  const walk = (value: any, path: string, key: string) => {
+    if (Array.isArray(value)) {
+      value.forEach((v, i) => {
+        if (v && typeof v === 'object' && !Array.isArray(v) && key !== 'modules' && !(key === 'nodes' && isFilePoint(v))) {
+          need(v, `${path}[${i}]`);
+        }
+        walk(v, `${path}[${i}]`, key);
+      });
+    } else if (value && typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) walk(v, `${path}.${k}`, k);
+    }
+  };
+  for (const k of ['symbol', 'target', 'from', 'to']) {
+    const o = answer[k];
+    if (o && typeof o === 'object' && !isFilePoint(o)) need(o, k);
+  }
+  walk(answer, '', '');
+  return bad;
 }

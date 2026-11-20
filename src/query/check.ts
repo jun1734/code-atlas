@@ -147,10 +147,12 @@ function bestOrder(group: string[], weight: (a: string, b: string) => number): s
   return order;
 }
 
-/** 색인과 저장소 설정으로 구조를 검사해요. configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)을 써요. */
-export function check(store: GraphStore, limit: number, configPath?: string): CheckBody {
-  const { config, moduleOf } = repoModules(store, configPath);
-  const repoRoot = store.meta().repoRoot;
+/**
+ * 색인과 저장소 설정으로 구조를 검사해요. configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)을 써요.
+ * root를 주면 설정과 허용 목록을 그 폴더에서 읽어요(detect_changes가 커밋 색인에 지금 저장소의 규칙을 걸 때).
+ */
+export function check(store: GraphStore, limit: number, configPath?: string, root: string = store.meta().repoRoot): CheckBody {
+  const { config, moduleOf } = repoModules(store, configPath, root);
 
   // 1. 검사 안 파일과 그 사이의 import.
   const files = store.filePaths().filter((p) => moduleOf(p) !== null);
@@ -213,7 +215,7 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
   const allowlist = config.allowlist.map((source) => {
     const modules = new Set(source.from.modules ?? []);
     const fromFiles = (source.from.files ?? []).map(globToRegExp);
-    const targets = new Set(readAllowlist(repoRoot, source));
+    const targets = new Set(readAllowlist(root, source));
     return (i: FileImport) =>
       targets.has(i.to) && (modules.has(mod(i.from)) || fromFiles.some((re) => re.test(i.from)));
   });

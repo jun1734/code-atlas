@@ -33,7 +33,7 @@ function register(server: McpServer, def: QueryDef, defaultRepo: string): void {
   server.registerTool(def.name, { description: def.description, inputSchema: shape }, async (input) => {
     const { repo, ...raw } = input as Record<string, unknown>;
     try {
-      const answer = askQuery(def, raw, { repo: typeof repo === 'string' ? repo : defaultRepo });
+      const answer = await askQuery(def, raw, { repo: typeof repo === 'string' ? repo : defaultRepo });
       return { content: [{ type: 'text', text: formatAnswer(answer) }] };
     } catch (e) {
       return { isError: true, content: [{ type: 'text', text: e instanceof Error ? e.message : String(e) }] };

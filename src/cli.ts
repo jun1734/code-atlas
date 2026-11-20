@@ -61,7 +61,7 @@ async function main(argv: string[]): Promise<number> {
   for (const p of def.params) {
     raw[p.name] = p.positional ? arg : values[p.name];
   }
-  print(formatAnswer(askQuery(def, raw, { repo: str(values.repo) ?? '.', db: str(values.db) })));
+  print(formatAnswer(await askQuery(def, raw, { repo: str(values.repo) ?? '.', db: str(values.db) })));
   return 0;
 }
 

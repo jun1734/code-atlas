@@ -210,17 +210,18 @@ interface FileSyntax {
 | --- | --- | --- |
 | `meta` | `key`, `value` | `schema`(스키마 버전), `repoRoot`, `commit`(색인 기준 커밋), `worktree`(색인할 때의 작업 트리 지문), `indexedAt` |
 | `files` | `id`, `path`, `language`, `role`, `hash` | 파일 노드. `role`은 `app` 또는 `test`, `hash`는 그 파일의 사실 전체의 해시(역할 포함) |
-| `symbols` | `id`, `key`, `name`, `qualified_name`, `kind`, `file_id`, `line`, `col`, `end_line`, `end_col`, `parent_key`, `confidence`, `source` | 심볼 노드와 정의 위치(0부터) |
+| `symbols` | `id`, `key`, `name`, `qualified_name`, `kind`, `file_id`, `line`, `col`, `end_line`, `end_col`, `body_line`, `body_end_line`, `parent_key`, `confidence`, `source` | 심볼 노드와 정의 위치(0부터). `body_line`~`body_end_line`은 정의 전체(본문 포함, 사실의 `enclosingRange`)의 줄이고, 색인기가 주지 않으면 이름이 적힌 줄이에요 |
 | `relations` | `id`, `kind`, `from_file_id`, `from_symbol_key`, `line`, `col`, `end_line`, `end_col`, `to_symbol_key`, `to_path`, `confidence`, `kind_confidence`, `source` | 간선. 대상은 `to_symbol_key`(심볼) 또는 `to_path`(import한 파일의 경로) |
 
 - 모든 간선과 심볼에 신뢰도(`precise`/`inferred`)와 출처(색인기)가 있어요.
 - `to_symbol_key`는 저장소 밖 심볼(예: `dart:core`의 `print`)도 가리킬 수 있어요. 그런 심볼은 `symbols`에 없어요.
-- 스키마 버전은 `3`이에요(#212가 `files.role`, `relations.kind_confidence`를 더했어요).
+- 스키마 버전은 `4`예요(#212가 `files.role`, `relations.kind_confidence`를, #222가 `symbols.body_line`, `symbols.body_end_line`을 더했어요).
 - 바깥에 보이는 것은 열고 닫기(`open`, `openExisting`, `close`), 넣기(`applyFacts(facts, meta)`), 질의 함수뿐이에요. 스키마를 바꿔도 질의 함수의 답이 같으면 테스트는 그대로 통과해요.
   - `meta()`, `counts()`, `languages()`
   - `findSymbols(query)`: 이름으로 심볼 찾기.
   - `usesOf(key, limit, filter?)`: 사용처와 전체 개수, 역할별 개수(`byRole`). 앱 코드가 먼저, 테스트가 뒤에 와요. 각 항목에 `role`, `kind`, `kindConfidence`. `filter: { roles?: ('app'|'test')[], kinds?: RelationKind[] }`로 고르면 개수도 고른 것만 세요(impact의 테스트 목록은 `roles: ['test']`, trace의 호출만 따라가기는 `kinds: ['call']`).
   - `findFile(path)`: 파일 하나(`path`, `language`, `role`).
+  - `extentsIn(path)`: 파일이 정의하는 이름과 정의 전체가 차지하는 줄(`extent`, 1부터, 끝 포함). detect_changes가 바뀐 줄을 이름으로 옮길 때 써요.
   - `definedIn(path)`: 파일이 정의하는 심볼.
   - `importsOf(path)`, `importersOf(path)`: 파일이 가져오는(다시 내보내는) 파일, 파일을 가져오는 파일.
   - `usersOf(path)`: 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 이름으로 이어서 barrel을 거친 곳도 나와요.
@@ -335,6 +336,25 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - 모듈은 check와 같은 `repoModules(store, config)`예요(`--config`, MCP `config`).
 
 **많이 쓰이는 이름(hot)의 기준:** `GraphStore.useCounts()`의 사용처 수(어느 종류의 관계든, 테스트 포함, 같은 줄에 여러 번이면 여러 번)가 **20 이상**이면 `hot: true`예요(`DEFAULT_HOT_USES`). 인자 `hot`으로 저장소마다 바꿔요. 물은 심볼은 `target.uses`·`target.hot`, 파일을 물으면 `target.hotNames`(그 파일이 정의한 hot 이름)로 나와요. 20은 "한 화면에 다 못 보는 정도"로 잡은 값이에요. 이름을 바꿀 때 손으로 고치기 힘들고 리뷰가 커지는 경계예요.
+
+출발점에서 영향 받는 곳을 찾는 탐색은 `reachImpact(scope, starts)` 하나예요. detect_changes도 바뀐 이름마다 이것을 불러요.
+
+## 질의: detect_changes
+
+`src/query/detect-changes.ts`. 작업 트리의 diff(또는 두 커밋 사이)가 건드린 이름과 그 영향, 이 변경으로 생긴 구조 문제예요. 인자 `base`(기본 `HEAD`)와 `head`(없으면 작업 트리)가 비교할 두 쪽이에요.
+
+- **바뀐 줄** (`src/diff.ts`): `git diff -U0 -M`. 작업 트리를 볼 때는 git 색인의 사본(임시 파일, `GIT_INDEX_FILE`)에 작업 트리 전부를 담아(`git add -A`) base와 비교해요. 그래서 추적하지 않는 새 파일도 보고, 옮긴 파일도 알아보고, 사용자의 staging은 그대로예요(새 파일의 blob이 `.git/objects`에 남을 수 있어요). 이진 파일, 빈 파일, 권한만 바뀐 파일은 이름 바꾸기가 아니면 빠져요.
+- **두 그래프**: 바꾸기 전은 base 커밋의 색인, 바꾼 뒤는 `head`가 없으면 저장소 색인(낡았으면 먼저 다시 색인하고 `reindexed: true`), 있으면 그 커밋의 색인이에요. 바뀐 것이 없으면 base를 색인하지 않아요.
+- **커밋 색인** (`src/snapshot.ts`): 저장소 색인 옆 `<색인>@<커밋 앞 12자>.db`. 임시 폴더에 로컬 복제(`git clone --shared --no-checkout`, 네트워크 없음)를 만들어 그 커밋을 꺼내고 `indexRepo`로 색인한 뒤 지워요. 커밋은 바뀌지 않으니 한 번 만들면 계속 써요(스키마가 다르면 다시 만들어요). git이 무시해 커밋에 없는 패키지 설정(`.dart_tool/package_config.json`, `package_graph.json`)은 지금 작업 트리의 같은 자리에서 빌려 와요. 그 커밋의 의존성이 지금과 다르면 맞지 않을 수 있어요. 어댑터가 이 목록을 알려 주는 것이 맞지만 어댑터 인터페이스에 아직 그 칸이 없어요.
+- **줄 → 이름**: 바꾸기 전 줄(지우거나 고친 줄)은 바꾸기 전 그래프의 이름에, 바꾼 뒤 줄(더하거나 고친 줄)은 바꾼 뒤 그래프의 이름에 옮겨요. 줄마다 그 줄을 품는 가장 안쪽 이름(`extentsIn`의 정의 전체 범위)이 건드린 이름이에요. 그래서 메서드 하나를 고치면 클래스가 아니라 그 메서드가 나오고, 위에 줄을 더해 자리만 밀린 이름은 나오지 않아요. 이름 밖의 줄(import, 파일 머리 주석)은 이름으로 옮기지 않아요(import가 바뀌어 생긴 구조 문제는 아래 구조에서 봐요).
+- **바뀜(`change`)**: 같은 경로의 이름은 열쇠로 짝지어요. 바꾼 뒤에만 있으면 `added`, 바꾸기 전에만 있으면 `removed`, 양쪽에 있고 어느 쪽이든 건드렸으면 `modified`. 옮긴 파일은 열쇠에 경로가 들어 있어 달라지니 바깥 타입을 붙인 이름과 종류로 짝짓고, 건드리지 않았으면 `moved`, 건드렸으면 `modified`이고 둘 다 `movedFrom`(옮기기 전 경로)이 붙어요. 파일 자체가 생기거나 지워지거나 옮겨졌으면 그 파일도 항목 하나(`kind: 'file'`, `confidence: 'precise'`, `source: 'git'`: git이 알려 준 사실이라서요)예요. 색인하지 않는 파일(문서 등)은 빠져요.
+- **영향**: 바뀐 것마다 impact와 같은 탐색(`reachImpact`, 이름은 멤버와 함께 출발, 파일은 파일 노드만). 지운 이름은 바꾸기 전 그래프에서(그것을 쓰던 곳), 나머지는 바꾼 뒤 그래프에서 찾아요. 바뀐 항목의 `impact`는 요약(`affected`, `byDistance`, `moreBeyondDepth`, `tests`)이고, 항목은 답의 `affected`(`Page`)에 모두 합쳐 나와요: 같은 곳(경로, 종류, 이름)은 가장 가까운 거리로 하나, `from`은 닿은 바뀐 이름들, `changed`는 그곳도 이 변경이 건드렸는지(바뀐 이름이거나, 파일이면 diff에 든 파일)예요. `changed: false`인 곳이 고치지 않은 채 남은 영향이에요.
+- **모듈과 테스트**: `modules`는 모듈마다 바뀐 것(`changed`), 영향 받는 곳(`affected`), 그 가운데 테스트(`tests`) 수. 바뀐 것이 많은 모듈부터, 같으면 영향이 많은 것, 모듈 밖(`null`)은 뒤, 이름 순. `tests`(`Page`)는 고친 테스트 파일(거리 0, 지운 것 빼고)과 영향 범위에 걸린 테스트 파일이에요.
+- **구조**: 양쪽에 check를 돌려(규칙은 둘 다 지금 저장소의 설정: `check`·`repoModules`의 `root` 인자) 비교해요. 옮긴 파일은 바꾸기 전 경로를 바꾼 뒤 경로로 맞춰요.
+  - 순환(`structure.cycles`): 바꾼 뒤의 묶음이 바꾸기 전에도 똑같이 있었으면 `existing`(개수만), 겹치는 묶음이 있었으면 `status: 'changed'`, 없었으면 `'new'`로 `introduced`(`Page`)에 나와요. `resolved`는 바꾼 뒤 어느 묶음과도 겹치지 않는 바꾸기 전 묶음의 수예요.
+  - 경계 위반(`structure.violations`): 흐름을 거스르는 import 가운데 허용 목록에 없는 것(check의 새 위반). (가져다 쓰는 파일, 대상)이 바꾸기 전에도 위반이었으면 `existing`, 아니면 `introduced`예요. `newImport`는 그 import 자체가 이 변경으로 생겼는지예요. `false`면 이미 있던 import가, 새 import 때문에 모듈 순서(흐름을 거스르는 수가 가장 적은 순서)가 바뀌며 위반이 된 거예요.
+- 줄 범위를 쓰려고 그래프 저장소에 정의 전체의 줄(`body_line`, `body_end_line`)을 둬요(스키마 4).
+- 질의 실행기는 이 질의 때문에 `run`이 Promise를 돌려줄 수 있고 색인 파일 자리(`ctx.db`)를 받아요(`src/queries.ts`).
 
 ## 질의: clusters
 
