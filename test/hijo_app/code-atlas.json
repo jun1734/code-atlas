@@ -20,5 +20,29 @@
       { "kinds": ["variable", "field"], "name": "*Provider" }
     ]
   },
-  "unused": { "ignore": ["main"] }
+  "unused": { "ignore": ["main"] },
+  "map": {
+    "title": "희조 코드 지도",
+    "bands": {
+      "common": "기능들이 함께 쓰는 위젯과 helper",
+      "design_system": "토큰, 테마, 컴포넌트, 모찌"
+    },
+    "packages": {
+      "cloud_firestore": "Firestore",
+      "cloud_functions": "Cloud Functions",
+      "firebase_analytics": "Analytics",
+      "firebase_core": "Firebase 초기화",
+      "http": "HTTP",
+      "shared_preferences": "기기 저장소",
+      "flutter_auth_kit": "로그인 kit"
+    },
+    "reviewNotes": [
+      {
+        "modules": ["content"],
+        "label": "데이터 타입",
+        "note": "content가 내려주는 데이터의 타입이에요. content의 provider와 한 묶음으로 보면 괜찮아요."
+      }
+    ],
+    "select": "current_state_tests"
+  }
 }

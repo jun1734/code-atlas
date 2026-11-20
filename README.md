@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `impact`, `search`, `trace`, `clusters`(명령줄과 MCP 서버). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `impact`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -64,6 +64,20 @@ check와 impact의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 �
 - 생성된 코드(`*.g.dart` 등, `GENERATED CODE` 머리), 빌드 산출물(`build/`, `.dart_tool/`), git이 무시하는 파일은 색인에서 빠져요.
 - 모든 답은 [답의 계약](docs/contract.md)을 따라요: 색인한 저장소와 기준 커밋(`index.repo`, `index.commit`), 낡았는지(`index.stale`: 색인 뒤 커밋이 바뀌었거나 작업 트리가 색인할 때와 달라졌으면 `true`, git 저장소가 아니면 `null`), 목록의 전체 개수(`total`)와 잘렸는지(`truncated`), 항목마다 `confidence`(`precise` 정밀 / `inferred` 추정)와 `source`(어느 색인기).
 - 줄과 열은 1부터 세요.
+
+### 코드 지도 (HTML 한 장)
+
+```sh
+node src/cli.ts map --repo path/to/repo                       # 색인 파일 옆 <이름>-map.html에 그려요
+node src/cli.ts map --repo path/to/repo --out build/map.html  # 나올 파일을 정해요
+```
+
+모듈 지도(층과 흐름을 거스르는 import), 흐름을 거스르는 import(허용 목록 표시), 서로 물린 파일, 다른 기능 폴더에서 가져다 쓰는 것(리뷰 후보), 외부 SDK가 닿는 파일, 파일 찾아보기(줄 수, 최근 90일 변경 횟수, 쓰이는 곳, 테스트)를 한 장에 모아요. 머리말에 브랜치와 커밋이 적혀요. 브라우저로 열어요.
+
+- 명령 한 번이면 돼요: 색인이 없거나 낡았으면(`index.stale`) 먼저 색인하고 그려요. 출력은 나온 파일(`out`), 그 전에 색인했는지(`indexed`), 브랜치·커밋과 개수를 담은 JSON이에요.
+- 구조 계산은 `check`의 답을 그대로 써요. 모듈 기준과 화면 설정(제목, 띠로 그릴 모듈, 외부 SDK 목록, 리뷰 후보 메모)은 `.code-atlas.json`(`--config`)이에요. 형식은 [docs/architecture.md](docs/architecture.md#코드-지도-map)에 있어요.
+- 파일 줄마다 `#file=<경로>`로 가리킬 수 있어요(예: `…-map.html#file=lib/src/cart.dart`). 그 파일 하나만 남기고 줄로 데려가요.
+- 나온 파일만 쓰고 저장소는 바꾸지 않아요(`--out`으로 저장소 안을 고르면 거기 써요). 화면은 글꼴을 Google Fonts에서 받아요(없으면 시스템 글꼴). 코드는 밖으로 나가지 않아요.
 
 ### 다시 색인하기와 색인 요약
 
@@ -148,7 +162,7 @@ Dart 예제(`test/fixtures/dart_sample`)는 Riverpod provider를 묻는 질문 �
 
 CI(`.github/workflows/ci.yml`)는 Linux(ubuntu)와 Windows 양쪽에서 같은 검사를 돌려요.
 
-hijo_app(커밋 7ba0197)의 check 답이 지금의 코드 지도(hijo_app `scripts/code-map/build.mjs`)와 같은지는 따로 봐요(Flutter SDK 필요, 1분쯤). 저장소를 임시 폴더로 clone해서 쓰니 원래 저장소는 바뀌지 않아요.
+hijo_app(커밋 7ba0197)의 check 답과 `map`이 그린 지도가 옛 코드 지도(hijo_app PR #188의 `scripts/code-map/build.mjs`, 지금은 지움)와 같은지는 따로 봐요(Flutter SDK 필요, 2분쯤). 저장소를 임시 폴더로 clone해서 쓰니 원래 저장소는 바뀌지 않아요. 옛 스크립트는 `HIJO_APP_REPO`의 기록(커밋 `47dbba6`)에서 꺼내 같은 사본에 돌려 비교해요. 다른 점 두 가지는 테스트에 이유와 함께 적혀 있어요(`test/hijo_app/hijo_app.verify.ts`): 리뷰 후보에 `test_flow.dart` 하나가 더 나오고, 테스트 열에서 barrel에만 들고 테스트가 이름을 쓰지 않는 파일(`hijo_pairs.dart`)이 "묶음 경유" 대신 "없음"이에요.
 
 ```sh
 HIJO_APP_REPO=C:/hijo/hijo_app npm run verify:hijo

@@ -6,12 +6,12 @@ import { compareText, cut, DEFAULT_LIMIT, type InnerList, type Page, type Source
 import type { SymbolKind } from '../facts.ts';
 import type { GraphStore, Location } from '../graph/store.ts';
 import { ancestry } from '../graph/traverse.ts';
-import { globToRegExp, nameGlobToRegExp, repoModules } from '../modules.ts';
+import { globToRegExp, type ModuleOf, nameGlobToRegExp, repoModules } from '../modules.ts';
 import type { QueryDef } from '../queries.ts';
 import { CONFIG_PARAM, readAllowlist } from '../repo-config.ts';
 
 /** 파일 하나에서 다른 파일로 가는 import(같은 쌍의 관계를 묶은 것). */
-interface FileImport extends Sourced {
+export interface FileImport extends Sourced {
   from: string;
   to: string;
 }
@@ -147,12 +147,11 @@ function bestOrder(group: string[], weight: (a: string, b: string) => number): s
   return order;
 }
 
-/** 색인과 저장소 설정으로 구조를 검사해요. configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)을 써요. */
-export function check(store: GraphStore, limit: number, configPath?: string): CheckBody {
-  const { config, moduleOf } = repoModules(store, configPath);
-  const repoRoot = store.meta().repoRoot;
-
-  // 1. 검사 안 파일과 그 사이의 import.
+/**
+ * 검사 안 파일(어느 모듈에 든 파일, 경로순)과 그 사이의 import(같은 쌍은 하나, 자기 자신으로 가는 것은 빼요).
+ * check와 코드 지도(src/map)가 같은 import 집합을 보도록 함께 써요.
+ */
+export function scopedImports(store: GraphStore, moduleOf: ModuleOf): { files: string[]; imports: FileImport[] } {
   const files = store.filePaths().filter((p) => moduleOf(p) !== null);
   const inScope = new Set(files);
   const imports: FileImport[] = files.flatMap((from) =>
@@ -162,6 +161,17 @@ export function check(store: GraphStore, limit: number, configPath?: string): Ch
       .map((t) => ({ from, to: t.path, confidence: t.confidence, source: t.source }))
       .sort((a, b) => compareText(a.to, b.to)),
   );
+  return { files, imports };
+}
+
+/** 색인과 저장소 설정으로 구조를 검사해요. configPath가 없으면 색인한 저장소 뿌리의 .code-atlas.json(없으면 기본 설정)을 써요. */
+export function check(store: GraphStore, limit: number, configPath?: string): CheckBody {
+  const { config, moduleOf } = repoModules(store, configPath);
+  const repoRoot = store.meta().repoRoot;
+
+  // 1. 검사 안 파일과 그 사이의 import.
+  const { files, imports } = scopedImports(store, moduleOf);
+  const inScope = new Set(files);
   const importsOf = new Map<string, string[]>();
   for (const i of imports) (importsOf.get(i.from) ?? importsOf.set(i.from, []).get(i.from)!).push(i.to);
   const mod = (p: string) => moduleOf(p)!;

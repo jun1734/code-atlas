@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import { formatAnswer } from './answer.ts';
 import { indexRepo } from './indexer.ts';
 import { defaultDb } from './locate.ts';
+import { drawCodeMap } from './map/draw.ts';
 import { serveMcp } from './mcp.ts';
 import { askQuery, QUERIES, type QueryDef } from './queries.ts';
 
@@ -17,9 +18,11 @@ function usageOf(def: QueryDef): string {
 const USAGE = `사용법:
   code-atlas index [저장소=.] [--db 파일]
   code-atlas mcp [--repo 기본저장소=.]
+  code-atlas map [--repo 저장소=.] [--db 파일] [--config 파일] [--out HTML파일]
 ${QUERIES.map(usageOf).join('\n')}
 
---db를 주지 않으면 색인은 ~/.code-atlas/<저장소이름>-<경로해시>.db 에 둬요(CODE_ATLAS_HOME으로 폴더를 바꿔요).`;
+--db를 주지 않으면 색인은 ~/.code-atlas/<저장소이름>-<경로해시>.db 에 둬요(CODE_ATLAS_HOME으로 폴더를 바꿔요).
+map은 코드 지도 HTML을 그려요. 색인이 없거나 낡았으면 먼저 색인해요. --out이 없으면 색인 파일 옆 <이름>-map.html이에요.`;
 
 function print(text: string): void {
   process.stdout.write(text + '\n');
@@ -31,6 +34,7 @@ async function main(argv: string[]): Promise<number> {
     db: { type: 'string' },
     repo: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
+    out: { type: 'string' },
   };
   for (const def of QUERIES) for (const p of def.params) if (!p.positional) options[p.name] = { type: 'string' };
   const { values, positionals } = parseArgs({ args: argv, allowPositionals: true, options });
@@ -49,6 +53,12 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === 'mcp') {
     await serveMcp(resolve(str(values.repo) ?? '.'));
+    return 0;
+  }
+
+  if (command === 'map') {
+    const summary = await drawCodeMap({ repo: str(values.repo) ?? '.', db: str(values.db), config: str(values.config), out: str(values.out) });
+    print(JSON.stringify(summary, null, 2));
     return 0;
   }
 
