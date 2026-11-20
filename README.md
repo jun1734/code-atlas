@@ -170,40 +170,20 @@ claude mcp list
 - 테스트 파일: `test/`·`tests/`·`__tests__/`·`spec/` 아래, 또는 `*.test.*`·`*.spec.*`.
 - scip-typescript가 occurrence로 내지 않는 JSDoc의 이름(`@implements {X}`, `@type {X}` 등)은 추정 층이 이어 붙이고 답에 `confidence: inferred`(`source: tree-sitter-typescript`)로 나와요. 수신자의 타입이 `any`인 멤버(`x.method()`)는 이름만으로 잇지 않아서 답에 없어요(JSDoc 타입을 달면 정밀로 잡혀요).
 
-**hijo_app의 hook과 스크립트로 맞춰 보기** (2026-11-20, hijo_app 커밋 `322c149`의 `git clone --shared` 사본, 사본은 지웠어요): JS 파일 17개(`.claude/hooks/*.js`, `scripts/code-map/build.mjs`, `firestore_tests/`, `docs/research/…`)가 모두 scip-typescript로 정밀 색인됐어요(설정 파일 없음). `context commitDir`(`.claude/hooks/block-commit-on-main.js`)의 사용처 11곳(앱 1, 테스트 10)이 `git grep -n -w commitDir`의 14줄 가운데 정의 1줄, 내보내기 목록 1줄(`module.exports = { commitDir, … }`), 테스트의 `require` 구조 분해 1줄을 뺀 11줄과 같아요(모두 `call`, `precise`). 정밀 색인기를 끄고(추정 층만) 물어도 같은 11곳이 `inferred`로 나와요.
+hijo_app의 hook과 스크립트로 맞춰 본 결과는 [docs/measurements.md](docs/measurements.md#javascript-hook과-스크립트-2026-11-20-hijo_app-322c149-221)에 있어요.
 
 **code-atlas 자신을 색인하기**: `node src/cli.ts index .`로 이 저장소도 색인돼요(TypeScript 63개, JavaScript 7개 파일, 6초 남짓). `context runInferred`, `impact runInferred` 같은 질문이 돼요.
 - `test/fixtures/`의 예제 저장소도 색인에 들어가요. 추적되는 코드이고 테스트 폴더(`test/`) 아래라 모두 `role: test`예요. 그래서 예제에만 있는 이름(`withTax`, `Cart`, `main` …)을 물으면 예제 여러 곳이 후보로 나오지만, 도구 자신의 이름(`runInferred`, `indexRepo` …)에는 섞이지 않아요. 빼는 설정을 따로 두지 않았어요.
 - Dart 예제는 `.dart_tool`이 없어서(pub get을 하지 않은 체크아웃) scip-dart가 실패하고 추정 층으로 색인돼요(`fallbacks`에 남아요).
 - 루트 `tsconfig.json`은 `test/fixtures`를 타입 검사에서 빼요(예제는 각자의 설정을 가진 따로 된 저장소예요). 색인은 이 설정과 상관없이 예제 파일도 읽어요.
 
-### 측정 (2026-11-19, Windows 11 노트북)
+### 측정
 
-hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): DB 28MB, 심볼 5,790개, 관계 72,456개, 관계는 모두 정밀.
+hijo_app에서 잰 값(색인 시간 처음·증분, DB 크기, 이름·관계 수, 언어별 정밀/추정 비율, GitNexus가 놓친 질문을 다시 던진 결과와 문자열 검색으로 맞춰 본 것)은 [docs/measurements.md](docs/measurements.md)에 있어요. 요약(2026-11-20, hijo_app `322c149`):
 
-색인기 실행과 그래프 반영을 따로 쟀어요(#218). hijo_app의 커밋 사본(`git archive`에 `.dart_tool/package_config.json`을 더한 것)을 색인했어요.
-
-| 경우 | 반영한 파일 | 색인기(scip-dart) | 그래프 반영 |
-| --- | --- | --- | --- |
-| 처음 색인 | 329개 더함 | 84.4초 | 0.95초 |
-| 아무것도 안 바꾸고 다시 | 0개 | 54.5초 | 0.10초 |
-| `lib` 파일 하나에 함수 하나 더하고 다시 | 1개 바꿈 | 28.0초 | 0.13초 |
-
-- 색인기 시간이 28~84초로 크게 흔들린 건 같은 노트북에서 다른 작업(다른 에이전트의 테스트)이 함께 돌았기 때문이에요. 흔들림을 빼도 결론은 같아요.
-- 다시 색인할 때 시간의 99% 넘게가 색인기 실행이에요. 그래프 반영은 증분으로 0.1초 남짓이라 더 줄일 게 없어요.
-- **판단: 색인기 실행을 줄일 값어치가 있어요.** 작업 중에 금방 최신이 되려면 이 30~80초를 줄여야 해요. 다만 scip-dart 1.8.1은 파일 하나만 색인하는 방법이 없고 패키지 단위로 돌아요. 그래서 줄이는 길은 (1) 바뀐 파일이 없는 패키지는 색인기를 건너뛰기(hijo_app처럼 패키지가 하나인 저장소에는 효과가 없어요. 또 다른 패키지가 가리키는 이름이 바뀌면 그 패키지도 다시 돌려야 해요), (2) Dart 분석기를 띄워 둔 채 바뀐 파일만 다시 분석하는 상주 색인기(scip-dart를 고치거나 새로 짜야 해요) 중 하나예요. 어느 쪽으로 갈지는 뒤 티켓에서 정해요.
-
-### Python 확인 (2026-11-20, hijo_app 322c149의 `functions/`)
-
-hijo_app을 임시 폴더에 `git worktree add`로 꺼내 색인했어요(Dart는 pub get 없이 추정 층, Python은 scip-python). `functions/requirements.txt`가 있어 `functions/`가 Python 프로젝트 뿌리 하나예요. Python 파일 16개, 심볼 320개, 관계 1,330개로 모두 정밀이에요. 가상 환경(`functions/venv`, .py 2,710개)을 둔 채로 돌려도 Pyright가 가상 환경을 빼서 scip-python이 읽은 파일은 16개, 실행은 1.8초쯤이었어요.
-
-함수 하나의 사용처를 손으로 확인한 것과 비교했어요(`git grep -n -w <이름> -- '*.py'`에서 정의 줄과 주석·문서 문자열 속 언급을 뺀 것). 셋 다 같았어요.
-
-| 함수 | 손으로 확인한 사용처 | code-atlas(정밀) | code-atlas(추정 층만) |
-| --- | --- | --- | --- |
-| `run_cleanup` (`cleanup.py`) | `main.py:193`(`cleanup.run_cleanup(`), `tests/test_cleanup.py:28`(import), `:106`(호출) | 같은 3곳(call, reference, call. 테스트 2곳은 `role: test`) | 같은 3곳 |
-| `unlink_kakao_user` (`social/kakao_unlink.py`) | `cleanup.py:31`(import), `:248`(호출) | 같은 2곳 | 같은 2곳 |
-| `new_record` (`login_records.py`) | `login_records.py:69`, `main.py:150`(`login_records.new_record(`) | 같은 2곳 | 같은 2곳 |
+- 파일 362개(Dart 329, JS 17, Python 16), 이름 5,915개, 관계 75,307개, 모두 정밀. DB 30.1MB.
+- 처음 색인 77.5초, 파일 하나 고치고 다시 75.6초. 시간의 90% 넘게가 scip-dart예요(그래프 반영은 0.3초). 추정 층만 쓰면 2.3초.
+- GitNexus 1.6.12가 놓친 provider·최상위 상수 4개와 barrel을 거친 클래스 2개의 사용처를 정밀 층이 모두 찾았어요(GitNexus를 잰 커밋 `7ba0197`에서, 파일 단위로 정답과 같음).
 
 ## 검사
 
@@ -250,3 +230,4 @@ HIJO_APP_REPO=C:/hijo/hijo_app npm run verify:hijo
 
 - [docs/architecture.md](docs/architecture.md): 그래프 스키마와 언어 어댑터 인터페이스, 질의 실행기
 - [docs/contract.md](docs/contract.md): 답의 계약과 새 질의를 명령줄·MCP에 붙이는 법
+- [docs/measurements.md](docs/measurements.md): hijo_app 실측 기록(색인 시간·크기, GitNexus와 비교, 문자열 검색과 맞춰 보기)
