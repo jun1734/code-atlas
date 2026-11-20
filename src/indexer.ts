@@ -78,7 +78,16 @@ function gitIgnored(root: string): (path: string) => boolean {
   return (path) => files.has(path) || dirs.some((d) => path.startsWith(d));
 }
 
-export async function indexRepo(repoPath: string, dbPath: string): Promise<IndexSummary> {
+/** 색인 선택. */
+export interface IndexOptions {
+  /**
+   * 사실을 믿을 수 없는 정밀 색인기 이름. 이 색인기가 낸 심볼과 관계는 confidence·kindConfidence를 inferred로 낮춰 넣어요(source는 그대로).
+   * 커밋 색인이 그 커밋에 맞는지 모르는 도구 상태(지금과 다른 잠금 파일의 패키지 설정)를 빌렸을 때 써요(src/snapshot.ts).
+   */
+  untrusted?: ReadonlySet<string>;
+}
+
+export async function indexRepo(repoPath: string, dbPath: string, opts: IndexOptions = {}): Promise<IndexSummary> {
   const started = performance.now();
   const root = resolve(repoPath);
   const { info, commit, isIgnored } = repoInfo(root);
@@ -108,7 +117,7 @@ export async function indexRepo(repoPath: string, dbPath: string): Promise<Index
     rmSync(workDir, { recursive: true, force: true });
   }
   // git이 무시하는 파일은 어느 언어든 빼요. 생성된 코드와 빌드 산출물은 언어마다 달라서 어댑터가 빼요.
-  const facts = dropFiles(all, isIgnored);
+  const facts = distrust(dropFiles(all, isIgnored), opts.untrusted ?? new Set());
   const indexersMs = performance.now() - indexersStarted;
 
   const store = GraphStore.open(dbPath);
@@ -181,6 +190,16 @@ async function indexLanguage(
   appendFacts(facts, precise);
   appendFacts(facts, guessed);
   return { facts, adapters, fallback };
+}
+
+/** untrusted 색인기가 낸 심볼과 관계를 추정으로 낮춰요. */
+function distrust(facts: Facts, untrusted: ReadonlySet<string>): Facts {
+  if (untrusted.size === 0) return facts;
+  return {
+    files: facts.files,
+    symbols: facts.symbols.map((s) => (untrusted.has(s.source) ? { ...s, confidence: 'inferred' } : s)),
+    relations: facts.relations.map((r) => (untrusted.has(r.source) ? { ...r, confidence: 'inferred', kindConfidence: 'inferred' } : r)),
+  };
 }
 
 /** 정밀 사실이 있는 파일에 적힌 추정 사실(파일, 정의, 그 파일에서 나가는 관계)을 빼요. 그 파일로 가는 관계는 남겨요. */

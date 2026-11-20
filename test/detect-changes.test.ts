@@ -49,6 +49,8 @@ describe('changes_sample detect_changes (작업 트리)', () => {
     const answer = fx.ask('detect_changes');
     assert.deepEqual(changed(answer), ['removed lib/core/money.dart#rounded']);
     assert.equal(answer.changes.items[0].line, 8);
+    // 바꾸기 전 커밋의 잠금 파일이 지금과 같아 패키지 설정을 빌려 정밀 색인했어요.
+    assert.deepEqual([answer.changes.items[0].confidence, answer.changes.items[0].source], ['precise', 'scip-dart']);
     assert.deepEqual(
       answer.affected.items.map((a: any) => [a.distance, `${a.path}#${a.name}`, a.from, a.changed]),
       [
@@ -155,6 +157,32 @@ describe('changes_sample detect_changes (작업 트리)', () => {
     const answer = fx.ask('detect_changes', '--limit', '1');
     assert.deepEqual([answer.changes.total, answer.changes.truncated, answer.changes.items.length], [3, true, 1]);
     assert.deepEqual(answer.structure.cycles.introduced.items[0].files, { total: 2, truncated: true, items: ['lib/core/money.dart'] });
+  });
+});
+
+describe('changes_sample detect_changes (커밋의 잠금 파일이 작업 트리와 다를 때)', () => {
+  it('빌려 온 패키지 설정이 그 커밋에 맞는지 모르면(잠금 파일이 다름) 그 커밋 색인에서 온 항목은 추정이다', () => {
+    // 커밋 색인마다 새로 만들게 홈을 따로 둬요(커밋 색인은 커밋마다 한 번 만들어 다시 써요).
+    const home = mkdtempSync(join(tmpdir(), 'code-atlas-home-'));
+    const fx = indexFixture('changes_sample', { home });
+    try {
+      // 작업 트리의 의존성을 바꾼 것처럼 잠금 파일을 고치고, 이름 하나를 지워요.
+      fx.append('pubspec.lock', '# 의존성을 바꿈\n');
+      fx.write('lib/core/money.dart', fx.read('lib/core/money.dart').replace('\nint rounded(int amount) => amount - amount % 10;\n', ''));
+      const answer = fx.ask('detect_changes');
+      assert.deepEqual(changed(answer), ['removed lib/core/money.dart#rounded']);
+      // 지운 이름은 바꾸기 전(HEAD) 커밋 색인에서 와요. 그 커밋의 pubspec.lock이 작업 트리와 달라, 작업 트리에서 빌린
+      // .dart_tool이 그 커밋에 맞는지 몰라요. scip-dart가 냈어도 추정이에요(열쇠는 정밀이라 짝짓기는 그대로예요).
+      const removed = answer.changes.items[0];
+      assert.deepEqual([removed.confidence, removed.source], ['inferred', 'scip-dart']);
+      // 그것을 쓰던 곳(영향)도 바꾸기 전 커밋 색인에서 와서 추정이에요.
+      assert.ok(answer.affected.total > 0);
+      for (const a of answer.affected.items) assert.equal(a.confidence, 'inferred', `${a.path}#${a.name}`);
+      assert.deepEqual(unmarked(answer), []);
+    } finally {
+      fx.dispose();
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });
 

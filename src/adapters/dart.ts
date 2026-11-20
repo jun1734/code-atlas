@@ -89,7 +89,8 @@ export const dartAdapter: LanguageAdapter = {
   toolState: (repo) =>
     dartPackages(repo).map((pkg) => {
       const at = (file: string) => (pkg ? `${pkg}/${file}` : file);
-      return { files: [at('.dart_tool/package_config.json'), at('.dart_tool/package_graph.json')] };
+      // 패키지 설정은 pub get이 pubspec.yaml과 pubspec.lock으로 만든 거라 둘이 같아야 그 커밋에도 맞아요.
+      return { files: [at('.dart_tool/package_config.json'), at('.dart_tool/package_graph.json')], sameAs: [at('pubspec.yaml'), at('pubspec.lock')] };
     }),
 
   async index(repo, workDir) {
