@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart·Python 저장소 색인(정밀: scip-dart·scip-python, 추정: Tree-sitter. 한 저장소에 섞여 있어도 한 번에 색인해요), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -12,8 +12,9 @@
 | Node.js | 24 이상 (`.ts`를 그대로 돌리고 내장 `node:sqlite`를 써요) | <https://nodejs.org> |
 | Dart SDK | 3.5 이상 (Flutter SDK에 든 것도 돼요) | <https://dart.dev/get-dart> |
 | scip-dart | 1.8.1 | `dart pub global activate scip_dart 1.8.1` |
+| scip-python | 0.6.8 | code-atlas의 npm 의존성이라 `npm ci`로 함께 깔려요(Python 해석기·pip는 필요 없어요) |
 
-정밀 색인기(scip-dart)가 없거나 실패해도 색인은 끝나요. 무엇을 어떻게 설치하는지 stderr에 안내하고(색인 요약의 `fallbacks`에도 남아요), 그 언어는 추정 층(Tree-sitter)으로 색인해요. 추정 층의 답은 모두 `confidence: inferred`예요. 추정 층은 npm 패키지(WASM)라 따로 설치할 것이 없어요.
+정밀 색인기(scip-dart, scip-python)가 없거나 실패해도 색인은 끝나요. 무엇을 어떻게 설치하는지 stderr에 안내하고(색인 요약의 `fallbacks`에도 남아요), 그 언어는 추정 층(Tree-sitter)으로 색인해요. 추정 층의 답은 모두 `confidence: inferred`예요. 추정 층은 npm 패키지(WASM)라 따로 설치할 것이 없어요.
 
 ```sh
 npm ci
@@ -25,7 +26,9 @@ npm ci
 # 색인: 저장소의 Dart 패키지(추적되는 pubspec.yaml마다)를 scip-dart로 색인해요.
 # 패키지마다 pub get이 먼저 돼 있어야 해요(.dart_tool/package_config.json). 없으면 그 언어는 추정 층으로 색인해요.
 # 패키지 밖의 Dart 파일(예: 패키지 없는 스크립트)은 추정 층이 색인해요. 정밀 색인이 있는 파일은 추정 층이 덮어쓰지 않아요.
-# 정밀 색인기를 없는 것으로 치려면(추정 층만 쓰기): CODE_ATLAS_DISABLE_INDEXERS=scip-dart
+# Python은 프로젝트 뿌리(pyproject.toml, setup.py, setup.cfg, requirements.txt, Pipfile이 있는 폴더, 없으면 저장소 뿌리)마다 scip-python으로 색인해요.
+# pip install은 필요 없어요(설치한 패키지의 타입은 모르는 채로 색인해요). 프로젝트 밖의 .py 파일은 추정 층이 색인해요.
+# 정밀 색인기를 없는 것으로 치려면(추정 층만 쓰기): CODE_ATLAS_DISABLE_INDEXERS=scip-dart (쉼표로 여럿: scip-dart,scip-python)
 node src/cli.ts index path/to/repo
 
 # 질문: 이름 하나의 정의 위치, 종류, 사용처
@@ -132,7 +135,8 @@ claude mcp list
 
 ### 색인은 저장소를 바꾸지 않아요
 
-- scip-dart 산출물(`index.scip`)은 OS 임시 폴더에 쓰고 지워요.
+- scip-dart·scip-python 산출물(`index.scip`)은 OS 임시 폴더에 쓰고 지워요.
+- `pip install`을 대신 돌리지 않고 pip에 묻지도 않아요(scip-python에 빈 환경 `--environment`를 줘요). 가상 환경 폴더(`venv/` 등)는 색인하지 않아요.
 - `pub get`을 대신 돌리지 않아요(네트워크를 쓰고 생성 파일을 만들어서요). `.dart_tool/package_config.json`이 없으면 할 일(`dart pub get` 또는 `flutter pub get`)을 알려 주고 멈춰요.
 - 숨김 폴더(`.`으로 시작)와 `build` 폴더 안의 `pubspec.yaml`은 패키지로 보지 않아요.
 - detect_changes는 작업 트리를 git 색인의 임시 사본에 담아 비교해요(staging은 그대로, 새 파일의 blob이 `.git/objects`에 남을 수 있어요). base 커밋은 임시 폴더의 로컬 복제(`git clone --shared`)에서 한 번 색인해 저장소 색인 옆(`…@<커밋>.db`)에 두고 다시 써요. 처음 한 번은 저장소 색인만큼 걸려요.
@@ -154,6 +158,18 @@ hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): DB 28MB, 심볼 5,7
 - 다시 색인할 때 시간의 99% 넘게가 색인기 실행이에요. 그래프 반영은 증분으로 0.1초 남짓이라 더 줄일 게 없어요.
 - **판단: 색인기 실행을 줄일 값어치가 있어요.** 작업 중에 금방 최신이 되려면 이 30~80초를 줄여야 해요. 다만 scip-dart 1.8.1은 파일 하나만 색인하는 방법이 없고 패키지 단위로 돌아요. 그래서 줄이는 길은 (1) 바뀐 파일이 없는 패키지는 색인기를 건너뛰기(hijo_app처럼 패키지가 하나인 저장소에는 효과가 없어요. 또 다른 패키지가 가리키는 이름이 바뀌면 그 패키지도 다시 돌려야 해요), (2) Dart 분석기를 띄워 둔 채 바뀐 파일만 다시 분석하는 상주 색인기(scip-dart를 고치거나 새로 짜야 해요) 중 하나예요. 어느 쪽으로 갈지는 뒤 티켓에서 정해요.
 
+### Python 확인 (2026-11-20, hijo_app 322c149의 `functions/`)
+
+hijo_app을 임시 폴더에 `git worktree add`로 꺼내 색인했어요(Dart는 pub get 없이 추정 층, Python은 scip-python). `functions/requirements.txt`가 있어 `functions/`가 Python 프로젝트 뿌리 하나예요. Python 파일 16개, 심볼 320개, 관계 1,330개로 모두 정밀이에요. 가상 환경(`functions/venv`, .py 2,710개)을 둔 채로 돌려도 Pyright가 가상 환경을 빼서 scip-python이 읽은 파일은 16개, 실행은 1.8초쯤이었어요.
+
+함수 하나의 사용처를 손으로 확인한 것과 비교했어요(`git grep -n -w <이름> -- '*.py'`에서 정의 줄과 주석·문서 문자열 속 언급을 뺀 것). 셋 다 같았어요.
+
+| 함수 | 손으로 확인한 사용처 | code-atlas(정밀) | code-atlas(추정 층만) |
+| --- | --- | --- | --- |
+| `run_cleanup` (`cleanup.py`) | `main.py:193`(`cleanup.run_cleanup(`), `tests/test_cleanup.py:28`(import), `:106`(호출) | 같은 3곳(call, reference, call. 테스트 2곳은 `role: test`) | 같은 3곳 |
+| `unlink_kakao_user` (`social/kakao_unlink.py`) | `cleanup.py:31`(import), `:248`(호출) | 같은 2곳 | 같은 2곳 |
+| `new_record` (`login_records.py`) | `login_records.py:69`, `main.py:150`(`login_records.new_record(`) | 같은 2곳 | 같은 2곳 |
+
 ## 검사
 
 ```sh
@@ -162,6 +178,7 @@ npm run check      # 타입 검사(tsc --noEmit) + 테스트
 
 테스트는 실제 scip-dart를 돌려요(가짜 SCIP 파일을 쓰지 않아요). 그래서 위 준비물이 모두 있어야 해요.
 Dart 예제(`test/fixtures/dart_sample`)는 Riverpod provider를 묻는 질문 때문에 `riverpod`(MIT)에 기대요. 그래서 테스트에는 Dart SDK 3.12 이상이 필요하고, 처음 한 번은 테스트 틀의 `dart pub get`이 pub.dev에서 패키지를 받아요(도구 자체는 네트워크를 쓰지 않아요).
+Python 예제(`test/fixtures/python_sample`, Dart와 섞인 `polyglot_sample`)는 바깥 패키지에 기대지 않아요. Python 해석기 없이 돌아요.
 언어 적합성 묶음(`test/conformance.test.ts`, 질문은 `test/conformance/questions.ts`)은 같은 질문을 언어마다 같은 모양의 예제 저장소에 던져요. 새 언어는 예제 저장소와 `test/expected/<예제>/conformance/` 정답을 더하고 `RUNS`에 층마다(정밀 `precise`, 추정 `inferred`) 올려요. 추정 층의 통과/놓침은 [docs/architecture.md](docs/architecture.md#추정-층-적합성-dart_sample)의 표에 적고, 테스트가 표와 실제가 맞는지 봐요.
 테스트는 `test/fixtures/<예제>`를 임시 git 저장소로 복사해 명령줄로 색인하고, 명령줄과 MCP 서버(공식 SDK 클라이언트로 붙어요)로 질문해 `test/expected/<예제>/`의 정답과 비교해요. 내부 모듈은 시험하지 않아요.
 모든 도구 프로세스는 네트워크 차단 장치(`test/no-network.ts`)를 단 채로 돌아서, 네트워크를 쓰려 하면 테스트가 실패해요.
@@ -189,7 +206,7 @@ HIJO_APP_REPO=C:/hijo/hijo_app npm run verify:hijo
 
 - **무료 오픈소스 부품만 써요.** 상용 개발에 쓸 수 있는 라이선스(MIT, BSD, Apache-2.0 등)만 들여요. 비상업 전용(PolyForm Noncommercial 등)이나 유료 부품, 네트워크로 코드를 내보내는 서비스는 쓰지 않아요. 새 부품을 들일 때 라이선스를 먼저 확인해요.
 - **GitNexus 코드는 복사하지 않아요.** GitNexus는 PolyForm Noncommercial이라 상용 개발에 쓸 수 없어요. 기능 아이디어만 참고해 다시 구현해요.
-- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), web-tree-sitter(MIT, Tree-sitter의 WASM 파서, 추정 층), @repomix/tree-sitter-wasms(Unlicense, 미리 빌드한 문법 WASM. 그 안의 문법은 각자의 라이선스예요: tree-sitter-dart MIT(UserNobody14/tree-sitter-dart), 뒤에 쓸 tree-sitter-python·tree-sitter-javascript·tree-sitter-typescript 모두 MIT. 2026-11-20 확인), riverpod(MIT, 테스트 예제 저장소의 의존성만), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
+- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), scip-python 0.6.8(`@sourcegraph/scip-python`, MIT. Pyright의 갈래라 LICENSE.txt가 Pyright의 MIT예요. 딸린 패키지도 모두 MIT/ISC/BSD-3-Clause/Apache-2.0으로 확인. 2026-11-20 확인), web-tree-sitter(MIT, Tree-sitter의 WASM 파서, 추정 층), @repomix/tree-sitter-wasms(Unlicense, 미리 빌드한 문법 WASM. 그 안의 문법은 각자의 라이선스예요: tree-sitter-dart MIT(UserNobody14/tree-sitter-dart), tree-sitter-python MIT, 뒤에 쓸 tree-sitter-javascript·tree-sitter-typescript 모두 MIT. 2026-11-20 확인), riverpod(MIT, 테스트 예제 저장소의 의존성만), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
 - 추정 층은 네이티브 빌드가 필요 없는 WASM 부품만 써요(`tree-sitter` npm 패키지는 node-gyp 빌드가 필요해서 쓰지 않았어요). Windows와 Linux CI에서 같은 파일이 돌아요. 원래의 `tree-sitter-wasms`(Unlicense)는 옛 tree-sitter-cli(0.20)로 빌드해 지금의 web-tree-sitter가 읽지 못해서, 같은 것을 새 CLI(0.26)로 다시 빌드한 갈래를 써요.
 - clusters의 Louvain 방법(Blondel 등 2008)은 라이브러리 없이 직접 구현했어요. 새로 들인 부품이 없어요. 알고리즘과 출처 논문은 [docs/architecture.md](docs/architecture.md#질의-clusters)에 있어요.
 - `proto/scip.proto`는 [scip-code/scip](https://github.com/scip-code/scip)(커밋 `be1d9f7`)에서 가져온 파일이에요. Apache-2.0이고 원문 라이선스는 `proto/LICENSE-scip`에 있어요.

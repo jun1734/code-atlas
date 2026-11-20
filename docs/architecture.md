@@ -36,8 +36,8 @@ interface RepoInfo {
 
 두 종류가 있어요.
 
-- **정밀 어댑터**: 그 언어의 SCIP 색인기를 돌리고 `src/scip/to-facts.ts`로 SCIP 색인을 사실로 옮겨요. `confidence: 'precise'`. 지금은 Dart(`src/adapters/dart.ts`, scip-dart)만 있어요.
-- **추정 층**: Tree-sitter로 구문을 읽고 이름으로 이어요. `confidence: 'inferred'`. 언어마다 문법 하나와 작은 규칙(`InferredLanguage`)이에요. 지금은 Dart(`src/inferred/dart.ts`)가 있어요. 아래 "추정 층".
+- **정밀 어댑터**: 그 언어의 SCIP 색인기를 돌리고 `src/scip/to-facts.ts`로 SCIP 색인을 사실로 옮겨요. `confidence: 'precise'`. 지금은 Dart(`src/adapters/dart.ts`, scip-dart)와 Python(`src/adapters/python.ts`, scip-python)이 있어요.
+- **추정 층**: Tree-sitter로 구문을 읽고 이름으로 이어요. `confidence: 'inferred'`. 언어마다 문법 하나와 작은 규칙(`InferredLanguage`)이에요. 지금은 Dart(`src/inferred/dart.ts`)와 Python(`src/inferred/python.ts`)이 있어요. 아래 "추정 층".
 
 ### 사실(Facts)
 
@@ -136,6 +136,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 2. 정밀 어댑터를 돌려요. 이름이 환경 변수 `CODE_ATLAS_DISABLE_INDEXERS`(쉼표로 여럿)에 있으면 돌리지 않고 "설치되어 있지 않음"으로 쳐요. 테스트가 색인기를 지우지 않고 "없을 때"를 만드는 장치예요(정밀 색인기가 말썽일 때 추정 층만 쓰는 데도 써요).
 3. 정밀 어댑터가 `IndexerMissing`을 던지면 `reason: 'missing'`, 다른 오류면 `'failed'`예요. stderr에 무엇이 없는지(실패했는지), 설치 명령(`install`), 그 언어를 추정 층으로 색인했다는 것을 적고, 색인 요약의 `fallbacks`에 남겨요. 색인 전체는 멈추지 않아요. 추정 규칙이 없는 언어는 안내만 내고 건너뛰어요(`inferredBy: null`).
    - Dart: `scip-dart`가 없으면 missing, 패키지 설정(`.dart_tool/package_config.json`)이 없는 패키지가 있으면 failed예요(지금은 패키지 하나만 실패해도 그 언어 전체가 추정 층으로 가요).
+   - Python: code-atlas의 `node_modules`에 `@sourcegraph/scip-python`이 없으면 missing, scip-python이 실패하면 failed예요(프로젝트 뿌리 하나만 실패해도 그 언어 전체가 추정 층으로 가요).
 4. 정밀 사실이 덮지 못한 이 언어의 파일(정밀 사실의 `files`에 없고, 추정 규칙의 `excluded`에도 걸리지 않는 파일)이 있으면 추정 층을 돌려요. 없으면 돌리지 않아요(정밀 색인이 모두 덮은 저장소는 Tree-sitter를 읽지도 않아요).
 
 **정밀 사실은 덮어쓰지 않아요.** 추정 층은 정밀 사실이 있는 파일을 읽기는 하지만(이름 잇기에 그 파일의 정의와 import가 필요해요) 그 파일의 사실(파일, 정의, 그 파일에 적힌 관계)은 내지 않아요(`InferredRun.emit`). 색인기가 한 번 더 걸러요(`withoutCovered`). 추정 층의 관계가 정밀 파일의 이름을 가리킬 때는 같은 자리(경로, 이름의 줄·열)의 정밀 심볼 열쇠로 이어요. 그래서 패키지 밖 스크립트에서 패키지의 `Cart`를 쓰면, 정의는 정밀 그대로이고 그 사용처 하나만 추정으로 붙어요.
