@@ -1,15 +1,14 @@
 // rename: 이름 하나를 새 이름으로 바꿀 때 고칠 자리 전부를 계획으로 돌려줘요. 파일은 고치지 않아요(고치는 것은 부르는 쪽).
 // 이름은 context와 같은 해석기(resolvePoint)로 찾고, 여럿에 맞으면 고르지 않고 후보를 돌려줘요.
 // 고칠 자리는 색인의 정의와 사용처예요. 정밀 층에서 온 것은 edits, 추정 층에서 온 것과 구문으로만 찾은 것은 inferred에 따로 나와요.
-// 언어를 아는 것은 없어요. 구문 확인에 쓰는 문법만 언어 목록(LANGUAGES)의 추정 규칙에서 빌려요.
+// 언어를 아는 것은 없어요. 식별자인지(주석·글 안이 아닌지)는 그 언어의 추정 규칙(isCodeIdentifier)이 가려요.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { compareText, cut, DEFAULT_LIMIT, type Page } from '../answer.ts';
 import { placeKey, positionKey, type Confidence, type FileRole, type RelationKind } from '../facts.ts';
 import type { GraphStore, SymbolRow } from '../graph/store.ts';
-import { inferredSource } from '../inferred/layer.ts';
-import { parserFor, type SyntaxNode } from '../inferred/tree-sitter.ts';
-import { LANGUAGES } from '../languages.ts';
+import { codeIdentifiersAt, inferredSource } from '../inferred/layer.ts';
+import { inferredFor } from '../languages.ts';
 import { UserError } from '../locate.ts';
 import type { QueryDef } from '../queries.ts';
 import { resolvePoint } from './point.ts';
@@ -249,8 +248,8 @@ async function unlinkedSites(
 ): Promise<Omit<RenameSite, 'endColumn' | 'oldText' | 'newText'>[]> {
   const path = target.definition.path;
   const file = store.findFile(path);
-  const setup = file ? LANGUAGES.find((l) => l.language === file.language)?.inferred : undefined;
-  if (!file || !setup) return [];
+  const rules = file ? inferredFor(file.language) : undefined;
+  if (!file || !rules) return [];
   const extents = store.extentsIn(path);
   const ownerKey = parentKey ?? target.key;
   // 바깥 타입이 이 파일에 없으면(다른 파일의 타입을 넓히는 경우 등) 정의 자신의 범위만 봐요.
@@ -273,39 +272,18 @@ async function unlinkedSites(
   }
   if (found.length === 0) return [];
 
-  const parser = await parserFor(setup.grammarFor?.(path) ?? setup.grammar);
-  const tree = parser.parse(lines.join('\n'));
-  if (!tree) return [];
-  try {
-    const enclosing = (line: number): string | undefined => {
-      // 자리를 품는 가장 안쪽 정의(감싸는 심볼의 이름).
-      let best: (typeof extents)[number] | undefined;
-      for (const e of extents) if (e.extent.start <= line && line <= e.extent.end && (!best || e.extent.start >= best.extent.start)) best = e;
-      return best?.qualifiedName;
-    };
-    const out: Omit<RenameSite, 'endColumn' | 'oldText' | 'newText'>[] = [];
-    for (const f of found) {
-      const node = tree.rootNode.descendantForPosition({ row: f.line - 1, column: f.column - 1 });
-      if (!node || node.text !== oldName || !/identifier/.test(node.type) || insideTextOrComment(node)) continue;
-      const inName = enclosing(f.line);
-      out.push({ path, line: f.line, column: f.column, kind: 'unlinked', role: file.role, ...(inName ? { in: inName } : {}), confidence: 'inferred', source: inferredSource(setup) });
-    }
-    return out;
-  } finally {
-    tree.delete();
-  }
-}
-
-/**
- * 주석이나 글(문자열) 안의 식별자인지. 글에 끼운 식(Dart `$x`·`${x}`, JS `${x}`, Python f-string `{x}`)은 이름이라
- * 글보다 끼운 식(substitution, interpolation)을 먼저 만나면 글 안으로 치지 않아요. 노드 종류 이름은 문법마다 달라 낱말로 봐요.
- */
-function insideTextOrComment(node: SyntaxNode): boolean {
-  for (let n: SyntaxNode | null = node; n; n = n.parent) {
-    if (/substitution|interpolation/.test(n.type)) return false;
-    if (/comment|string/.test(n.type)) return true;
-  }
-  return false;
+  const enclosing = (line: number): string | undefined => {
+    // 자리를 품는 가장 안쪽 정의(감싸는 심볼의 이름).
+    let best: (typeof extents)[number] | undefined;
+    for (const e of extents) if (e.extent.start <= line && line <= e.extent.end && (!best || e.extent.start >= best.extent.start)) best = e;
+    return best?.qualifiedName;
+  };
+  // 주석과 글(문자열) 안은 그 언어의 규칙이 가려 빼요.
+  const sites = await codeIdentifiersAt(rules, path, lines.join('\n'), oldName, found);
+  return sites.map((f) => {
+    const inName = enclosing(f.line);
+    return { path, line: f.line, column: f.column, kind: 'unlinked', role: file.role, ...(inName ? { in: inName } : {}), confidence: 'inferred', source: inferredSource(rules) };
+  });
 }
 
 export const renameQuery: QueryDef = {

@@ -85,6 +85,37 @@ export interface InferredLanguage {
   extract(root: SyntaxNode, text: string): FileSyntax;
   /** import의 대상을 저장소 안 파일 경로로 풀어요. 저장소 밖(SDK, 패키지)이면 null. */
   resolveImport(fromPath: string, spec: string, repo: RepoView): string | null;
+  /**
+   * 구문 노드가 코드에 적힌 이름(식별자)인지: 식별자 노드이고 주석이나 글(문자열) 안이 아니에요(글에 끼운 식 안은 코드예요).
+   * 보통 tree-sitter.ts의 isCodeIdentifierIn에 그 문법의 노드 이름을 줘요. rename이 색인이 잇지 못한 같은 이름 자리를 가릴 때 써요.
+   */
+  isCodeIdentifier(node: SyntaxNode): boolean;
+}
+
+/**
+ * 파일 글에서 주어진 자리(1부터 세는 줄과 열) 가운데, 그 언어의 문법으로 읽어 name이라는 코드 식별자가 적힌 자리만 골라요.
+ * 주석과 글(문자열) 안은 빠져요.
+ */
+export async function codeIdentifiersAt(
+  lang: InferredLanguage,
+  path: string,
+  text: string,
+  name: string,
+  at: { line: number; column: number }[],
+): Promise<{ line: number; column: number }[]> {
+  if (at.length === 0) return [];
+  const parser = await parserFor(lang.grammarFor?.(path) ?? lang.grammar);
+  const tree = parser.parse(text);
+  parser.delete();
+  if (!tree) return [];
+  try {
+    return at.filter((p) => {
+      const node = tree.rootNode.descendantForPosition({ row: p.line - 1, column: p.column - 1 });
+      return !!node && node.text === name && lang.isCodeIdentifier(node);
+    });
+  } finally {
+    tree.delete();
+  }
 }
 
 /** 추정 층이 내는 사실의 출처 이름. 예: tree-sitter-dart */

@@ -4,7 +4,7 @@
 import { isExcludedPython, ownsPython, pythonProjects, pythonRole, resolvePythonModule } from '../adapters/python-conventions.ts';
 import { positionKey, type Range, type RelationKind, type SymbolKind } from '../facts.ts';
 import { perRepo, type FileSyntax, type InferredLanguage, type RepoView } from './layer.ts';
-import { namedChildren, rangeOf, same, type SyntaxNode } from './tree-sitter.ts';
+import { isCodeIdentifierIn, namedChildren, rangeOf, same, type CodeIdentifierNodes, type SyntaxNode } from './tree-sitter.ts';
 
 /** 한 파일의 구문 읽기 결과. file은 추정 층이 쓰고, kindAt은 정밀 어댑터가 사용처의 종류를 가릴 때 써요. */
 export interface PythonSyntax {
@@ -460,9 +460,17 @@ export function pythonSyntax(root: SyntaxNode): PythonSyntax {
 
 const projectsOf = perRepo((repo) => pythonProjects(repo.files));
 
+/** tree-sitter-python의 식별자, 글·주석, f-string에 끼운 식(`{x}`) 노드. */
+const PYTHON_NODES: CodeIdentifierNodes = {
+  identifier: (type) => type.includes('identifier'),
+  text: new Set(['string', 'string_start', 'string_content', 'string_end', 'concatenated_string', 'comment']),
+  embedded: new Set(['interpolation']),
+};
+
 export const pythonInferred: InferredLanguage = {
   language: 'python',
   grammar: 'python',
+  isCodeIdentifier: (node) => isCodeIdentifierIn(node, PYTHON_NODES),
   owns: ownsPython,
   excluded: (path, text) => isExcludedPython(path, text),
   role: (path) => pythonRole(path),

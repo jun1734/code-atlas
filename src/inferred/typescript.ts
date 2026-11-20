@@ -12,7 +12,7 @@ import {
 } from '../adapters/typescript-conventions.ts';
 import type { Range, RelationKind, SymbolKind } from '../facts.ts';
 import { perRepo, type FileSyntax, type InferredLanguage, type RepoView } from './layer.ts';
-import { namedChildren, rangeOf, same, type SyntaxNode } from './tree-sitter.ts';
+import { isCodeIdentifierIn, namedChildren, rangeOf, same, type CodeIdentifierNodes, type SyntaxNode } from './tree-sitter.ts';
 
 /** JS/TS 파일의 구문. FileSyntax에 더해, 이름을 가져오거나 내보내기만 하는 자리(bindings)를 알려 줘요. */
 export interface JsTsSyntax extends FileSyntax {
@@ -666,9 +666,17 @@ const packagesOf = perRepo((repo): { roots: Set<string>; byName: Map<string, str
   return { roots, byName };
 });
 
+/** tree-sitter-typescript·tsx·javascript의 식별자, 글·주석, 템플릿 글에 끼운 식(`${x}`) 노드. */
+const JS_TS_NODES: CodeIdentifierNodes = {
+  identifier: (type) => type.includes('identifier'),
+  text: new Set(['string', 'string_fragment', 'template_string', 'comment', 'html_comment']),
+  embedded: new Set(['template_substitution']),
+};
+
 export const typescriptInferred: InferredLanguage = {
   language: 'typescript',
   grammar: 'typescript',
+  isCodeIdentifier: (node) => isCodeIdentifierIn(node, JS_TS_NODES),
   grammarFor: jsTsGrammar,
   fileLanguage: jsTsLanguage,
   owns: isJsTsFile,

@@ -42,3 +42,26 @@ export function same(a: Node | null | undefined, b: Node | null | undefined): bo
 export function rangeOf(n: Node): Range {
   return { startLine: n.startPosition.row, startColumn: n.startPosition.column, endLine: n.endPosition.row, endColumn: n.endPosition.column };
 }
+
+/** 문법마다 다른 노드 이름: 식별자, 글(문자열)·주석, 글에 끼운 식. 언어 규칙이 자기 문법의 이름을 줘요. */
+export interface CodeIdentifierNodes {
+  /** 식별자 노드인지. */
+  identifier(type: string): boolean;
+  /** 글(문자열)이나 주석 노드. 이 안의 이름은 코드가 아니에요. */
+  text: ReadonlySet<string>;
+  /** 글에 끼운 식(`${x}` 등). 글 안이어도 이 안은 코드예요. */
+  embedded: ReadonlySet<string>;
+}
+
+/**
+ * 노드가 코드에 적힌 식별자인지: 식별자 노드이고, 위로 올라가며 글에 끼운 식보다 글·주석을 먼저 만나지 않아요.
+ * 언어 규칙의 isCodeIdentifier가 자기 문법의 노드 이름으로 불러요.
+ */
+export function isCodeIdentifierIn(node: Node, nodes: CodeIdentifierNodes): boolean {
+  if (!nodes.identifier(node.type)) return false;
+  for (let n: Node | null = node; n; n = n.parent) {
+    if (nodes.embedded.has(n.type)) return true;
+    if (nodes.text.has(n.type)) return false;
+  }
+  return true;
+}

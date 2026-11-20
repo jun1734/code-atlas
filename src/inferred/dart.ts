@@ -4,7 +4,7 @@ import { posix } from 'node:path';
 import { dartRole, isGeneratedDart } from '../adapters/dart-conventions.ts';
 import type { Range, RelationKind, SymbolKind } from '../facts.ts';
 import { perRepo, type FileSyntax, type InferredLanguage, type RepoView } from './layer.ts';
-import { namedChildren, rangeOf, same, type SyntaxNode } from './tree-sitter.ts';
+import { isCodeIdentifierIn, namedChildren, rangeOf, same, type CodeIdentifierNodes, type SyntaxNode } from './tree-sitter.ts';
 
 const spanOf = (a: SyntaxNode, b: SyntaxNode): Range => ({ ...rangeOf(a), endLine: b.endPosition.row, endColumn: b.endPosition.column });
 
@@ -329,9 +329,17 @@ function inPackage(path: string, repo: RepoView): string {
   return pkg && pkg.dir ? path.slice(pkg.dir.length + 1) : path;
 }
 
+/** tree-sitter-dart의 식별자, 글·주석, 글에 끼운 식(`$x`, `${x}`) 노드. */
+const DART_NODES: CodeIdentifierNodes = {
+  identifier: (type) => type.includes('identifier'),
+  text: new Set(['string_literal', 'comment', 'documentation_comment']),
+  embedded: new Set(['template_substitution']),
+};
+
 export const dartInferred: InferredLanguage = {
   language: 'dart',
   grammar: 'dart',
+  isCodeIdentifier: (node) => isCodeIdentifierIn(node, DART_NODES),
   owns: (path) => path.endsWith('.dart'),
   excluded: (path, text, repo) => isGeneratedDart(inPackage(path, repo), text),
   role: (path, repo) => dartRole(inPackage(path, repo)),

@@ -181,6 +181,7 @@ interface InferredLanguage {
   role(path: string, repo: RepoView): 'app' | 'test';
   extract(root: SyntaxNode, text: string): FileSyntax;          // 구문 나무 → 정의, 사용처, import
   resolveImport(fromPath: string, spec: string, repo: RepoView): string | null; // import 대상 → 저장소 안 경로(밖이면 null)
+  isCodeIdentifier(node: SyntaxNode): boolean; // 코드에 적힌 식별자인지(주석·글 안이 아님, 글에 끼운 식 안은 코드). rename이 써요
 }
 
 interface FileSyntax {
@@ -194,6 +195,7 @@ interface FileSyntax {
 - `member`: `수신자.이름`의 이름이면 붙여요. `qualifier`는 수신자가 이름 하나일 때 그 이름이에요. `this.x`(Python `self.x`)는 `member` 없이 내요(감싸는 타입의 멤버부터 찾아요).
 - 지역 이름(매개변수, 지역 변수)은 규칙이 걸러서 `references`에 넣지 않아요.
 - `imports`: `reexport`는 가져온 파일의 이름을 다시 내보내는지(Dart `export`·`part`, JS `export * from`), `emit`은 파일→파일 `import` 관계로 넣을지, `sharesScope`는 가져온 파일과 이름 공간을 함께 쓰는지(Dart `part of`)예요.
+- `isCodeIdentifier`는 보통 `isCodeIdentifierIn(node, { identifier, text, embedded })`에 그 문법의 노드 이름(식별자, 글·주석, 글에 끼운 식)을 줘요(`src/inferred/tree-sitter.ts`). 파일 글의 여러 자리를 한 번에 가리는 것은 `codeIdentifiersAt`(layer.ts)예요.
 - 파서는 `src/inferred/tree-sitter.ts`의 `parserFor(grammar)`예요. web-tree-sitter의 노드는 꺼낼 때마다 새 객체라 `===`로 비교하지 않고 `same(a, b)`를 써요.
 - 저장소의 파일 목록은 `git ls-files --cached --others --exclude-standard`(git이 무시하는 파일 빼고, 커밋하지 않은 새 파일 포함)예요. git 저장소가 아니면 숨김 폴더와 `node_modules`를 빼고 훑어요.
 
@@ -603,7 +605,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - **고칠 자리** (`RenameSite`): 한 줄 안의 `[column, endColumn)`(1부터, UTF-16 단위) 글 `oldText`를 `newText`로. `kind`(`definition`, 사용처의 관계 종류, `unlinked`), `role`, 감싸는 이름 `in`, `confidence`, `source`. 경로, 줄, 열 순이에요. 언어마다 모양이 같아요.
   1. 색인이 알려 준 자리: 정의와 사용처 전부(`usesOf`). Dart의 show·hide 조합자, 글에 끼운 이름(`$x`, `${x}`), 이름 있는 생성자 선언의 클래스 이름(`Money.zero`의 `Money`)은 scip-dart가 사용처로 줘서 여기 들어요.
   2. 자리마다 저장소 파일의 그 자리 글이 옛 이름인지 확인해요. 다르면 계획에 넣지 않고 경고(`mismatch`)예요(색인이 낡았거나 색인기의 범위가 이름과 다를 때).
-  3. **색인이 잇지 못한 자리(`unlinked`)**: 정의를 품은 범위(멤버면 바깥 타입의 정의 전체, 아니면 정의 자신) 안에서 옛 이름과 같은 글 가운데, 색인의 정의·관계가 없는 자리를 그 언어의 문법(언어 목록 `LANGUAGES`의 추정 규칙이 쓰는 Tree-sitter 문법)으로 읽어 식별자인 것만 골라요. 주석과 글(문자열) 안은 빼고, 글에 끼운 식(substitution, interpolation) 안은 넣어요. 정밀 Dart 어댑터가 열쇠를 합치며 정의를 하나만 남긴 것(이름 없는 생성자 선언 `Money(…)`, getter와 짝인 setter 선언)이 여기서 나와요. 문법으로 고른 것이라 `confidence: inferred`, `source: tree-sitter-<언어>`예요. 추정 규칙이 없는 언어는 찾지 않아요.
+  3. **색인이 잇지 못한 자리(`unlinked`)**: 정의를 품은 범위(멤버면 바깥 타입의 정의 전체, 아니면 정의 자신) 안에서 옛 이름과 같은 글 가운데, 색인의 정의·관계가 없는 자리를 그 언어의 추정 규칙(`inferredFor(language)`의 `isCodeIdentifier`, `codeIdentifiersAt`)으로 읽어 식별자인 것만 골라요. 주석과 글(문자열) 안은 빼고, 글에 끼운 식(Dart `$x`·`${x}`, JS `${x}`, Python f-string `{x}`) 안은 넣어요. 질의는 문법의 노드 이름을 몰라요. 정밀 Dart 어댑터가 열쇠를 합치며 정의를 하나만 남긴 것(이름 없는 생성자 선언 `Money(…)`, getter와 짝인 setter 선언)이 여기서 나와요. 문법으로 고른 것이라 `confidence: inferred`, `source: tree-sitter-<언어>`예요. 추정 규칙이 없는 언어는 찾지 않아요.
 - **둘로 나눠요**: `edits`는 정밀 층의 자리, `inferred`는 추정 층이 이은 자리와 `unlinked`예요. 같은 자리가 둘 다에서 나오면 정밀을 둬요. 둘 다 `Page`(`limit`)이고, 잘렸으면(`truncated`) 계획이 다 나오지 않은 것이니 늘려서 다시 물어요.
 - **경고** (`warnings`, `Page`): 종류 순(`conflict`, `override`, `mismatch`), 그다음 경로·줄·열 순. 항목의 표시는 그 경고가 가리키는 정의의 것이에요.
   - `conflict`(새 이름이 같은 범위의 다른 이름과 겹침): 멤버면 같은 타입과, 상속·구현(`extends`/`implements` 간선을 위아래로 따라간 타입)으로 이어진 타입의 멤버. 최상위 이름이면 고칠 파일에 정의된 최상위 이름, 그리고 고칠 파일이 이미 쓰는 다른 파일의 최상위 이름.
