@@ -106,7 +106,7 @@ code-atlas 정밀 층은 여섯 질문 모두 정답 파일과 같아요. 엉뚱
 
 사용처 55곳이 51줄인 것은 한 줄에 두 번 쓴 곳이 4줄이라서예요(예: `hijo_colors.dart:290`, `components_test.dart:83`). 정의 줄(`hijo_colors.dart:10`)은 `ThemeExtension<HijoColors>`의 타입 인자가 실제 사용처라 들어가요.
 
-문서 주석의 dartdoc 링크(`[entryGatesProvider]`처럼 대괄호로 쓴 이름)는 scip-dart가 사용처로 줘서 code-atlas 답에 들어가요. 위 표에서 이런 줄은 `entryGatesProvider` 1줄(`auth_gate.dart:21`), `pendingInviteProvider` 2줄(`invite_result_sections.dart:19`, `invite_handoff.dart:9`), `HijoBottomNav` 2줄(`hijo_bottom_nav.dart:11`, `app_shell.dart:14`), `HijoColors` 1줄(`share_card.dart:153`)이에요. 문자열 검색에도 나오는 줄이라 위 표의 차이에는 없지만, 사용처 수에 코드가 아닌 줄이 섞인다는 뜻이에요. 이런 사용처의 `kind`는 provider면 `read`, 클래스면 `reference`로 나와요. GitNexus 날의 정답은 `//`로 시작하는 줄(`///` 포함)을 빼고 셌지만, 이 줄들이 든 파일에는 모두 코드 사용처도 있어서(정의 파일인 `hijo_bottom_nav.dart`는 원래 빠져요) 파일 수는 같아요.
+문서 주석의 dartdoc 링크(`[entryGatesProvider]`처럼 대괄호로 쓴 이름)는 scip-dart가 사용처로 줘서 code-atlas 답에 들어가요. 위 표에서 이런 줄은 `entryGatesProvider` 1줄(`auth_gate.dart:21`), `pendingInviteProvider` 2줄(`invite_result_sections.dart:19`, `invite_handoff.dart:9`), `HijoBottomNav` 2줄(`hijo_bottom_nav.dart:11`, `app_shell.dart:14`), `HijoColors` 1줄(`share_card.dart:153`)이에요. 문자열 검색에도 나오는 줄이라 위 표의 차이에는 없지만, 사용처 수에 코드가 아닌 줄이 섞인다는 뜻이에요. 이제 이런 사용처는 `kind: reference`에 `doc: true`가 붙어 코드의 사용처와 가려져요(아래 "문서 주석 링크를 가른 뒤"). GitNexus 날의 정답은 `//`로 시작하는 줄(`///` 포함)을 빼고 셌지만, 이 줄들이 든 파일에는 모두 코드 사용처도 있어서(정의 파일인 `hijo_bottom_nav.dart`는 원래 빠져요) 파일 수는 같아요.
 
 ### 지금의 코드(322c149)에서
 
@@ -125,16 +125,34 @@ code-atlas 정밀 층은 여섯 질문 모두 정답 파일과 같아요. 엉뚱
 
 ### 추정 층(Tree-sitter)이 문자열 검색과 다른 곳
 
-GitNexus처럼 Tree-sitter로 읽고 이름으로 잇는 층이지만, import와 barrel(`export`)을 따라 보이는 이름을 고르기 때문에 provider와 barrel을 거친 사용처를 찾아요. 정밀 층과 다른 곳은 세 가지예요(322c149 기준, 7ba0197도 같아요).
+GitNexus처럼 Tree-sitter로 읽고 이름으로 잇는 층이지만, import와 barrel(`export`)을 따라 보이는 이름을 고르기 때문에 provider와 barrel을 거친 사용처를 찾아요. 처음 쟀을 때(code-atlas `3a03fa7`) 정밀 층과 다른 곳은 셋이었고, 둘은 고쳤어요(322c149 기준, 7ba0197도 같아요).
 
-- **놓침, 코드 사용처 1곳**: `'$loginTryLaterMessage 인터넷 연결을…'`(`signup_consent.dart:231`). 중괄호 없이 글에 끼운 이름이에요. 이미 알려진 놓침이에요([architecture.md](architecture.md#추정-층이-놓치는-것-dart) 마지막 줄). 그래서 파일 단위로도 6개 중 5개예요.
-- **놓침, 문서 주석의 dartdoc 링크**: 위에 적은 대괄호 링크를 잇지 않아요(`entryGatesProvider` 1줄, `pendingInviteProvider` 2줄, `HijoBottomNav` 2줄, `HijoColors` 1줄, `petMotionOffProvider` 1줄). 코드 사용처는 아니에요.
-- **더 셈, 생성자 선언 1줄**: 이름 없는 생성자 선언(`const HijoBottomNav({`, `const HijoColors({`)을 클래스의 사용처로 세요. 정밀 층은 세지 않아요.
+- **놓침, 코드 사용처 1곳** (그대로): `'$loginTryLaterMessage 인터넷 연결을…'`(`signup_consent.dart:231`). 중괄호 없이 글에 끼운 이름이에요. 이미 알려진 놓침이에요([architecture.md](architecture.md#추정-층이-놓치는-것-dart)). 그래서 파일 단위로도 6개 중 5개예요.
+- **놓침, 문서 주석의 dartdoc 링크** (고침): 위에 적은 대괄호 링크(`entryGatesProvider` 1줄, `pendingInviteProvider` 2줄, `HijoBottomNav` 2줄, `HijoColors` 1줄, `petMotionOffProvider` 1줄)를 잇지 않았어요. 이제 추정 층도 `doc: true`로 내요.
+- **더 셈, 생성자 선언 1줄** (고침): 이름 없는 `const` 생성자 선언(`const HijoBottomNav({`, `const HijoColors({`)을 클래스의 사용처로 셌어요. tree-sitter-dart가 `const` 생성자를 다른 노드(`constant_constructor_signature`)로 읽어서였어요.
+
+### 문서 주석 링크를 가른 뒤 (2026-11-20, code-atlas `fix/204-followups`)
+
+dartdoc 링크에 `doc: true`를 붙이고(정밀·추정 층 모두) 추정 층의 생성자 선언을 고친 뒤, 같은 사본 방법(`git clone --shared` 두 벌, `flutter pub get --offline`, 다 쓴 뒤 지움)으로 다시 물었어요. 정밀 층의 이름·관계 수는 그대로예요(7ba0197 5,640 / 69,792, 322c149 5,915 / 75,307). 모두 추정 층으로 색인하면 322c149에서 이름 4,650, 관계 24,748이에요.
+
+| 이름 (7ba0197) | 사용처 | 코드 (줄, 파일) | 문서 링크 (`doc: true`) | 추정 층 |
+| --- | ---: | --- | --- | --- |
+| `loginTryLaterMessage` | 12 | 12 (12, 7) | 0 | 11: 위의 코드 1곳 놓침 |
+| `entryGatesProvider` | 5 | 4 (4, 4) | 1 (`auth_gate.dart:21`) | 정밀과 같음 |
+| `pendingInviteProvider` | 8 | 6 (6, 3) | 2 (`invite_result_sections.dart:19`, `invite_handoff.dart:9`) | 정밀과 같음 |
+| `deletionRequestedAtProvider` | 2 | 2 (2, 2) | 0 | 정밀과 같음 |
+| `HijoBottomNav` | 56 | 54 (54, 22) | 2 (`hijo_bottom_nav.dart:11`, `app_shell.dart:14`) | 정밀과 같음 |
+| `HijoColors` | 55 | 54 (50, 17) | 1 (`share_card.dart:153`) | 정밀과 같음 |
+
+- "정밀과 같음"은 사용처의 자리(경로:줄:열)와 `doc` 표시가 하나하나 같다는 뜻이에요. 322c149(`signUpConsentsProvider`, `petMotionOffProvider` 포함)도 같아요: 추정 층은 `signup_consent.dart:231` 한 곳만 달라요.
+- 문서 링크가 든 파일에는 모두 코드 사용처도 있어서(정의 파일 `hijo_bottom_nav.dart`는 원래 빠져요) 파일 수는 바뀌지 않아요. 바뀐 것은 줄 단위 설명이에요: 어느 사용처가 코드가 아닌지 답에서 바로 보여요.
+- `npm run verify:hijo`(check와 코드 지도 비교)는 그대로 통과해요.
 
 ## 찾은 것
 
 - 정밀 층은 GitNexus가 놓친 여섯 질문을 모두 맞혔어요(파일 단위로 정답과 같고, 줄 단위 차이는 모두 정의·선언 줄이거나 주석·글 속 언급이에요).
-- 사용처 수에 dartdoc 링크(코드가 아닌 줄)가 섞여요. 영향 범위나 이름 바꾸기에는 맞는 동작이지만(링크도 고쳐야 해요), "읽는 곳" 수로 보면 조금 많아요. 사용처의 `kind`로 구별되지 않아요.
+- 사용처 수에 dartdoc 링크(코드가 아닌 줄)가 섞이지만, 이제 `doc: true`로 가려져요. context와 rename에는 표시와 함께 나오고(링크도 고쳐야 해요), impact·trace·flows·clusters·check는 의존으로 치지 않아요.
+- 추정 층은 이 질문들에서 중괄호 없이 글에 끼운 이름 한 곳만 놓쳐요.
 - 색인 시간은 GitNexus의 3.5배쯤이고 거의 다 scip-dart예요. 파일 하나를 고쳐도 70초쯤 걸려요(위 "판단").
 
 ## 이전 기록
