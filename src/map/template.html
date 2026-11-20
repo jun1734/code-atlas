@@ -103,6 +103,9 @@ tr.hit td { background: var(--green-soft); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.path { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; min-width: 220px; }
 td.path small { color: var(--muted); font-size: inherit; }
+td.path a { color: inherit; text-decoration: none; }
+td.path a:hover { color: var(--green-ink); text-decoration: underline; }
+td.path a:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 th button { all: unset; cursor: pointer; font: inherit; color: inherit; }
 th button[aria-pressed="true"] { color: var(--ink); }
 th button[aria-pressed="true"]::after { content: " ↓"; }
@@ -377,7 +380,10 @@ function renderFiles() {
   $('#files').replaceChildren(
     h('thead', {}, h('tr', {}, h('th', {}, `파일 ${nf(rows.length)}개`), cols.map(([k, label]) => h('th', { class: k === 'l' || k === 'c' ? '' : 'num' }, h('button', { type: 'button', 'aria-pressed': String(sortKey === k), onclick: () => { sortKey = k; shown = 25; renderFiles(); } }, label))), h('th', {}, '테스트'))),
     h('tbody', {}, rows.length ? rows.slice(0, shown).map((f) => { const p = compact(f.p), i = p.lastIndexOf('/'); return h('tr', { id: 'file=' + f.p, 'data-path': f.p, class: f.p === hit ? 'hit' : null },
-      h('td', { class: 'path' }, h('small', {}, p.slice(0, i + 1)), p.slice(i + 1)),
+      // 파일을 누르면 이름 단위 그래프 화면에서 그 파일로 이어요(#file=<경로>).
+      h('td', { class: 'path' }, D.graph
+        ? h('a', { href: `${D.graph}#file=${encodeURIComponent(f.p)}`, title: '이름 그래프에서 이 파일 보기' }, h('small', {}, p.slice(0, i + 1)), p.slice(i + 1))
+        : [h('small', {}, p.slice(0, i + 1)), p.slice(i + 1)]),
       barCell(f, 'l'), barCell(f, 'c'), h('td', { class: 'num' }, f.i), h('td', { class: 'num' }, f.o),
       h('td', {}, f.t === 2 ? '직접' : f.t === 1 ? h('span', { class: 'muted' }, '묶음 경유') : h('span', { class: 'pill soft' }, '없음'))); })
       : h('tr', {}, h('td', { colspan: 6, class: 'muted' }, '조건에 맞는 파일이 없어요. 모듈이나 검색어를 바꿔 보세요.'))));

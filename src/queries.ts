@@ -8,7 +8,9 @@ import { checkQuery } from './query/check.ts';
 import { clustersQuery } from './query/clusters.ts';
 import { contextQuery } from './query/context.ts';
 import { detectChangesQuery } from './query/detect-changes.ts';
+import { flowsQuery } from './query/flows.ts';
 import { impactQuery } from './query/impact.ts';
+import { renameQuery } from './query/rename.ts';
 import { searchQuery } from './query/search.ts';
 import { traceQuery } from './query/trace.ts';
 
@@ -51,7 +53,7 @@ export interface QueryContext {
 }
 
 /** 명령줄과 MCP에 붙는 질의 전부. */
-export const QUERIES: QueryDef[] = [contextQuery, checkQuery, impactQuery, detectChangesQuery, searchQuery, traceQuery, clustersQuery];
+export const QUERIES: QueryDef[] = [contextQuery, checkQuery, impactQuery, detectChangesQuery, searchQuery, traceQuery, clustersQuery, renameQuery, flowsQuery];
 
 /** 바깥에서 받은 인자(명령줄은 글, MCP는 JSON 값)를 질의의 Param대로 검사해요. */
 export function checkArgs(def: QueryDef, raw: Record<string, unknown>): Args {

@@ -10,7 +10,7 @@
 import { compareText, cut, DEFAULT_LIMIT, type InnerList, type Page, type Sourced, sourcedOf } from '../answer.ts';
 import type { SymbolKind } from '../facts.ts';
 import type { GraphStore, Location } from '../graph/store.ts';
-import { Graph, type NodeInfo, nodeId } from '../graph/traverse.ts';
+import { Graph, type NodeId, type NodeInfo, nodeId } from '../graph/traverse.ts';
 import { repoModules } from '../modules.ts';
 import type { QueryDef } from '../queries.ts';
 import { CONFIG_PARAM } from '../repo-config.ts';
@@ -164,7 +164,15 @@ function modularity(g: Weighted, community: number[]): number {
 /** 이름을 셈하는 칸: 앱 코드의 최상위 선언(이름 공간 빼고). */
 const counts = (n: NodeInfo | undefined): n is NodeInfo => !!n && n.role === 'app' && n.symbol?.kind !== 'namespace';
 
-export function clusters(store: GraphStore, limit: number, configPath?: string): ClustersBody {
+/** 자르기 전의 묶음 하나. names·files는 전부, ids는 든 최상위 선언의 노드 id예요. */
+interface FullCluster extends Omit<ClusterItem, 'names' | 'files'> {
+  names: string[];
+  files: string[];
+  ids: Set<NodeId>;
+}
+
+/** 묶음 전부를 자르지 않고 계산해요. clusters 답과 flows의 "이 이름이 든 묶음"이 같은 계산을 써요. */
+function computeClusters(store: GraphStore, configPath?: string) {
   const { config, moduleOf } = repoModules(store, configPath);
   const graph = Graph.load(store);
 
@@ -196,7 +204,7 @@ export function clusters(store: GraphStore, limit: number, configPath?: string):
   // 3. 묶음마다 이름, 파일, 모듈, 대표 이름.
   const members = new Map<number, number[]>();
   community.forEach((c, i) => (members.get(c) ?? members.set(c, []).get(c)!).push(i));
-  const items: ClusterItem[] = [];
+  const items: FullCluster[] = [];
   let singletons = 0;
   for (const nodes of members.values()) {
     if (nodes.length < 2) {
@@ -224,8 +232,9 @@ export function clusters(store: GraphStore, limit: number, configPath?: string):
         kind: repPoint.kind,
         definition: { path: repPoint.path, line: repPoint.line!, column: repPoint.column! },
       },
-      names: cut(nodes.map((i) => units[i]!.label).sort(compareText), limit),
-      files: cut(files, limit),
+      names: nodes.map((i) => units[i]!.label).sort(compareText),
+      files,
+      ids: new Set(nodes.map((i) => units[i]!.id)),
       modules,
       crossModule: modules.length > 1,
       internalEdges: internal.length,
@@ -235,17 +244,37 @@ export function clusters(store: GraphStore, limit: number, configPath?: string):
   }
   items.sort((x, y) => y.size - x.size || compareText(x.representative.name, y.representative.name));
 
-  return {
-    config: config.path,
-    summary: {
-      names: units.length,
-      clusters: items.length,
-      singletons,
-      crossModule: items.filter((i) => i.crossModule).length,
-      modularity: Math.round(modularity(g, community) * 1000) / 1000,
-    },
-    clusters: cut(items, limit),
+  const summary: ClustersBody['summary'] = {
+    names: units.length,
+    clusters: items.length,
+    singletons,
+    crossModule: items.filter((i) => i.crossModule).length,
+    modularity: Math.round(modularity(g, community) * 1000) / 1000,
   };
+  return { config, graph, items, summary };
+}
+
+/** 묶음 하나를 답의 꼴로: 안쪽 목록(names, files)을 limit으로 잘라요. */
+function present({ ids: _ids, names, files, ...rest }: FullCluster, limit: number): ClusterItem {
+  return { ...rest, names: cut(names, limit), files: cut(files, limit) };
+}
+
+export function clusters(store: GraphStore, limit: number, configPath?: string): ClustersBody {
+  const { config, items, summary } = computeClusters(store, configPath);
+  return { config: config.path, summary, clusters: cut(items.map((i) => present(i, limit)), limit) };
+}
+
+/**
+ * 노드들(이름과 그 멤버 등)이 든 묶음. 멤버는 바깥 최상위 선언의 묶음에 들어요. 혼자 남은 이름은 묶음이 없어요.
+ * 순서와 꼴은 clusters 답과 같아요.
+ */
+export function clustersOf(store: GraphStore, nodes: NodeId[], limit: number, configPath?: string): Page<ClusterItem> {
+  const { graph, items } = computeClusters(store, configPath);
+  const tops = new Set(nodes.map((id) => graph.topLevel(id)?.id).filter((id): id is NodeId => id !== undefined));
+  return cut(
+    items.filter((i) => [...tops].some((id) => i.ids.has(id))).map((i) => present(i, limit)),
+    limit,
+  );
 }
 
 /** 같은 묶음 번호라도 서로 이어지지 않은 노드들은 다른 묶음으로 나눠요(번호는 가장 작은 노드 순). */

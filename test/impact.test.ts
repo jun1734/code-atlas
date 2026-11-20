@@ -123,3 +123,24 @@ describe('impact_sample impact', () => {
     assert.deepEqual(await mcp.call('impact', { target: 'withVat', depth: 2, limit: 1 }), fx.ask('impact', 'withVat', '--depth', '2', '--limit', '1'));
   });
 });
+
+// 매개변수 기본값 안의 사용처는 색인기가 그 매개변수를 감싸는 이름으로 적어요. 매개변수는 그래프의 노드가 아니라서
+// 예전에는 영향 범위를 거슬러 오르다 멈췄어요(hijo_app 이름의 3분의 1에서 오류). 감싸는 함수로 옮겨 붙어야 해요.
+describe('impact_sample impact, 매개변수 기본값에서 쓰는 이름', () => {
+  let fx: IndexedFixture;
+  before(() => {
+    fx = indexFixture('impact_sample', {
+      extraFiles: { 'lib/core/fee.dart': 'const int baseFee = 3;\n\nint fee({int extra = baseFee}) => extra;\n' },
+    });
+  });
+  after(() => fx?.dispose());
+
+  it('기본값에서 쓰는 곳은 그 매개변수를 가진 함수다', () => {
+    const answer = fx.ask('impact', 'baseFee');
+    assert.equal(answer.status, 'found');
+    assert.deepEqual(
+      answer.affected.items.map((i: any) => [i.distance, i.name, i.kind, i.via.name, i.via.relation]),
+      [[1, 'fee', 'function', 'baseFee', 'read']],
+    );
+  });
+});

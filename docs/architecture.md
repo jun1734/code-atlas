@@ -202,6 +202,7 @@ interface FileSyntax {
 - 지역 이름은 정의가 든 함수 전체에서 하나의 범위로 봐요. 그래서 함수 안 어디서든 같은 이름의 지역 이름이 있으면 그 함수 안의 같은 이름 최상위 정의 사용처를 놓쳐요.
 - tree-sitter-dart가 `Provider<Cart>(…)` 같은 제네릭 호출을 비교식으로 읽어요. 그래도 `Cart`는 타입으로 이어져 `reference`가 되고, `Provider`는 저장소 밖이라 잇지 않아요.
 - 추정 층의 `extends`·`implements`도 `kindConfidence: inferred`예요(정밀 층은 scip-dart의 타입 관계로 확인해 `precise`).
+- 글 끼워 넣기에서 중괄호 없이 쓴 이름(`'연결 $roomName'`)은 사용처로 잇지 않아요(`test/flows.test.ts`가 이 놓침을 기록해요).
 
 ### 추정 층 적합성: dart_sample
 
@@ -320,6 +321,7 @@ JavaScript 예제(`test/fixtures/js_sample`): 설정 파일(`package.json`, `tsc
   - `usersOf(path)`: 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 이름으로 이어서 barrel을 거친 곳도 나와요.
   - `filePaths()`, `definitions()`(정의 전부와 바로 바깥 심볼 `parentKey`), `referencedKeys()`(사용처가 있는 열쇠): 저장소 전체를 훑는 검사(check)용.
   - `externalRefs()`: 파일마다 가리키는 저장소 밖 심볼의 열쇠(같은 쌍은 한 번). 코드 지도의 "외부 SDK가 닿는 파일"용.
+  - `relationSitesIn(path)`: 파일에 적힌 관계(import 빼고)가 시작하는 자리 전부(저장소 밖 심볼로 가는 것 포함). rename이 색인이 이미 무엇인가로 이은 자리를 `unlinked` 찾기에서 빼요.
 - `open`은 스키마 버전이 다른 옛 색인을 비우고 새로 만들어요. 그러면 다음 넣기가 처음부터 색인이 돼요.
 
 ### 증분 반영
@@ -370,11 +372,11 @@ JavaScript 예제(`test/fixtures/js_sample`): 설정 파일(`package.json`, `tsc
 
 ## 저장소 설정과 모듈
 
-모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요.
+모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요. 저장소 설정의 `flows`는 실행 흐름(flows)의 진입점이에요.
 
 - `src/repo-config.ts`: `loadRepoConfig(repoRoot, explicitPath?)`가 저장소 뿌리의 `.code-atlas.json`(명령줄 `--config`, MCP `config` 인자로 다른 파일)을 읽어 `RepoConfig`를 돌려줘요. 파일이 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나)이에요. `readAllowlist(repoRoot, source)`는 허용 목록 하나의 대상 파일을 읽어요.
 - `src/modules.ts`: `moduleResolver(config)`가 `(path) => 모듈 이름 | null` 함수(`ModuleOf`)를 만들어요. `null`은 어느 규칙에도 맞지 않는 파일(검사 밖)이에요. 질의는 `repoModules(store, configPath)`(설정 읽기 + `moduleResolver`)를 써요. `globToRegExp`, `nameGlobToRegExp`도 여기 있어요.
-- 설정 파일을 고르는 질의 인자는 `CONFIG_PARAM`(`src/repo-config.ts`) 하나를 check, impact, clusters가 같이 써요.
+- 설정 파일을 고르는 질의 인자는 `CONFIG_PARAM`(`src/repo-config.ts`) 하나를 check, impact, clusters, flows가 같이 써요.
 
 `.code-atlas.json` 형식(칸은 모두 선택, 빠지면 기본값):
 
@@ -406,6 +408,10 @@ JavaScript 예제(`test/fixtures/js_sample`): 설정 파일(`package.json`, `tsc
     "packages": { "http": "HTTP" },                    // 외부 SDK 표에 올릴 패키지와 보일 이름. 없으면 밖 패키지 전부
     "reviewNotes": [{ "modules": ["models"], "label": "데이터 타입", "note": "…" }], // 리뷰 후보의 꼬리표·메모(없으면 helper)
     "select": "orders"                                 // 처음 골라 둘 모듈. 없으면 흐름을 거스르는 import가 닿는 첫 모듈
+  },
+  "flows": {                     // 실행 흐름(flows)의 진입점
+    "entries": [{ "name": "*Page.build" }, { "kinds": ["function"], "name": "main" }], // qualifiedName에 맞추는 glob. 불리는 이름이어도 진입점
+    "uncalled": true                                    // 불리지 않는 이름(과 밖에서 불리지 않는 순환)도 진입점으로(기본 true)
   }
 }
 ```
@@ -469,13 +475,31 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`repoModules`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`)이고, `size`가 이름 수예요.
 - `summary`: 셈한 이름 수(`names`), 묶음 수(`clusters`), 혼자 남은 이름 수(`singletons`, 목록에 안 나옴), 여러 모듈에 걸친 묶음 수(`crossModule`), 나눈 결과의 모듈성(`modularity`, 소수 셋째 자리).
 - 모듈 기준은 check와 같은 저장소 설정이에요(`--config`, MCP `config`).
+- 묶음 계산(`computeClusters`)은 자르기 전 묶음 전부를 내요. clusters 답과 flows의 "이 이름이 든 묶음"(`clustersOf`: 이름의 최상위 선언이 든 묶음)이 이것을 같이 써서, 두 답의 묶음이 늘 같아요.
+
+## 질의: flows
+
+`src/query/flows.ts`. 진입점에서 시작하는 실행 흐름이에요. 낯선 기능의 큰 줄기를 파악하고, 이름 하나가 어느 묶음과 어느 흐름에 속하는지(변경이 어떤 사용자 경로에 닿는지) 답해요. 정답이 하나인 문제가 아니라서, 예제 저장소(`test/fixtures/flow_sample`)는 흐름이 뚜렷한 작은 저장소로 잡았어요.
+
+- **그래프**: `Graph.load(store, { kinds: ['call', 'read'] })`에서 코드를 돌리는 관계만 따라가요. 부름(`call`)은 모두, 읽기(`read`)는 읽으면 코드가 도는 것만이에요: getter(본문)와 모듈 수준 변수(`kind: variable`이고 바깥 심볼이 없는 것. 초기화 식에서 부르는 것은 그 변수가 부른 것으로 잡혀요. Dart 최상위 변수는 처음 읽을 때 초기화되고, Riverpod provider도 이렇게 읽혀요). 필드·상수 읽기와 타입 참조, import는 따라가지 않아요. 노드는 앱 코드(`role: 'app'`)의 심볼(이름 공간 빼고)이고, 테스트 코드가 부르는 것은 셈하지 않아요. 두 이름 사이 관계가 여럿이면 대표 하나(정밀한 것, 종류가 정밀한 것, 적힌 자리 순)예요.
+- **진입점** (`reasons`):
+  - `uncalled`: 앱 코드 어디서도(파일 최상위 포함) 부르거나 읽어 돌리지 않으면서, 앱 코드의 이름을 하나라도 부르는 이름. Flutter의 `build`처럼 프레임워크가 부르는 것, 값으로 넘겨지는 콜백, 쓰이지 않는 코드가 여기 들어요.
+  - `cycle`: 서로만 부르는 순환(강연결 요소 둘 이상, check의 `stronglyConnected`) 가운데 밖에서 부르는 곳이 없는 것. 노드 id가 가장 작은 이름 하나가 진입점이에요. 이게 없으면 그런 순환은 어느 흐름에도 안 나와요.
+  - `config`: 저장소 설정 `flows.entries`(이름 glob을 `qualifiedName`에, `kinds`를 종류에 맞춤)에 맞는 이름. 코드 안에서 불려도 진입점이에요. 맞는 이름이 없는 glob은 `summary.unmatched`에 나와요. `flows.uncalled: false`면 앞의 둘은 셈하지 않아요.
+- **흐름 하나**: 진입점에서 깊이 우선(앞 순회)으로 따라가요. 한 이름이 부르는 것들은 관계가 적힌 자리(경로, 줄, 열) 순이라, 거치는 이름의 순서가 대략 실행 순서예요(분기·반복·비동기는 보지 않아요). 흐름 안에서 이미 나온 이름은 다시 펼치지 않아요(같은 이름을 두 번 적지 않고, 순환도 여기서 끊겨요). `depth`(기본 10)까지만 따라가고, 그 끝의 이름이 흐름에 없는 이름을 더 부르면 `beyondDepth: true`예요.
+- 클래스를 만들면(`Cart()`) 클래스에 닿지만 그 멤버로 들어가지 않아요(trace와 같아요). 인터페이스 메서드를 부르는 곳은 구현으로 이어지지 않아서, 구현 메서드는 불리지 않는 진입점으로 나올 수 있어요.
+- **답**: `query`(물은 이름 또는 `null`), `config`, `depth`, `length`, `summary`(`entries`, `uncalled`, `cycles`, `configured`, `unmatched`: 거르기 전 전체), `flows`(`Page`, `limit`). 흐름은 큰 것(`size`)부터, 같으면 진입점 이름, 열쇠 순이에요.
+  - 흐름 하나: `entry`(지점), `reasons`, `size`(진입점 포함 이름 수), `steps`(`Page`, 진입점 다음부터 `length`개, 기본 30), `beyondDepth`, 그리고 구간 가운데 가장 낮은 `confidence`·`kindConfidence`와 출처 모두(`source`). 구간이 없으면(설정한 진입점이 아무것도 안 부르면) 진입점의 표시예요.
+  - 구간(`steps`의 항목): 이름의 지점(`name`, `kind`, `path`, `line`, `column`, `key`), `depth`(진입점이 부르면 1), `from`(부른 이름), `relation`(`call`/`read`), `at`(적힌 자리), 그 관계의 `confidence`·`kindConfidence`·`source`. 추정 층이 낸 관계를 지나는 구간은 `confidence: inferred`예요(trace의 "추정 관계의 표시"와 같은 규칙).
+- **이름을 물으면** (`flows <이름>`): `resolvePoint`로 풀어요(여럿이면 `ambiguous`와 `candidates`, 없으면 `not_found`). 찾으면 `status: 'found'`, `target`(지점), `clusters`(`Page`: 그 이름의 최상위 선언이 든 묶음. 혼자 남은 이름이면 빈 목록), 그리고 그 이름(과 그 멤버, 파일이면 그 파일이 정의한 이름)을 거치는 흐름만이에요. 흐름마다 `hits`(흐름에서 맞은 이름, 흐름 순)가 붙어요. 거치는지는 `depth` 안에서 봐요(`length`로 잘린 구간도 셈해요).
 
 ## 그래프 탐색
 
-`src/graph/traverse.ts`. impact, trace, clusters가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.
+`src/graph/traverse.ts`. impact, trace, clusters, flows가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.
 
 - `GraphStore.edges({ kinds? })`: 관계 하나가 간선 하나(`EdgeRow`). 출발은 사용처를 감싸는 심볼(파일 최상위면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import). 저장소 밖 심볼을 가리키는 관계는 빠져요.
 - `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
+  - 매개변수는 노드가 아니에요(정의 목록에 없어요). 그런데 색인기는 매개변수 기본값 안의 사용처(`{int extra = baseFee}`)를 그 매개변수가 감싼 것으로 적고, 이름 있는 인자는 매개변수를 가리켜요. 그래서 간선의 끝이 매개변수면 그 매개변수가 적힌 자리를 감싸는 가장 안쪽 정의(함수, 생성자 등)로 옮겨 붙여요(`GraphStore.parameterOwners()`. scip-dart가 매개변수의 바깥 심볼을 주지 않아서 정의가 차지하는 줄 `extentsIn`으로 찾아요). 감싸는 정의가 없으면 출발은 그 파일, 도착이면 간선을 빼요. 전에는 이런 간선을 따라간 impact가 오류로 멈췄어요(hijo_app 이름의 3분의 1).
 - `graph.in(id)` / `graph.out(id)`: 이 노드를 쓰는 간선 / 이 노드가 쓰는 간선. `graph.node(id)`는 이름, 정의 파일, 역할(app/test), 정의(`DefinitionRow`)를 줘요. `graph.fileNodes(path)`는 파일과 그 파일이 정의한 심볼의 노드예요.
 - `graph.reach(starts, 'in' | 'out', maxDepth)`: 너비 우선으로 거리별 도착점(`Reached`)을 줘요. 같은 거리라면 정밀한 길을 먼저 골라요. 길에 추정 관계가 하나라도 있으면 그 도착점은 `inferred`예요. 결과 순서는 거리, 그 안에서 id 순이라 다시 돌려도 같아요.
 - `graph.members(id)`: 그 노드와 그 안에 정의된 심볼(멤버, 멤버의 멤버 …). 이름 하나를 출발점·도착점으로 삼을 때 써요(impact, trace).
@@ -486,10 +510,10 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 ## 지점 풀기와 서술
 
-`src/query/point.ts`. context, impact, trace가 같은 것을 써요.
+`src/query/point.ts`. context, impact, trace, rename이 같은 것을 써요.
 
 - `resolvePoint(store, query)`: 물은 글이 색인된 파일 경로와 정확히 맞으면(`\`는 `/`로) `file`, 아니면 이름(`findSymbols`: key → qualifiedName → name)으로 `symbol`, 여럿이면 `ambiguous`(후보), 없으면 `not_found`.
-- `Point`와 `pointOfSymbol`, `pointOfFile`, `pointOfNode`: 답에 지점을 적는 꼴(`name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`). trace의 지점과 impact의 항목, clusters의 대표 이름이 이것으로 적혀요. `locationOf`는 적힌 자리에서 경로·줄·열만 남겨요.
+- `Point`와 `pointOfSymbol`, `pointOfFile`, `pointOfNode`: 답에 지점을 적는 꼴(`name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`). trace의 지점과 impact의 항목, clusters의 대표 이름, flows의 진입점과 구간이 이것으로 적혀요. `locationOf`는 적힌 자리에서 경로·줄·열만 남겨요.
 
 ## 질의: trace
 
@@ -511,6 +535,23 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - `confidence`: 그 관계가 있다는 것(어디서 무엇을 쓰는지)의 믿음. 정밀 어댑터(scip-dart)의 관계는 `precise`, 추정 층(Tree-sitter)의 관계는 `inferred`예요. `inferred` 구간은 이름으로 이은 것이라 다른 같은 이름일 수 있어요.
 - `kindConfidence`: 그 관계의 종류(`kind`)의 믿음. Dart에서 `call`·`read`·`write`·`reference`는 문법으로 가려 `inferred`, `import`와 상속·구현은 `precise`예요. 그래서 Dart의 `follow: calls` 경로는 늘 `kindConfidence: inferred`예요: 관계는 정밀하지만, 그것이 "호출"이라는 것은 문법으로 가린 추정이에요(예: 함수를 값으로 넘기는 곳은 `read`로 가려져 호출 경로에서 빠져요).
 
+## 질의: rename
+
+`src/query/rename.ts`. 이름 하나를 새 이름으로 바꿀 때 고칠 자리 전부의 계획(`rename <이름> --to <새 이름>`)이에요. **파일은 고치지 않아요.** 계획대로 고치는 것은 부르는 쪽이에요.
+
+- 이름: context와 같은 해석기(`resolvePoint`). 여럿이면 `ambiguous`와 후보, 없으면 `not_found`. 다만 후보가 모두 같은 파일, 같은 바깥 이름의 getter·setter면 접근자 짝 하나로 보고 함께 바꿔요(추정 층은 getter와 setter를 따로 적어요. 정밀 Dart 어댑터는 이미 한 열쇠로 합쳐요). 파일 경로, 식별자가 아닌 새 이름(점·공백), 지금과 같은 새 이름은 오류(`UserError`)예요.
+- **고칠 자리** (`RenameSite`): 한 줄 안의 `[column, endColumn)`(1부터, UTF-16 단위) 글 `oldText`를 `newText`로. `kind`(`definition`, 사용처의 관계 종류, `unlinked`), `role`, 감싸는 이름 `in`, `confidence`, `source`. 경로, 줄, 열 순이에요. 언어마다 모양이 같아요.
+  1. 색인이 알려 준 자리: 정의와 사용처 전부(`usesOf`). Dart의 show·hide 조합자, 글에 끼운 이름(`$x`, `${x}`), 이름 있는 생성자 선언의 클래스 이름(`Money.zero`의 `Money`)은 scip-dart가 사용처로 줘서 여기 들어요.
+  2. 자리마다 저장소 파일의 그 자리 글이 옛 이름인지 확인해요. 다르면 계획에 넣지 않고 경고(`mismatch`)예요(색인이 낡았거나 색인기의 범위가 이름과 다를 때).
+  3. **색인이 잇지 못한 자리(`unlinked`)**: 정의를 품은 범위(멤버면 바깥 타입의 정의 전체, 아니면 정의 자신) 안에서 옛 이름과 같은 글 가운데, 색인의 정의·관계가 없는 자리를 그 언어의 문법(언어 목록 `LANGUAGES`의 추정 규칙이 쓰는 Tree-sitter 문법)으로 읽어 식별자인 것만 골라요. 주석과 글(문자열) 안은 빼고, 글에 끼운 식(substitution, interpolation) 안은 넣어요. 정밀 Dart 어댑터가 열쇠를 합치며 정의를 하나만 남긴 것(이름 없는 생성자 선언 `Money(…)`, getter와 짝인 setter 선언)이 여기서 나와요. 문법으로 고른 것이라 `confidence: inferred`, `source: tree-sitter-<언어>`예요. 추정 규칙이 없는 언어는 찾지 않아요.
+- **둘로 나눠요**: `edits`는 정밀 층의 자리, `inferred`는 추정 층이 이은 자리와 `unlinked`예요. 같은 자리가 둘 다에서 나오면 정밀을 둬요. 둘 다 `Page`(`limit`)이고, 잘렸으면(`truncated`) 계획이 다 나오지 않은 것이니 늘려서 다시 물어요.
+- **경고** (`warnings`, `Page`): 종류 순(`conflict`, `override`, `mismatch`), 그다음 경로·줄·열 순. 항목의 표시는 그 경고가 가리키는 정의의 것이에요.
+  - `conflict`(새 이름이 같은 범위의 다른 이름과 겹침): 멤버면 같은 타입과, 상속·구현(`extends`/`implements` 간선을 위아래로 따라간 타입)으로 이어진 타입의 멤버. 최상위 이름이면 고칠 파일에 정의된 최상위 이름, 그리고 고칠 파일이 이미 쓰는 다른 파일의 최상위 이름.
+  - `override`: 상속·구현으로 이어진 타입에 옛 이름과 같은 멤버가 있어요. 함께 바꾸지 않으면 재정의 관계가 끊겨요(바꾸지는 않아요: 어느 쪽까지 바꿀지는 부르는 쪽이 정해요).
+- 답: `query`, `newName`, `status`, `oldName`, `targets`(바꿀 심볼), `edits`, `inferred`, `warnings`, `summary`(`files`: 고칠 파일 수, 각 목록의 개수).
+- 놓치는 것: 추정 층으로만 색인한 언어는 추정 층이 잇지 못한 사용처(Dart: show·hide, 글에 끼운 함수 값, 수신자 타입을 알아야 하는 멤버)가 계획에 없어요. 지역 이름(매개변수, 지역 변수)은 그래프에 없어 바꿀 수 없어요. 이름 붙은 인자(`f(amount: 1)`)처럼 색인기가 사용처로 주지 않는 자리도 없어요. 저장소 밖에서 쓰는 곳(다른 저장소, 문서)은 모르니 공개 API는 부르는 쪽이 판단해요.
+- 시험은 `test/rename.test.ts`: 예제 `rename_sample`(getter·setter 짝, 이름 있는/없는 생성자, show·hide barrel, 글에 끼운 이름, 겹치는 이름, 구현하는 인터페이스)에서 계획을 정답과 비교하고, 물은 뒤 파일이 바이트 단위로 그대로인지, 계획을 저장소 밖 사본에 적용하면 `dart analyze --fatal-infos`를 통과하는지 봐요. 추정 층 목록은 `mixed_sample`과 `CODE_ATLAS_DISABLE_INDEXERS=scip-dart`로 진짜 추정 자리를 만들어 봐요.
+
 ## 코드 지도 (map)
 
 `src/map/`. 질의가 아니라 명령 하나(`code-atlas map`)예요. 답이 JSON이 아니라 HTML 파일이라 `QUERIES`에 넣지 않았어요.
@@ -522,8 +563,20 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   - 테스트 열: 테스트 파일(`role: 'test'`)이 직접 import하면 2(`importersOf`), 그 파일이 정의한 이름을 다른 파일(barrel 등)을 거쳐 쓰면 1(`usersOf`), 아니면 0이에요. barrel에 들었어도 테스트가 그 이름을 쓰지 않으면 0이에요(옛 코드 지도는 1이었어요).
   - 외부 SDK: `externalRefs()`의 열쇠 가운데 라이브러리(파일) 자체를 가리키는 것(SCIP 기술자가 모두 namespace)의 패키지 이름(`src/map/packages.ts`). 그 패키지를 import한 파일이에요. 언어 기본 라이브러리(`dart:async`처럼 ':'이 든 이름)와 저장소 자신의 패키지는 빼요.
   - 그래프에 없는 둘: 줄 수(작업 트리의 파일, 끝 줄바꿈도 한 줄로 셈)와 최근 90일 변경 횟수(`git log --since="90 days ago" --no-merges`). 브랜치는 그릴 때의 `git rev-parse --abbrev-ref HEAD`, 커밋은 색인 기준 커밋이에요(낡았으면 다시 색인하니 둘이 맞아요).
-- `template.html`: 화면. 그리는 것만 해요(띠 모듈 배치, 요약 문장, 표). 파일 표의 줄마다 `id="file=<경로>"`가 있고, 주소의 `#file=<경로>`를 읽어 그 파일을 보여 줘요. 다른 화면(이름 단위 그래프 등)이 파일로 이어 줄 자리예요.
+- `template.html`: 화면. 그리는 것만 해요(띠 모듈 배치, 요약 문장, 표). 파일 표의 줄마다 `id="file=<경로>"`가 있고, 주소의 `#file=<경로>`를 읽어 그 파일을 보여 줘요. 파일 이름은 이름 단위 그래프 화면의 그 파일(`<graph>#file=<경로>`, `MapData.graph`)로 가는 링크예요.
 - 시험은 `test/map.test.ts`(예제를 색인하고 `map`을 불러 HTML에 든 자료를 정답과 비교)와 `npm run verify:hijo`(hijo_app 7ba0197에서 옛 코드 지도와 비교)예요. 화면의 생김새는 브라우저로 띄워 확인해요.
+
+### 이름 단위 그래프 화면
+
+`map`이 코드 지도 옆에 `<지도 이름>-graph.html`도 그려요(출력의 `graph`). 이름이나 파일 하나를 골라 정의, 사용처, 영향 범위를 그래프로 보고 이웃을 눌러 따라가요. 밖에서 받는 것이 없어요(라이브러리도 글꼴도 없이 시스템 글꼴과 직접 그린 SVG).
+
+- `graph-data.ts`: `symbolGraphData(store, meta)`가 `GraphData`를 만들어요. 계산은 질의에 맡겨요.
+  - 노드 순서는 `search`(조건 없음)의 답 순서(많이 쓰이는 것이 먼저), 그다음 파일(경로 순), 그다음 영향 범위에서 만난 그 밖의 정의예요. 화면의 검색이 이 순서로 보여요.
+  - 이름마다 `context`(사용처 `GRAPH_USES_LIMIT`개)와 `impact`(깊이 3, 영향 받는 곳 `GRAPH_AFFECTED_LIMIT`개와 거리별 전체 개수), 파일마다 `context`의 네 목록(정의하는 이름, 가져오는 파일, 가져가는 파일, 쓰는 파일)과 `impact`를 그대로 담아요. 이름 수천 개를 잇달아 물어서 impact에는 그래프와 설정을 한 번만 읽어 넘겨요(`prepareImpact`, `impact(…, prepared)`).
+  - 영향 받는 곳마다 한 단계 가까운 노드(via)를 노드 번호로 담아요: 한 거리 가까운 항목 가운데 impact 답의 `via.name`과 이름이 같은 것이고, 거리 1은 고른 것이에요.
+  - 정밀/추정과 출처는 답의 항목마다 그대로 담아요. 칸 이름과 튜플의 뜻은 `GraphNode`의 주석에 있어요. hijo_app(이름 4,108개, 파일 329개)에서 HTML 4.3MB, `map` 전체 18초쯤이에요.
+- `graph.html`: 화면. 검색은 `search` 질의의 맞춤 규칙(`words`, `matches`)의 소스를 `renderSymbolGraph`가 그대로 넣어 써요(규칙을 화면에 따로 짜지 않아요). 파일은 경로 일부로 찾아요. 그래프는 칸 다섯(정의 → 고른 것 → 거리 1, 2, 3. 칸마다 10개까지 그리고 나머지는 "더" 칸과 아래 목록)이고, 좁은 폭(680px 아래)에서는 칸이 위에서 아래로 쌓여요. 정밀 관계는 실선, 추정 관계는 노란 점선, 정의가 추정인 이름은 노란 점선 테두리예요. 주소는 `#symbol=<열쇠>`나 `#file=<경로>`라 뒤로 가기로 따라온 길을 되짚어요.
+- 시험은 `test/graph-view.test.ts`: 예제를 정밀 층과 추정 층(`CODE_ATLAS_DISABLE_INDEXERS=scip-dart`)으로 색인하고, 그래프 자료가 같은 저장소에 명령줄로 물은 search·context·impact의 답과 같은지 봐요.
 
 ## 질의 실행기와 바깥 껍데기
 

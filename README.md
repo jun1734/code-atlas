@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), JavaScript/TypeScript 색인(정밀: scip-typescript, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), JavaScript/TypeScript 색인(정밀: scip-typescript, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`, `rename`, `flows`(명령줄과 MCP 서버), 코드 지도와 이름 그래프 HTML(`map`, 명령줄). 앞으로 붙을 것(Python 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -62,13 +62,23 @@ node src/cli.ts search total --kind function,method --language dart --folder lib
 # 묶음: 서로 촘촘히 엮인 이름들(Louvain). 묶음마다 이름, 파일, 대표 이름, 여러 모듈에 걸쳤는지(crossModule)
 node src/cli.ts clusters --repo path/to/repo
 
+# 실행 흐름: 진입점(불리지 않는 이름, 설정의 flows.entries)에서 호출을 따라 거치는 이름들
+node src/cli.ts flows --repo path/to/repo
+node src/cli.ts flows --depth 5 --length 10 --limit 20 --repo path/to/repo  # 깊이, 흐름마다 이름 수, 흐름 수
+node src/cli.ts flows petMotionOffProvider --repo path/to/repo             # 이 이름이 든 묶음과 이 이름을 거치는 흐름
+
 # 두 지점 사이 경로: from이 어떤 호출을 거쳐 to까지 가나(가장 짧은 것부터, --limit개까지)
 node src/cli.ts trace OrderButton --to writeRow --repo path/to/repo
 node src/cli.ts trace lib/ui/a.dart --to lib/data/db.dart --follow all --repo path/to/repo  # 참조·import도 따라가요
 node src/cli.ts trace OrderButton --to logAudit --depth 15 --repo path/to/repo             # 더 긴 경로까지(기본 10)
+
+# 이름 바꾸기 계획: 고칠 자리(파일, 줄, 열) 전부. 파일은 고치지 않아요(고치는 것은 부르는 쪽).
+# 정밀 층의 자리는 edits, 추정 층과 색인이 잇지 못한 같은 이름 식별자는 inferred, 겹치는 이름은 warnings
+node src/cli.ts rename withTax --to addTax --repo path/to/repo
+node src/cli.ts rename Money.cents --to amount --repo path/to/repo   # 멤버는 바깥 타입을 붙여 묻고, 새 이름은 짧게
 ```
 
-trace의 답과 표시(구간마다 `confidence`와 `kindConfidence`)는 [docs/architecture.md](docs/architecture.md#질의-trace)에 있어요.
+trace의 답과 표시(구간마다 `confidence`와 `kindConfidence`)는 [docs/architecture.md](docs/architecture.md#질의-trace)에, rename의 계획 모양과 놓치는 것은 [docs/architecture.md](docs/architecture.md#질의-rename)에 있어요.
 
 check와 impact의 모듈 기준(어느 폴더가 모듈인지, 공용·조립 모듈, 허용 목록 위치)은 저장소 뿌리의 `.code-atlas.json`에 적어요. 형식은 [docs/architecture.md](docs/architecture.md#저장소-설정과-모듈)에 있어요. 없으면 뿌리 바로 아래 폴더 하나가 모듈 하나예요.
 
@@ -90,8 +100,13 @@ node src/cli.ts map --repo path/to/repo --out build/map.html  # 나올 파일을
 
 - 명령 한 번이면 돼요: 색인이 없거나 낡았으면(`index.stale`) 먼저 색인하고 그려요. 출력은 나온 파일(`out`), 그 전에 색인했는지(`indexed`), 브랜치·커밋과 개수를 담은 JSON이에요.
 - 구조 계산은 `check`의 답을 그대로 써요. 모듈 기준과 화면 설정(제목, 띠로 그릴 모듈, 외부 SDK 목록, 리뷰 후보 메모)은 `.code-atlas.json`(`--config`)이에요. 형식은 [docs/architecture.md](docs/architecture.md#코드-지도-map)에 있어요.
-- 파일 줄마다 `#file=<경로>`로 가리킬 수 있어요(예: `…-map.html#file=lib/src/cart.dart`). 그 파일 하나만 남기고 줄로 데려가요.
+- 파일 줄마다 `#file=<경로>`로 가리킬 수 있어요(예: `…-map.html#file=lib/src/cart.dart`). 그 파일 하나만 남기고 줄로 데려가요. 파일 이름을 누르면 아래 이름 그래프 화면의 그 파일로 가요.
 - 나온 파일만 쓰고 저장소는 바꾸지 않아요(`--out`으로 저장소 안을 고르면 거기 써요). 화면은 글꼴을 Google Fonts에서 받아요(없으면 시스템 글꼴). 코드는 밖으로 나가지 않아요.
+
+**이름 그래프 화면.** 같은 명령이 지도 옆에 `<이름>-graph.html`도 그려요(출력의 `graph`). 이름이나 파일을 검색해 고르면(검색 규칙은 `search`와 같아요: 이름 일부, 낙타 표기 조각) 가운데에 놓고, 왼쪽에 정의된 곳, 오른쪽에 그것을 쓰는 곳을 거리별로(1, 2, 3) 그려요. 노드를 누르면 그 이름으로 옮겨 가고, 아래에 사용처(줄, 관계 종류)와 영향 범위 목록이 나와요. 정밀 관계는 실선, 추정 관계는 노란 점선이에요.
+
+- 자료는 `search`·`context`·`impact`의 답을 그대로 담았어요(이름마다 사용처 50개, 영향 받는 곳 80개까지. 넘으면 명령줄로 보는 법을 적어요).
+- 밖에서 아무것도 받지 않아요(네트워크 없이 열려요). 주소는 `#symbol=<열쇠>`나 `#file=<경로>`예요.
 
 ### 다시 색인하기와 색인 요약
 

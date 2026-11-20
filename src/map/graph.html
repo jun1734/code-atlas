@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이름 그래프</title>
+<style>
+/* 배치: 머리말 → 검색 → 고른 것의 요약 → 그래프(왼쪽 정의, 가운데 고른 것, 오른쪽으로 쓰는 곳 거리 1·2·3) → 목록.
+   좁은 폭에서는 그래프의 칸이 위에서 아래로 쌓여요. 밖에서 받는 것이 없어요(글꼴도 시스템 글꼴). */
+:root {
+  --bg: #f4f2eb; --surface: #ffffff; --ink: #23261f; --muted: #6c6f64; --line: #e6e3d8;
+  --green: #2e7d57; --green-ink: #246143; --green-soft: #e4efe5;
+  --amber: #b07a2a; --amber-ink: #755a33; --amber-soft: #f6ecdc;
+  --edge: #8f8c7e; --sel: #2e7d57; --sel-soft: #e4efe5;
+  --sans: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1a1c17; --surface: #23261f; --ink: #f1efe7; --muted: #a5a89c; --line: #383c32;
+  --green: #57b183; --green-ink: #8fd0ae; --green-soft: #24382d;
+  --amber: #d9a45a; --amber-ink: #e2bd84; --amber-soft: #3a3122;
+  --edge: #8a8e7e; --sel: #57b183; --sel-soft: #24382d; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1a1c17; --surface: #23261f; --ink: #f1efe7; --muted: #a5a89c; --line: #383c32;
+  --green: #57b183; --green-ink: #8fd0ae; --green-soft: #24382d;
+  --amber: #d9a45a; --amber-ink: #e2bd84; --amber-soft: #3a3122;
+  --edge: #8a8e7e; --sel: #57b183; --sel-soft: #24382d; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.6 var(--sans); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 24px; }
+h1, h2, h3, p, ul { margin: 0; }
+h1 { font: 800 26px/1.25 var(--sans); }
+h2 { font: 800 19px/1.3 var(--sans); overflow-wrap: anywhere; }
+h3 { font: 700 14px/1.4 var(--sans); }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+a { color: var(--green-ink); }
+.muted { color: var(--muted); }
+.meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+
+.finder { position: relative; }
+.finder input { width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.finder input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.results { list-style: none; padding: 6px; margin: 6px 0 0; display: flex; flex-direction: column; gap: 2px; max-height: 360px; overflow-y: auto; }
+.results[hidden] { display: none; }
+.results li.group { font: 700 12px var(--sans); color: var(--muted); padding: 6px 8px 2px; }
+.pick { all: unset; box-sizing: border-box; cursor: pointer; display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 6px 8px; border-radius: 8px; }
+.pick:hover, .pick[aria-selected="true"] { background: var(--sel-soft); }
+.pick .nm { font-family: var(--mono); font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.pick .where { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; flex: 1; }
+.pick .n { color: var(--muted); font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.pill { font: 700 11px/1 var(--sans); padding: 4px 7px; border-radius: 5px; background: var(--line); color: var(--ink); white-space: nowrap; }
+.pill.precise { background: var(--green-soft); color: var(--green-ink); }
+.pill.inferred { background: var(--amber-soft); color: var(--amber-ink); outline: 1px dashed var(--amber); outline-offset: -1px; }
+.pill.test { background: var(--line); color: var(--muted); }
+
+.summary { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.summary .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13.5px; color: var(--muted); }
+.facts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+figure { margin: 0; }
+#graph { padding: 8px 0 4px; }
+#graph svg { display: block; width: 100%; height: auto; }
+.band-label { fill: var(--muted); font: 700 12px var(--sans); }
+.gnode rect { fill: var(--surface); stroke: var(--edge); stroke-width: 1.2; }
+.gnode text { fill: var(--ink); font: 600 12.5px var(--mono); }
+.gnode text.sub { fill: var(--muted); font: 400 11px var(--sans); }
+.gnode.file rect { rx: 3; }
+.gnode.inferred rect { stroke: var(--amber); stroke-dasharray: 5 3; stroke-width: 1.6; fill: var(--amber-soft); }
+.gnode.center rect { stroke: var(--sel); stroke-width: 2.6; fill: var(--sel-soft); }
+.gnode.center.inferred rect { stroke: var(--amber); stroke-dasharray: 6 3; }
+.gnode.more rect { fill: none; stroke-dasharray: 2 3; }
+.gnode.more text { fill: var(--muted); font: 400 12px var(--sans); }
+.gnode[tabindex] { cursor: pointer; }
+.gnode[tabindex]:hover rect, .gnode[tabindex]:focus-visible rect { stroke: var(--green); stroke-width: 2.4; }
+.gnode:focus-visible { outline: none; }
+.gedge { fill: none; stroke: var(--edge); stroke-width: 1.4; opacity: 0.8; }
+.gedge.inferred { stroke: var(--amber); stroke-dasharray: 6 4; stroke-width: 1.8; opacity: 1; }
+.gedge.def { stroke-dasharray: 1 4; stroke-linecap: round; stroke-width: 2; }
+.arrow { fill: var(--edge); }
+.arrow.inferred { fill: var(--amber); }
+svg.hover .gedge { opacity: 0.15; }
+svg.hover .gedge.on { opacity: 1; stroke-width: 2.4; }
+figcaption { font-size: 13px; color: var(--muted); padding: 10px 16px 12px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.key { display: inline-flex; align-items: center; gap: 6px; }
+.key i { display: inline-block; width: 26px; height: 0; border-top: 2px solid var(--edge); }
+.key i.inferred { border-top: 2px dashed var(--amber); }
+.key i.def { border-top: 2px dotted var(--edge); }
+.key b { display: inline-block; width: 18px; height: 12px; border-radius: 3px; border: 1.5px dashed var(--amber); background: var(--amber-soft); }
+
+.lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.list { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.list h3 .muted { font-weight: 400; }
+.list ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.list li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.list li:last-child { border-bottom: 0; }
+.list .loc { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.list .dist { color: var(--muted); font-size: 12px; min-width: 3.5em; font-variant-numeric: tabular-nums; }
+.go { all: unset; cursor: pointer; font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--green-ink); overflow-wrap: anywhere; }
+.go:hover { text-decoration: underline; }
+.go:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.cut { color: var(--muted); font-size: 12.5px; }
+.foot { font-size: 13px; color: var(--muted); max-width: 78ch; display: flex; flex-direction: column; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:6px">
+    <h1 id="title">이름 그래프</h1>
+    <p class="meta" id="meta"></p>
+  </header>
+
+  <div class="finder" role="search">
+    <input type="search" id="q" placeholder="이름이나 파일 경로로 찾기 (예: cartProv, Cart.add, lib/src/cart.dart)" aria-label="이름이나 파일 찾기"
+      autocomplete="off" role="combobox" aria-expanded="false" aria-controls="results">
+    <ul class="results panel" id="results" role="listbox" hidden></ul>
+  </div>
+
+  <section class="panel summary" id="summary" aria-live="polite"></section>
+
+  <figure class="panel">
+    <div id="graph"></div>
+    <figcaption>
+      <span class="key"><i></i>정밀: 색인기가 확인한 관계</span>
+      <span class="key"><i class="inferred"></i>추정: 이름으로 이은 관계(직접 확인하세요)</span>
+      <span class="key"><b></b>정의 자체가 추정인 이름</span>
+      <span class="key"><i class="def"></i>정의된 곳</span>
+      <span>화살표는 쓰는 쪽에서 쓰이는 쪽으로 가요. 노드를 누르면 그 이름으로 옮겨 가요.</span>
+    </figcaption>
+  </figure>
+
+  <div class="lists" id="lists"></div>
+
+  <footer class="foot" id="foot"></footer>
+</div>
+
+<script type="application/json" id="symbol-graph-data">/*DATA*/</script>
+<script>
+// 검색 맞춤 규칙: code-atlas의 search 질의(src/query/search.ts)의 words, matches를 그대로 옮겨 넣은 것이에요.
+/*MATCH*/
+</script>
+<script>
+// 자료는 code-atlas가 search·context·impact 질의의 답에서 뽑아 위의 symbol-graph-data에 넣어요(src/map/graph-data.ts의 GraphData).
+const D = JSON.parse(document.getElementById('symbol-graph-data').textContent);
+const $ = (q) => document.querySelector(q);
+const set = (e, attrs) => { for (const [k, v] of Object.entries(attrs)) { if (k === 'class') e.setAttribute('class', v); else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v); } return e; };
+const h = (tag, attrs = {}, ...kids) => { const e = set(document.createElement(tag), attrs); for (const k of kids.flat(Infinity)) if (k != null && k !== false) e.append(k); return e; };
+const s = (tag, attrs = {}, ...kids) => { const e = set(document.createElementNS('http://www.w3.org/2000/svg', tag), attrs); for (const k of kids.flat(Infinity)) if (k != null) e.append(k); return e; };
+const nf = (n) => n.toLocaleString('ko-KR');
+const N = D.nodes;
+const pathOf = (n) => D.paths[n.p];
+const isFile = (n) => n.d === 'file';
+const conf = (flag) => (flag ? 'inferred' : 'precise');
+const confWord = { precise: '정밀', inferred: '추정' };
+const KIND = { class: '클래스', mixin: '믹스인', enum: '열거형', extension: '확장', typedef: '타입 별칭', function: '함수', method: '메서드',
+  constructor: '생성자', field: '필드', getter: '게터', setter: '세터', variable: '변수', constant: '상수', parameter: '매개변수', file: '파일', enumMember: '열거 값' };
+const REL = { call: '호출', read: '읽기', write: '쓰기', reference: '참조', extends: '상속', implements: '구현', import: 'import', export: 'export', mixin: '믹스인', typeOf: '타입' };
+const kindWord = (k) => KIND[k] ?? k;
+const relWord = (r) => REL[r] ?? r;
+const files = N.map((n, i) => i).filter((i) => isFile(N[i]));
+const fileIdx = Object.fromEntries(files.map((i) => [pathOf(N[i]), i]));
+const keyIdx = Object.fromEntries(N.map((n, i) => [n.k, i]).filter(([k]) => k));
+const symbolCount = N.filter((n) => n.k).length;
+
+document.title = D.title;
+$('#title').textContent = D.title;
+add($('#meta'),
+  h('span', {}, `${D.branch ?? '(git 아님)'} @ ${D.head ?? '-'} · ${D.date} 색인 기준`),
+  h('span', {}, `이름 ${nf(symbolCount)}개 · 파일 ${nf(files.length)}개`),
+  h('a', { href: D.map }, '코드 지도로'));
+function add(el, ...kids) { for (const k of kids.flat(Infinity)) if (k != null && k !== false) el.append(k); }
+
+// ── 주소: #symbol=<열쇠> 또는 #file=<경로>. 코드 지도의 파일 줄이 #file=로 이어 줘요.
+const hashOf = (i) => (N[i].k ? '#symbol=' : '#file=') + encodeURIComponent(N[i].k ?? pathOf(N[i]));
+function fromHash() {
+  const m = /^#(symbol|file)=(.+)$/.exec(location.hash);
+  if (!m) return null;
+  const v = decodeURIComponent(m[2]);
+  const i = m[1] === 'file' ? fileIdx[v] : keyIdx[v];
+  return i === undefined ? null : i;
+}
+const follow = (i) => { if (location.hash !== hashOf(i)) location.hash = hashOf(i); else show(i); };
+// 따라갈 수 있는 노드: 이름이면 열쇠, 파일이면 경로가 있어야 해요(정의를 찾지 못한 이름은 따라갈 수 없어요).
+const followable = (i) => i >= 0 && (N[i].k !== undefined || isFile(N[i]));
+
+// ── 검색: 이름은 search 질의와 같은 규칙(matches)과 같은 순서(많이 쓰이는 것이 먼저), 파일은 경로 일부(대소문자 무시).
+let hits = [], active = -1;
+function runSearch() {
+  const q = $('#q').value.trim();
+  const box = $('#results');
+  box.replaceChildren();
+  hits = [];
+  if (!q) { box.hidden = true; $('#q').setAttribute('aria-expanded', 'false'); return; }
+  const names = [];
+  for (let i = 0; i < N.length && names.length < 12; i++) if (N[i].k && matches(q, { name: N[i].n, qualifiedName: N[i].q })) names.push(i);
+  const ql = q.toLowerCase();
+  const fs = files.filter((i) => pathOf(N[i]).toLowerCase().includes(ql)).slice(0, 6);
+  const row = (i) => {
+    const n = N[i], k = hits.push(i) - 1;
+    return h('li', { role: 'presentation' }, h('button', { type: 'button', class: 'pick', role: 'option', id: 'hit-' + k, 'aria-selected': 'false',
+      onclick: () => choose(i) },
+      h('span', { class: 'nm' }, isFile(n) ? n.n : n.q),
+      h('span', { class: 'where' }, isFile(n) ? pathOf(n) : `${kindWord(n.d)} · ${pathOf(n)}:${n.l}`),
+      n.i ? h('span', { class: 'pill inferred' }, '추정') : null,
+      n.k ? h('span', { class: 'n' }, `사용처 ${nf(n.u)}`) : null));
+  };
+  if (names.length) add(box, h('li', { class: 'group', role: 'presentation' }, '이름'), names.map(row));
+  if (fs.length) add(box, h('li', { class: 'group', role: 'presentation' }, '파일'), fs.map(row));
+  if (!hits.length) add(box, h('li', { class: 'group', role: 'presentation' }, '맞는 이름이나 파일이 없어요.'));
+  active = hits.length ? 0 : -1;
+  mark();
+  box.hidden = false;
+  $('#q').setAttribute('aria-expanded', 'true');
+}
+function mark() {
+  hits.forEach((_, k) => document.getElementById('hit-' + k)?.setAttribute('aria-selected', String(k === active)));
+  if (active >= 0) { document.getElementById('hit-' + active)?.scrollIntoView({ block: 'nearest' }); $('#q').setAttribute('aria-activedescendant', 'hit-' + active); }
+}
+function choose(i) { $('#results').hidden = true; $('#q').setAttribute('aria-expanded', 'false'); $('#q').value = ''; follow(i); }
+$('#q').addEventListener('input', runSearch);
+$('#q').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' && hits.length) { e.preventDefault(); active = (active + 1) % hits.length; mark(); }
+  else if (e.key === 'ArrowUp' && hits.length) { e.preventDefault(); active = (active - 1 + hits.length) % hits.length; mark(); }
+  else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); choose(hits[active]); }
+  else if (e.key === 'Escape') { $('#results').hidden = true; $('#q').setAttribute('aria-expanded', 'false'); }
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('.finder')) { $('#results').hidden = true; $('#q').setAttribute('aria-expanded', 'false'); } });
+
+// ── 고른 것
+let current = null;
+const affectedOf = (n) => (n.A ? n.A[2].map(([to, distance, via, relation, inf, src]) => ({ to, distance, via, relation, confidence: conf(inf), source: D.sources[src] })) : []);
+
+function show(i) {
+  current = i;
+  const n = N[i];
+  renderSummary(n);
+  renderGraph();
+  renderLists(n);
+}
+
+function renderSummary(n) {
+  const box = $('#summary');
+  box.replaceChildren();
+  const where = isFile(n) ? pathOf(n) : `${pathOf(n)}:${n.l}:${n.c ?? 1}`;
+  const c = isFile(n) ? null : conf(n.i);
+  add(box,
+    h('div', { class: 'row' }, h('h2', {}, h('code', {}, isFile(n) ? pathOf(n) : n.q)), h('span', { class: 'pill' }, kindWord(n.d)),
+      c ? h('span', { class: 'pill ' + c, title: c === 'inferred' ? '이름으로 이은 추정이에요. 직접 확인하세요.' : '컴파일러 수준 색인기가 확인했어요.' }, confWord[c]) : null,
+      n.t ? h('span', { class: 'pill test' }, '테스트') : null),
+    h('div', { class: 'facts' },
+      isFile(n) ? null : h('span', {}, '정의 ', h('code', {}, where)),
+      n.s !== undefined ? h('span', {}, '출처 ', h('b', {}, D.sources[n.s])) : null,
+      n.U ? h('span', {}, '사용처 ', h('b', {}, nf(n.U[0])), '곳') : null,
+      n.F ? h('span', {}, '정의하는 이름 ', h('b', {}, nf(n.F.defines[0])), '개') : null,
+      n.A ? h('span', {}, `영향 범위(거리 ${D.depth}까지) `, h('b', {}, nf(n.A[0])), '곳', n.A[1] ? ' · 더 먼 곳도 있어요' : '') : null,
+      h('a', { href: `${D.map}#file=${encodeURIComponent(pathOf(n))}` }, '코드 지도에서 이 파일 보기')),
+    !n.A && !n.F ? h('p', { class: 'muted' }, '이 이름은 색인에서 정의를 찾지 못해 사용처와 영향 범위가 없어요.') : null);
+}
+
+// ── 그래프. 칸(band): 정의 → 고른 것 → 거리 1, 2, 3. 넓으면 칸이 왼쪽에서 오른쪽, 좁으면 위에서 아래로 쌓여요.
+const PER_BAND = 10;
+function bandsOf(i) {
+  const n = N[i];
+  const bands = [];
+  const def = n.F ? n.F.defines[1].map((to) => ({ to, def: true })) : n.k ? [{ to: fileIdx[pathOf(n)], def: true }].filter((x) => x.to !== undefined) : [];
+  bands.push({ label: n.F ? `정의하는 이름 ${n.F.defines[0]}개` : '정의된 파일', items: def, total: n.F ? n.F.defines[0] : def.length });
+  bands.push({ label: '고른 것', items: [{ to: i, center: true }], total: 1 });
+  const aff = affectedOf(n);
+  const byDist = {};
+  for (const a of aff) (byDist[a.distance] ||= []).push(a);
+  // 거리별 전체 개수는 impact의 summary.byDistance예요. 담긴 항목이 잘렸으면 그 거리의 일부만 있어요.
+  const totals = n.A ? n.A[3] : {};
+  for (let d = 1; d <= D.depth; d++) {
+    const list = byDist[d] ?? [];
+    const total = totals[d] ?? 0;
+    if (!total && d > 1) break;
+    bands.push({ label: d === 1 ? `직접 쓰는 곳 ${nf(total)}` : `거리 ${d} · ${nf(total)}`, items: list, total });
+  }
+  return bands;
+}
+
+function renderGraph() {
+  const box = $('#graph');
+  box.replaceChildren();
+  const W = Math.max(300, box.clientWidth || 900);
+  const narrow = W < 680;
+  const bands = bandsOf(current);
+  const NH = 42, GAP = 10, LABEL = 24;
+  const pos = new Map(); // 노드 번호 → {x, y, w, h}
+  const els = [];
+  let H = 0;
+  const placeNode = (item, x, y, w) => {
+    const n = N[item.to];
+    if (!n) return;
+    pos.set(item.to, { x, y, w, h: NH });
+    els.push(nodeEl(item, x, y, w));
+  };
+  // 칸마다 그릴 노드(앞에서 PER_BAND개)와 "더 있음" 칸 하나(그 거리의 전체가 그린 것보다 많을 때).
+  const shownOf = (b) => b.items.slice(0, PER_BAND);
+  const hiddenOf = (b) => b.total - shownOf(b).length;
+  const cellsOf = (b) => shownOf(b).length + (hiddenOf(b) > 0 ? 1 : 0);
+  if (!narrow) {
+    const colW = (W - 16) / bands.length;
+    const maxH = Math.max(...bands.map(cellsOf)) * (NH + GAP);
+    bands.forEach((b, c) => {
+      const x = 8 + c * colW + 8, w = colW - 16;
+      els.push(s('text', { class: 'band-label', x, y: 16 }, b.label));
+      const shown = shownOf(b);
+      const top = LABEL + (maxH - cellsOf(b) * (NH + GAP)) / 2;
+      shown.forEach((it, r) => placeNode(it, x, top + r * (NH + GAP), w));
+      if (hiddenOf(b) > 0) els.push(moreEl(hiddenOf(b), x, top + shown.length * (NH + GAP), w));
+      H = Math.max(H, LABEL + maxH);
+    });
+  } else {
+    // 좁은 폭: 칸마다 한 줄 머리말, 그 아래 노드를 두 줄씩(폭에 따라) 채워요.
+    const cols = Math.max(1, Math.floor((W - 16) / 160));
+    const w = (W - 16 - (cols - 1) * GAP) / cols;
+    let y = 0;
+    for (const b of bands) {
+      els.push(s('text', { class: 'band-label', x: 8, y: y + 16 }, b.label));
+      y += LABEL;
+      const shown = shownOf(b);
+      const cells = cellsOf(b);
+      shown.forEach((it, k) => placeNode(it, 8 + (k % cols) * (w + GAP), y + Math.floor(k / cols) * (NH + GAP), w));
+      if (hiddenOf(b) > 0) { const k = shown.length; els.push(moreEl(hiddenOf(b), 8 + (k % cols) * (w + GAP), y + Math.floor(k / cols) * (NH + GAP), w)); }
+      y += Math.max(1, Math.ceil(cells / cols)) * (NH + GAP) + 14;
+    }
+    H = y;
+  }
+  // 선: 쓰는 쪽 → 쓰이는 쪽(via, 거리 1이면 고른 것). 정의 칸은 고른 것과 점선으로 이어요.
+  const edges = [];
+  const link = (from, to, cls, title) => {
+    const a = pos.get(from), b = pos.get(to);
+    if (!a || !b) return;
+    let d;
+    if (!narrow) {
+      const fromLeft = a.x > b.x; // 오른쪽(쓰는 쪽)에서 왼쪽(쓰이는 쪽)으로
+      const x1 = fromLeft ? a.x : a.x + a.w, x2 = fromLeft ? b.x + b.w : b.x;
+      const y1 = a.y + a.h / 2, y2 = b.y + b.h / 2, mx = (x1 + x2) / 2;
+      d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    } else {
+      const down = a.y > b.y;
+      const x1 = a.x + a.w / 2, x2 = b.x + b.w / 2, y1 = down ? a.y : a.y + a.h, y2 = down ? b.y + b.h : b.y, my = (y1 + y2) / 2;
+      d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
+    }
+    const inferred = cls.includes('inferred');
+    const el = s('path', { class: 'gedge ' + cls, d, 'marker-end': `url(#${inferred ? 'arr-i' : 'arr'})` }, s('title', {}, title));
+    edges.push({ el, from, to });
+  };
+  const centerNode = N[current];
+  for (const b of bands) for (const it of b.items.slice(0, PER_BAND)) {
+    if (it.center) continue;
+    if (it.def) { link(current, it.to, 'def', centerNode.F ? `${pathOf(centerNode)}이(가) 정의해요` : `${pathOf(N[it.to])}에 정의돼 있어요`); continue; }
+    const target = it.via >= 0 && pos.has(it.via) ? it.via : current;
+    link(it.to, target, it.confidence, `${N[it.to].q} → ${N[target].q}: ${relWord(it.relation)} (${confWord[it.confidence]}, ${it.source})`);
+  }
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'group',
+    'aria-label': `${N[current].q}의 그래프: 정의, 직접 쓰는 곳, 거리 ${D.depth}까지의 영향 범위` },
+  s('defs', {},
+    s('marker', { id: 'arr', viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 7, markerHeight: 7, orient: 'auto' }, s('path', { d: 'M0,0 L8,4 L0,8 z', class: 'arrow' })),
+    s('marker', { id: 'arr-i', viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 7, markerHeight: 7, orient: 'auto' }, s('path', { d: 'M0,0 L8,4 L0,8 z', class: 'arrow inferred' }))),
+  edges.map((e) => e.el), els);
+  // 노드에 올리면 그 노드의 선만 또렷하게.
+  for (const g of svg.querySelectorAll('.gnode[data-i]')) {
+    const i = Number(g.dataset.i);
+    const on = (v) => { svg.classList.toggle('hover', v); for (const e of edges) e.el.classList.toggle('on', v && (e.from === i || e.to === i)); };
+    g.addEventListener('mouseenter', () => on(true)); g.addEventListener('mouseleave', () => on(false));
+    g.addEventListener('focus', () => on(true)); g.addEventListener('blur', () => on(false));
+  }
+  box.append(svg);
+}
+
+function clip(text, w) {
+  const max = Math.max(4, Math.floor((w - 16) / 7.6));
+  return text.length > max ? '…' + text.slice(text.length - max + 1) : text;
+}
+function nodeEl(item, x, y, w) {
+  const n = N[item.to];
+  const inferred = isFile(n) ? item.confidence === 'inferred' && false : n.i === 1;
+  const cls = ['gnode', isFile(n) ? 'file' : '', inferred ? 'inferred' : '', item.center ? 'center' : ''].join(' ');
+  const label = isFile(n) ? n.n : n.q;
+  const sub = isFile(n) ? pathOf(n).slice(0, -n.n.length) || './' : `${kindWord(n.d)}${n.u !== undefined ? ` · 사용처 ${nf(n.u)}` : ''}${inferred ? ' · 추정' : ''}`;
+  const can = !item.center && followable(item.to);
+  const tip = `${label} (${kindWord(n.d)}, ${isFile(n) ? pathOf(n) : `${pathOf(n)}:${n.l ?? ''}`}${isFile(n) ? '' : `, 정의 ${confWord[conf(n.i)]}`})${item.distance ? ` · 거리 ${item.distance}, ${relWord(item.relation)} ${confWord[item.confidence]}` : ''}`;
+  return s('g', { class: cls, 'data-i': item.to, ...(can ? { tabindex: 0, role: 'link', 'aria-label': `${tip}. 이 노드로 옮겨 가요.` } : {}),
+    onclick: can ? () => follow(item.to) : null,
+    onkeydown: can ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); follow(item.to); } } : null },
+  s('title', {}, tip),
+  s('rect', { x, y, width: w, height: 42, rx: 8 }),
+  s('text', { x: x + 8, y: y + 17 }, clip(label, w)),
+  s('text', { class: 'sub', x: x + 8, y: y + 33 }, clip(sub, w)));
+}
+function moreEl(count, x, y, w) {
+  return s('g', { class: 'gnode more' }, s('rect', { x, y, width: w, height: 42, rx: 8 }), s('text', { x: x + 8, y: y + 25 }, `${nf(count)}곳 더 · 아래 목록과 명령줄`));
+}
+
+// ── 목록: 그래프에 다 못 그린 것까지. 이름·파일은 눌러서 옮겨 가요.
+const go = (i, text) => (followable(i) ? h('button', { type: 'button', class: 'go', onclick: () => follow(i) }, text) : h('span', { class: 'loc' }, text));
+const confPill = (c, what) => (c === 'inferred' ? h('span', { class: 'pill inferred', title: `${what}이(가) 추정이에요` }, what ? `${what} 추정` : '추정') : null);
+const cutNote = (total, shown, hint) => (total > shown ? h('p', { class: 'cut' }, `${nf(total)}개 가운데 ${nf(shown)}개를 담았어요. 전부는 명령줄 `, h('code', {}, hint), '로 봐요.') : null);
+function listBox(title, count, items, empty, note) {
+  return h('section', { class: 'panel list' }, h('h3', {}, title, ' ', h('span', { class: 'muted' }, `${nf(count)}`)),
+    items.length ? h('ul', {}, items) : h('p', { class: 'muted' }, empty), note);
+}
+function renderLists(n) {
+  const box = $('#lists');
+  box.replaceChildren();
+  const q = n.k ? n.q : pathOf(n);
+  if (n.U) {
+    const [total, rows] = n.U;
+    box.append(listBox('사용처', total, rows.map(([p, line, col, kind, kindInf, inf, src, test, inside]) => h('li', {},
+      h('span', { class: 'loc' }, `${D.paths[p]}:${line}:${col}`),
+      h('span', { class: 'muted' }, relWord(kind)), inside ? h('span', { class: 'muted' }, `· ${inside} 안`) : null,
+      test ? h('span', { class: 'pill test' }, '테스트') : null,
+      confPill(conf(inf), ''), !inf && kindInf ? h('span', { class: 'pill inferred', title: '읽기·쓰기·호출의 구분을 소스 문법으로 가렸어요' }, '종류 추정') : null)),
+    '쓰는 곳이 없어요.', cutNote(total, rows.length, `context ${q} --limit ${total}`)));
+  }
+  if (n.A) {
+    const aff = affectedOf(n);
+    box.append(listBox(`영향 범위 (거리 ${D.depth}까지)`, n.A[0], aff.map((a) => h('li', {},
+      h('span', { class: 'dist' }, `거리 ${a.distance}`), go(a.to, N[a.to].q),
+      h('span', { class: 'muted' }, `${relWord(a.relation)}${a.via >= 0 ? ` → ${N[a.via].q}` : ''}`),
+      N[a.to].t ? h('span', { class: 'pill test' }, '테스트') : null, confPill(a.confidence, ''))),
+    '바꿔도 영향 받는 곳이 없어요.', [cutNote(n.A[0], aff.length, `impact ${q} --limit ${n.A[0]}`), n.A[1] ? h('p', { class: 'cut' }, `거리 ${D.depth}보다 먼 곳도 있어요: `, h('code', {}, `impact ${q} --depth ${D.depth + 2}`)) : null]));
+  }
+  if (n.F) {
+    const files = (title, list, empty) => listBox(title, list[0], list[1].map(([i, inf, src, uses]) => h('li', {}, go(i, i >= 0 ? pathOf(N[i]) : '?'),
+      uses !== undefined ? h('span', { class: 'muted' }, `사용처 ${nf(uses)}`) : null, confPill(conf(inf), ''))), empty, cutNote(list[0], list[1].length, `context ${q} --limit ${list[0]}`));
+    box.append(
+      listBox('정의하는 이름', n.F.defines[0], n.F.defines[1].map((i) => h('li', {}, go(i, N[i].q), h('span', { class: 'muted' }, `${kindWord(N[i].d)} · ${N[i].l}줄`), confPill(conf(N[i].i), ''))), '정의하는 이름이 없어요.', cutNote(n.F.defines[0], n.F.defines[1].length, `context ${q} --limit ${n.F.defines[0]}`)),
+      files('이 파일을 쓰는 파일', n.F.usedBy, '이 파일의 이름을 쓰는 다른 파일이 없어요.'),
+      files('이 파일을 가져오는 파일', n.F.importedBy, '이 파일을 import하는 파일이 없어요.'),
+      files('이 파일이 가져오는 파일', n.F.imports, '저장소 안의 파일을 import하지 않아요.'));
+  }
+}
+
+$('#foot').append(
+  h('p', {}, h('b', {}, '읽는 법. '), `이름이나 파일을 고르면 가운데에 놓고, 왼쪽에 정의된 곳, 오른쪽에 그것을 쓰는 곳을 거리별로(직접 쓰는 곳이 1, 그곳을 쓰는 곳이 2 …, ${D.depth}까지) 그려요. 바꾸면 영향 받는 곳이 오른쪽으로 퍼져 나가요.`),
+  h('p', {}, h('b', {}, '정밀과 추정. '), '정밀은 컴파일러 수준 색인기가 확인한 관계, 추정은 이름으로 이은 관계예요. 추정은 노란 점선(선), 노란 점선 테두리(정의가 추정인 이름), "추정" 표시로 구분해요. 추정은 직접 확인하세요.'),
+  h('p', {}, h('b', {}, '자료. '), `code-atlas의 search·context·impact 질의의 답을 그대로 담았어요. 이름마다 사용처 ${D.limits.uses}개, 영향 받는 곳 ${D.limits.affected}개까지 담고, 넘으면 명령줄로 보는 법을 적어요.`),
+);
+
+window.addEventListener('hashchange', () => { const i = fromHash(); if (i !== null) show(i); });
+let lastW = 0;
+window.addEventListener('resize', () => { const w = $('#graph').clientWidth; if (current !== null && Math.abs(w - lastW) > 20) { lastW = w; renderGraph(); } });
+const start = fromHash() ?? (N.findIndex((n) => n.k) >= 0 ? N.findIndex((n) => n.k) : files[0]);
+if (start !== undefined && start >= 0) { show(start); lastW = $('#graph').clientWidth; }
+</script>
+</body>
+</html>
