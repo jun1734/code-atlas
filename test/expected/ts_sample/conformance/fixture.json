@@ -1,0 +1,5 @@
+{
+  "pricingFile": "src/pricing.ts",
+  "barrelFile": "src/index.ts",
+  "generatedFile": "src/receipt.generated.ts"
+}

@@ -1,0 +1,37 @@
+{
+  "query": "label",
+  "status": "found",
+  "symbol": {
+    "name": "label",
+    "qualifiedName": "Labeled.label",
+    "kind": "getter",
+    "definition": {
+      "path": "src/cart.ts",
+      "line": 10,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 1,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/main.ts",
+        "line": 11,
+        "column": 30,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 1,
+      "test": 0
+    }
+  }
+}

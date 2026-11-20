@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart·Python 저장소 색인(정밀: scip-dart·scip-python, 추정: Tree-sitter. 한 저장소에 섞여 있어도 한 번에 색인해요), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`, `rename`, `flows`(명령줄과 MCP 서버), 코드 지도와 이름 그래프 HTML(`map`, 명령줄). 앞으로 붙을 것(JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart·Python·JavaScript/TypeScript 저장소 색인(정밀: scip-dart·scip-python·scip-typescript, 추정: Tree-sitter. 한 저장소에 섞여 있어도 한 번에 색인해요), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`, `rename`, `flows`(명령줄과 MCP 서버), 코드 지도와 이름 그래프 HTML(`map`, 명령줄). 앞으로 붙을 것은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -13,8 +13,9 @@
 | Dart SDK | 3.5 이상 (Flutter SDK에 든 것도 돼요) | <https://dart.dev/get-dart> |
 | scip-dart | 1.8.1 | `dart pub global activate scip_dart 1.8.1` |
 | scip-python | 0.6.8 | code-atlas의 npm 의존성이라 `npm ci`로 함께 깔려요(Python 해석기·pip는 필요 없어요) |
+| scip-typescript | 0.6.2 | npm 의존성이라 `npm ci`로 함께 깔려요(따로 설치할 것 없음) |
 
-정밀 색인기(scip-dart, scip-python)가 없거나 실패해도 색인은 끝나요. 무엇을 어떻게 설치하는지 stderr에 안내하고(색인 요약의 `fallbacks`에도 남아요), 그 언어는 추정 층(Tree-sitter)으로 색인해요. 추정 층의 답은 모두 `confidence: inferred`예요. 추정 층은 npm 패키지(WASM)라 따로 설치할 것이 없어요.
+정밀 색인기(scip-dart, scip-python, scip-typescript)가 없거나 실패해도 색인은 끝나요. 무엇을 어떻게 설치하는지 stderr에 안내하고(색인 요약의 `fallbacks`에도 남아요), 그 언어는 추정 층(Tree-sitter)으로 색인해요. 추정 층의 답은 모두 `confidence: inferred`예요. 추정 층은 npm 패키지(WASM)라 따로 설치할 것이 없어요.
 
 ```sh
 npm ci
@@ -28,7 +29,10 @@ npm ci
 # 패키지 밖의 Dart 파일(예: 패키지 없는 스크립트)은 추정 층이 색인해요. 정밀 색인이 있는 파일은 추정 층이 덮어쓰지 않아요.
 # Python은 프로젝트 뿌리(pyproject.toml, setup.py, setup.cfg, requirements.txt, Pipfile이 있는 폴더, 없으면 저장소 뿌리)마다 scip-python으로 색인해요.
 # pip install은 필요 없어요(설치한 패키지의 타입은 모르는 채로 색인해요). 프로젝트 밖의 .py 파일은 추정 층이 색인해요.
-# 정밀 색인기를 없는 것으로 치려면(추정 층만 쓰기): CODE_ATLAS_DISABLE_INDEXERS=scip-dart (쉼표로 여럿: scip-dart,scip-python)
+# JavaScript/TypeScript 파일(.ts .tsx .mts .cts .js .jsx .mjs .cjs)은 scip-typescript로 한 번에 색인해요.
+# 파일마다 가장 가까운 tsconfig.json/jsconfig.json의 컴파일러 설정을 쓰고, 설정 파일이 없는 폴더(순수 JavaScript)도 기본 설정으로 색인해요.
+# 저장소에 설정 파일을 만들지 않아요. tsconfig의 include 밖 파일(스크립트 등)도 색인해요. npm install을 대신 돌리지 않아요.
+# 정밀 색인기를 없는 것으로 치려면(추정 층만 쓰기): CODE_ATLAS_DISABLE_INDEXERS=scip-dart (여럿이면 쉼표: scip-dart,scip-python,scip-typescript)
 node src/cli.ts index path/to/repo
 
 # 질문: 이름 하나의 정의 위치, 종류, 사용처
@@ -157,6 +161,22 @@ claude mcp list
 - detect_changes는 작업 트리를 git 색인의 임시 사본에 담아 비교해요(staging은 그대로, 새 파일의 blob이 `.git/objects`에 남을 수 있어요). base 커밋은 임시 폴더의 로컬 복제(`git clone --shared`)에서 한 번 색인해 저장소 색인 옆(`…@<커밋>.db`)에 두고 다시 써요. 처음 한 번은 저장소 색인만큼 걸려요.
 - 색인 범위: scip-dart 1.8.1은 패키지 안의 Dart 파일을 모두 색인해요(`lib`, `bin`, `test` 등). #204는 "기본은 `lib`만, 테스트는 옵션"이라고 적었지만, 그건 scip-dart의 동작을 잘못 안 것이었어요. 테스트 사용처는 파일의 역할(`test/`, `integration_test/`, `test_driver/`, `*_test.dart`)로 나눠요.
 
+### JavaScript/TypeScript
+
+자세한 규칙(빼는 파일, 테스트 파일, 사용처의 종류, 정밀 층이 놓친 자리를 추정으로 메우기)은 [docs/architecture.md](docs/architecture.md#javascripttypescript-어댑터-scip-typescript)에 있어요.
+
+- 파일의 `language`는 `typescript` 또는 `javascript`예요. 두 언어는 한 프로그램으로 함께 읽어서 서로 가져다 쓰는 것이 이어져요.
+- 빼는 파일: `node_modules/`, 패키지 뿌리 바로 아래의 `dist/`·`build/`·`out/`·`coverage/`, `*.min.js`, 머리에 `@generated`가 있는 파일. 숨김 폴더(`.claude/hooks` 등)는 빼지 않아요.
+- 테스트 파일: `test/`·`tests/`·`__tests__/`·`spec/` 아래, 또는 `*.test.*`·`*.spec.*`.
+- scip-typescript가 occurrence로 내지 않는 JSDoc의 이름(`@implements {X}`, `@type {X}` 등)은 추정 층이 이어 붙이고 답에 `confidence: inferred`(`source: tree-sitter-typescript`)로 나와요. 수신자의 타입이 `any`인 멤버(`x.method()`)는 이름만으로 잇지 않아서 답에 없어요(JSDoc 타입을 달면 정밀로 잡혀요).
+
+**hijo_app의 hook과 스크립트로 맞춰 보기** (2026-11-20, hijo_app 커밋 `322c149`의 `git clone --shared` 사본, 사본은 지웠어요): JS 파일 17개(`.claude/hooks/*.js`, `scripts/code-map/build.mjs`, `firestore_tests/`, `docs/research/…`)가 모두 scip-typescript로 정밀 색인됐어요(설정 파일 없음). `context commitDir`(`.claude/hooks/block-commit-on-main.js`)의 사용처 11곳(앱 1, 테스트 10)이 `git grep -n -w commitDir`의 14줄 가운데 정의 1줄, 내보내기 목록 1줄(`module.exports = { commitDir, … }`), 테스트의 `require` 구조 분해 1줄을 뺀 11줄과 같아요(모두 `call`, `precise`). 정밀 색인기를 끄고(추정 층만) 물어도 같은 11곳이 `inferred`로 나와요.
+
+**code-atlas 자신을 색인하기**: `node src/cli.ts index .`로 이 저장소도 색인돼요(TypeScript 63개, JavaScript 7개 파일, 6초 남짓). `context runInferred`, `impact runInferred` 같은 질문이 돼요.
+- `test/fixtures/`의 예제 저장소도 색인에 들어가요. 추적되는 코드이고 테스트 폴더(`test/`) 아래라 모두 `role: test`예요. 그래서 예제에만 있는 이름(`withTax`, `Cart`, `main` …)을 물으면 예제 여러 곳이 후보로 나오지만, 도구 자신의 이름(`runInferred`, `indexRepo` …)에는 섞이지 않아요. 빼는 설정을 따로 두지 않았어요.
+- Dart 예제는 `.dart_tool`이 없어서(pub get을 하지 않은 체크아웃) scip-dart가 실패하고 추정 층으로 색인돼요(`fallbacks`에 남아요).
+- 루트 `tsconfig.json`은 `test/fixtures`를 타입 검사에서 빼요(예제는 각자의 설정을 가진 따로 된 저장소예요). 색인은 이 설정과 상관없이 예제 파일도 읽어요.
+
 ### 측정 (2026-11-19, Windows 11 노트북)
 
 hijo_app(Flutter, Dart 파일 329개, `lib`·`test` 포함): DB 28MB, 심볼 5,790개, 관계 72,456개, 관계는 모두 정밀.
@@ -194,7 +214,7 @@ npm run check      # 타입 검사(tsc --noEmit) + 테스트
 테스트는 실제 scip-dart를 돌려요(가짜 SCIP 파일을 쓰지 않아요). 그래서 위 준비물이 모두 있어야 해요.
 Dart 예제(`test/fixtures/dart_sample`)는 Riverpod provider를 묻는 질문 때문에 `riverpod`(MIT)에 기대요. 그래서 테스트에는 Dart SDK 3.12 이상이 필요하고, 처음 한 번은 테스트 틀의 `dart pub get`이 pub.dev에서 패키지를 받아요(도구 자체는 네트워크를 쓰지 않아요).
 Python 예제(`test/fixtures/python_sample`, Dart와 섞인 `polyglot_sample`)는 바깥 패키지에 기대지 않아요. Python 해석기 없이 돌아요.
-언어 적합성 묶음(`test/conformance.test.ts`, 질문은 `test/conformance/questions.ts`)은 같은 질문을 언어마다 같은 모양의 예제 저장소에 던져요. 새 언어는 예제 저장소와 `test/expected/<예제>/conformance/` 정답을 더하고 `RUNS`에 층마다(정밀 `precise`, 추정 `inferred`) 올려요. 추정 층의 통과/놓침은 [docs/architecture.md](docs/architecture.md#추정-층-적합성-dart_sample)의 표에 적고, 테스트가 표와 실제가 맞는지 봐요.
+언어 적합성 묶음(`test/conformance.test.ts`, 질문은 `test/conformance/questions.ts`)은 같은 질문을 언어마다 같은 모양의 예제 저장소에 던져요. 새 언어는 예제 저장소와 `test/expected/<예제>/conformance/` 정답을 더하고 `RUNS`에 층마다(정밀 `precise`, 추정 `inferred`) 올려요. 추정 층의 통과/놓침은 [docs/architecture.md](docs/architecture.md#추정-층-적합성-dart_sample)의 표(예제마다: `dart_sample`, `python_sample`, `ts_sample`, `js_sample`)에 적고, 테스트가 표와 실제가 맞는지 봐요. `js_sample`은 설정 파일이 하나도 없는 순수 JavaScript(CommonJS) 폴더예요.
 테스트는 `test/fixtures/<예제>`를 임시 git 저장소로 복사해 명령줄로 색인하고, 명령줄과 MCP 서버(공식 SDK 클라이언트로 붙어요)로 질문해 `test/expected/<예제>/`의 정답과 비교해요. 내부 모듈은 시험하지 않아요.
 모든 도구 프로세스는 네트워크 차단 장치(`test/no-network.ts`)를 단 채로 돌아서, 네트워크를 쓰려 하면 테스트가 실패해요.
 
@@ -221,7 +241,7 @@ HIJO_APP_REPO=C:/hijo/hijo_app npm run verify:hijo
 
 - **무료 오픈소스 부품만 써요.** 상용 개발에 쓸 수 있는 라이선스(MIT, BSD, Apache-2.0 등)만 들여요. 비상업 전용(PolyForm Noncommercial 등)이나 유료 부품, 네트워크로 코드를 내보내는 서비스는 쓰지 않아요. 새 부품을 들일 때 라이선스를 먼저 확인해요.
 - **GitNexus 코드는 복사하지 않아요.** GitNexus는 PolyForm Noncommercial이라 상용 개발에 쓸 수 없어요. 기능 아이디어만 참고해 다시 구현해요.
-- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), scip-python 0.6.8(`@sourcegraph/scip-python`, MIT. Pyright의 갈래라 LICENSE.txt가 Pyright의 MIT예요. 딸린 패키지도 모두 MIT/ISC/BSD-3-Clause/Apache-2.0으로 확인. 2026-11-20 확인), web-tree-sitter(MIT, Tree-sitter의 WASM 파서, 추정 층), @repomix/tree-sitter-wasms(Unlicense, 미리 빌드한 문법 WASM. 그 안의 문법은 각자의 라이선스예요: tree-sitter-dart MIT(UserNobody14/tree-sitter-dart), tree-sitter-python MIT, 뒤에 쓸 tree-sitter-javascript·tree-sitter-typescript 모두 MIT. 2026-11-20 확인), riverpod(MIT, 테스트 예제 저장소의 의존성만), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
+- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), scip-python 0.6.8(`@sourcegraph/scip-python`, MIT. Pyright의 갈래라 LICENSE.txt가 Pyright의 MIT예요. 딸린 패키지도 모두 MIT/ISC/BSD-3-Clause/Apache-2.0으로 확인. 2026-11-20 확인), scip-typescript(`@sourcegraph/scip-typescript` 0.6.2, Apache-2.0, npm 의존성. 2026-11-20 확인. 딸린 패키지 27개: typescript·@scip-code/scip·aria-query·axobject-query Apache-2.0, @bufbuild/protobuf Apache-2.0 AND BSD-3-Clause, 나머지 22개(svelte, svelte2tsx, commander, progress, acorn 등) MIT), web-tree-sitter(MIT, Tree-sitter의 WASM 파서, 추정 층), @repomix/tree-sitter-wasms(Unlicense, 미리 빌드한 문법 WASM. 그 안의 문법은 각자의 라이선스예요: tree-sitter-dart MIT(UserNobody14/tree-sitter-dart), tree-sitter-python MIT, tree-sitter-javascript·tree-sitter-typescript(JS/TS 추정 층) 모두 MIT. 2026-11-20 확인), riverpod(MIT, 테스트 예제 저장소의 의존성만), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
 - 추정 층은 네이티브 빌드가 필요 없는 WASM 부품만 써요(`tree-sitter` npm 패키지는 node-gyp 빌드가 필요해서 쓰지 않았어요). Windows와 Linux CI에서 같은 파일이 돌아요. 원래의 `tree-sitter-wasms`(Unlicense)는 옛 tree-sitter-cli(0.20)로 빌드해 지금의 web-tree-sitter가 읽지 못해서, 같은 것을 새 CLI(0.26)로 다시 빌드한 갈래를 써요.
 - clusters의 Louvain 방법(Blondel 등 2008)은 라이브러리 없이 직접 구현했어요. 새로 들인 부품이 없어요. 알고리즘과 출처 논문은 [docs/architecture.md](docs/architecture.md#질의-clusters)에 있어요.
 - `proto/scip.proto`는 [scip-code/scip](https://github.com/scip-code/scip)(커밋 `be1d9f7`)에서 가져온 파일이에요. Apache-2.0이고 원문 라이선스는 `proto/LICENSE-scip`에 있어요.

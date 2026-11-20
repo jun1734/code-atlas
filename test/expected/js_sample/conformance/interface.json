@@ -1,0 +1,37 @@
+{
+  "query": "Totaled",
+  "status": "found",
+  "symbol": {
+    "name": "Totaled",
+    "qualifiedName": "Totaled",
+    "kind": "class",
+    "definition": {
+      "path": "src/cart.js",
+      "line": 7,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 1,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.js",
+        "line": 21,
+        "column": 18,
+        "role": "app",
+        "kind": "implements",
+        "kindConfidence": "inferred",
+        "in": "Cart",
+        "confidence": "inferred",
+        "source": "tree-sitter-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 1,
+      "test": 0
+    }
+  }
+}

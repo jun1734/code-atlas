@@ -1,0 +1,61 @@
+{
+  "query": "src/index.ts",
+  "status": "found",
+  "file": {
+    "path": "src/index.ts",
+    "language": "typescript",
+    "role": "app"
+  },
+  "defines": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "imports": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/pricing.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/providers.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/main.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "test/pricing.test.ts",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  }
+}

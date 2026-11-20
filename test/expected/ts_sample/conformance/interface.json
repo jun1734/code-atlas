@@ -1,0 +1,37 @@
+{
+  "query": "Totaled",
+  "status": "found",
+  "symbol": {
+    "name": "Totaled",
+    "qualifiedName": "Totaled",
+    "kind": "interface",
+    "definition": {
+      "path": "src/cart.ts",
+      "line": 4,
+      "column": 18
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 1,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "line": 15,
+        "column": 46,
+        "role": "app",
+        "kind": "implements",
+        "kindConfidence": "precise",
+        "in": "Cart",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 1,
+      "test": 0
+    }
+  }
+}

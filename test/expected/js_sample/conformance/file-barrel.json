@@ -1,0 +1,61 @@
+{
+  "query": "src/index.js",
+  "status": "found",
+  "file": {
+    "path": "src/index.js",
+    "language": "javascript",
+    "role": "app"
+  },
+  "defines": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "imports": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/pricing.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/providers.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/main.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "test/pricing.test.js",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  }
+}
