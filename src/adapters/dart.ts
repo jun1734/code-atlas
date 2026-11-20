@@ -1,7 +1,7 @@
 // Dart 정밀 어댑터: 저장소 안의 Dart 패키지마다 scip-dart를 돌리고 SCIP 색인을 사실로 옮겨요.
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { appendFacts, emptyFacts, type Facts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
+import { appendFacts, emptyFacts, IndexerMissing, type Facts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
 import { run, runOrThrow } from '../run.ts';
 import { scipToFacts } from '../scip/to-facts.ts';
 import { refineDartFacts } from './dart-refine.ts';
@@ -78,6 +78,7 @@ function readSource(root: string, path: string): string | null {
 export const dartAdapter: LanguageAdapter = {
   name: 'scip-dart',
   language: 'dart',
+  install: SCIP_DART_INSTALL,
 
   applies: (repo) => dartPackages(repo).length > 0,
 

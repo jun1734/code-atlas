@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(scip-dart), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -13,6 +13,8 @@
 | Dart SDK | 3.5 이상 (Flutter SDK에 든 것도 돼요) | <https://dart.dev/get-dart> |
 | scip-dart | 1.8.1 | `dart pub global activate scip_dart 1.8.1` |
 
+정밀 색인기(scip-dart)가 없거나 실패해도 색인은 끝나요. 무엇을 어떻게 설치하는지 stderr에 안내하고(색인 요약의 `fallbacks`에도 남아요), 그 언어는 추정 층(Tree-sitter)으로 색인해요. 추정 층의 답은 모두 `confidence: inferred`예요. 추정 층은 npm 패키지(WASM)라 따로 설치할 것이 없어요.
+
 ```sh
 npm ci
 ```
@@ -21,7 +23,9 @@ npm ci
 
 ```sh
 # 색인: 저장소의 Dart 패키지(추적되는 pubspec.yaml마다)를 scip-dart로 색인해요.
-# 패키지마다 pub get이 먼저 돼 있어야 해요(.dart_tool/package_config.json).
+# 패키지마다 pub get이 먼저 돼 있어야 해요(.dart_tool/package_config.json). 없으면 그 언어는 추정 층으로 색인해요.
+# 패키지 밖의 Dart 파일(예: 패키지 없는 스크립트)은 추정 층이 색인해요. 정밀 색인이 있는 파일은 추정 층이 덮어쓰지 않아요.
+# 정밀 색인기를 없는 것으로 치려면(추정 층만 쓰기): CODE_ATLAS_DISABLE_INDEXERS=scip-dart
 node src/cli.ts index path/to/repo
 
 # 질문: 이름 하나의 정의 위치, 종류, 사용처
@@ -158,7 +162,7 @@ npm run check      # 타입 검사(tsc --noEmit) + 테스트
 
 테스트는 실제 scip-dart를 돌려요(가짜 SCIP 파일을 쓰지 않아요). 그래서 위 준비물이 모두 있어야 해요.
 Dart 예제(`test/fixtures/dart_sample`)는 Riverpod provider를 묻는 질문 때문에 `riverpod`(MIT)에 기대요. 그래서 테스트에는 Dart SDK 3.12 이상이 필요하고, 처음 한 번은 테스트 틀의 `dart pub get`이 pub.dev에서 패키지를 받아요(도구 자체는 네트워크를 쓰지 않아요).
-언어 적합성 묶음(`test/conformance.test.ts`, 질문은 `test/conformance/questions.ts`)은 같은 질문을 언어마다 같은 모양의 예제 저장소에 던져요. 새 언어는 예제 저장소와 `test/expected/<예제>/conformance/` 정답을 더하고 `FIXTURES`에 이름을 올려요.
+언어 적합성 묶음(`test/conformance.test.ts`, 질문은 `test/conformance/questions.ts`)은 같은 질문을 언어마다 같은 모양의 예제 저장소에 던져요. 새 언어는 예제 저장소와 `test/expected/<예제>/conformance/` 정답을 더하고 `RUNS`에 층마다(정밀 `precise`, 추정 `inferred`) 올려요. 추정 층의 통과/놓침은 [docs/architecture.md](docs/architecture.md#추정-층-적합성-dart_sample)의 표에 적고, 테스트가 표와 실제가 맞는지 봐요.
 테스트는 `test/fixtures/<예제>`를 임시 git 저장소로 복사해 명령줄로 색인하고, 명령줄과 MCP 서버(공식 SDK 클라이언트로 붙어요)로 질문해 `test/expected/<예제>/`의 정답과 비교해요. 내부 모듈은 시험하지 않아요.
 모든 도구 프로세스는 네트워크 차단 장치(`test/no-network.ts`)를 단 채로 돌아서, 네트워크를 쓰려 하면 테스트가 실패해요.
 
@@ -185,7 +189,8 @@ HIJO_APP_REPO=C:/hijo/hijo_app npm run verify:hijo
 
 - **무료 오픈소스 부품만 써요.** 상용 개발에 쓸 수 있는 라이선스(MIT, BSD, Apache-2.0 등)만 들여요. 비상업 전용(PolyForm Noncommercial 등)이나 유료 부품, 네트워크로 코드를 내보내는 서비스는 쓰지 않아요. 새 부품을 들일 때 라이선스를 먼저 확인해요.
 - **GitNexus 코드는 복사하지 않아요.** GitNexus는 PolyForm Noncommercial이라 상용 개발에 쓸 수 없어요. 기능 아이디어만 참고해 다시 구현해요.
-- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), riverpod(MIT, 테스트 예제 저장소의 의존성만), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
+- 지금 쓰는 부품: scip-dart(Apache-2.0, 별도 설치), web-tree-sitter(MIT, Tree-sitter의 WASM 파서, 추정 층), @repomix/tree-sitter-wasms(Unlicense, 미리 빌드한 문법 WASM. 그 안의 문법은 각자의 라이선스예요: tree-sitter-dart MIT(UserNobody14/tree-sitter-dart), 뒤에 쓸 tree-sitter-python·tree-sitter-javascript·tree-sitter-typescript 모두 MIT. 2026-11-20 확인), riverpod(MIT, 테스트 예제 저장소의 의존성만), protobufjs(BSD-3-Clause), `@modelcontextprotocol/sdk`(MIT, 공식 MCP SDK. 딸린 패키지도 모두 MIT/ISC/BSD/Apache-2.0으로 확인), zod(MIT, MCP 입력 스키마), TypeScript(Apache-2.0, 개발용), @types/node(MIT, 개발용), Node 내장 `node:sqlite`·`node:test`.
+- 추정 층은 네이티브 빌드가 필요 없는 WASM 부품만 써요(`tree-sitter` npm 패키지는 node-gyp 빌드가 필요해서 쓰지 않았어요). Windows와 Linux CI에서 같은 파일이 돌아요. 원래의 `tree-sitter-wasms`(Unlicense)는 옛 tree-sitter-cli(0.20)로 빌드해 지금의 web-tree-sitter가 읽지 못해서, 같은 것을 새 CLI(0.26)로 다시 빌드한 갈래를 써요.
 - clusters의 Louvain 방법(Blondel 등 2008)은 라이브러리 없이 직접 구현했어요. 새로 들인 부품이 없어요. 알고리즘과 출처 논문은 [docs/architecture.md](docs/architecture.md#질의-clusters)에 있어요.
 - `proto/scip.proto`는 [scip-code/scip](https://github.com/scip-code/scip)(커밋 `be1d9f7`)에서 가져온 파일이에요. Apache-2.0이고 원문 라이선스는 `proto/LICENSE-scip`에 있어요.
 

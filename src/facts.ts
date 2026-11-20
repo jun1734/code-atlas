@@ -135,11 +135,25 @@ export interface LanguageAdapter {
   /** 어댑터(색인기) 이름. 관계의 source로 남아요. */
   readonly name: string;
   readonly language: string;
+  /** 색인기를 설치하는 명령(색인기가 없을 때 안내에 써요). 예: 'dart pub global activate scip_dart 1.8.1' */
+  readonly install: string;
   /** 이 저장소에 이 언어가 있는지. */
   applies(repo: RepoInfo): boolean;
   /**
    * 저장소를 색인해 사실을 내요. 저장소의 추적 파일을 바꾸면 안 돼요.
    * 임시 파일은 workDir(저장소 밖)에 써요.
+   * 색인기가 설치되어 있지 않으면 IndexerMissing을 던져요. 그 밖의 실패는 보통의 오류예요.
+   * 어느 쪽이든 색인기(src/indexer.ts)는 그 언어를 추정 층으로 색인하고 멈추지 않아요.
    */
   index(repo: RepoInfo, workDir: string): Promise<Facts>;
+}
+
+/** 정밀 색인기가 설치되어 있지 않아요. message에는 무엇이 없는지, install에는 설치 명령이 있어요. */
+export class IndexerMissing extends Error {
+  readonly install: string;
+  constructor(message: string, install: string) {
+    super(message);
+    this.name = 'IndexerMissing';
+    this.install = install;
+  }
 }
