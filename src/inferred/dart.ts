@@ -235,13 +235,55 @@ class Extractor {
     visit(n);
   }
 
+  /** 앞 문서 주석 줄이 연 코드 묶음(```) 안인지와 그 줄. `///` 줄은 줄마다 노드라 묶음이 노드를 넘어 이어져요. */
+  private fence = { open: false, lastRow: -2 };
+
+  /**
+   * 문서 주석(`///`, `/** … *\/`)의 dartdoc 링크 `[name]`, `[Type.member]`. 사용처로 내되 doc 표시를 붙여요.
+   * 코드 조각(`` `[x]` ``, ``` 묶음)과 마크다운 링크(`[글](주소)`, `[글][참조]`, `[참조]: 주소`)는 링크가 아니에요.
+   * `[a.b.c]`처럼 점이 둘 이상이면 앞은 import 접두사로 보고 마지막 둘(타입, 멤버)만 봐요.
+   */
+  private docLinks(n: SyntaxNode, at: number | undefined): void {
+    if (n.startPosition.row !== this.fence.lastRow + 1) this.fence.open = false;
+    this.fence.lastRow = n.endPosition.row;
+    const lines = n.text.split('\n');
+    lines.forEach((raw, i) => {
+      const row = n.startPosition.row + i;
+      const base = i === 0 ? n.startPosition.column : 0;
+      const body = raw.replace(/^\s*(\/\/\/|\/\*\*|\*(?!\/))?\s?/, '');
+      if (body.startsWith('```')) {
+        this.fence.open = !this.fence.open;
+        return;
+      }
+      if (this.fence.open) return;
+      // 코드 조각은 같은 길이의 공백으로 지워 열 위치를 지켜요.
+      const text = raw.replace(/`[^`]*`/g, (m) => ' '.repeat(m.length));
+      for (const m of text.matchAll(/\[([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\](?![(\[:])/g)) {
+        const parts = m[1]!.split('.');
+        const tail = parts.slice(-2);
+        let column = base + m.index + 1 + m[1]!.length - tail.join('.').length;
+        const ref = (name: string, member?: { qualifier?: string }) => {
+          const range = { startLine: row, startColumn: column, endLine: row, endColumn: column + name.length };
+          this.out.references.push({ name, range, kind: 'reference', doc: true, ...(at !== undefined ? { in: at } : {}), ...(member ? { member } : {}) });
+          column += name.length + 1;
+        };
+        if (tail.length === 1) ref(tail[0]!);
+        else {
+          ref(tail[0]!);
+          ref(tail[1]!, { qualifier: tail[0]! });
+        }
+      }
+    });
+  }
+
   /** 노드 안의 사용처를 모두 모아요. at은 감싸는 정의, locals는 지역 이름. */
   refs(n: SyntaxNode, at: number | undefined, locals: Set<string>): void {
     if (n.type === 'identifier' || n.type === 'type_identifier') {
       this.name(n, at, locals);
       return;
     }
-    if (n.type === 'label' || n.type === 'comment' || n.type === 'documentation_comment') return;
+    if (n.type === 'documentation_comment') return this.docLinks(n, at);
+    if (n.type === 'label' || n.type === 'comment') return;
     if (n.type === 'import_or_export') return this.directive(n);
     for (const c of namedChildren(n)) this.refs(c, at, locals);
   }

@@ -226,6 +226,7 @@ interface FileSyntax {
 - 파일 고르기와 역할은 정밀 어댑터와 같은 관례(`src/adapters/dart-conventions.ts`)를 가장 가까운 `pubspec.yaml` 폴더 기준으로 써요. 패키지 밖 파일은 저장소 뿌리 기준이에요.
 - 정의: 클래스(`abstract interface class`는 `interface`), mixin, enum(값은 `field`), extension, typedef(`type`), 함수, 메서드, getter, setter, 이름 있는 생성자(`constructor`), 필드, 최상위 변수(`const`면 `constant`). 이름 없는 생성자(`const` 생성자 포함)는 정의를 만들지 않고 클래스에 속해요(정밀 어댑터가 클래스로 합치는 것과 같아요). 그 선언에 적힌 클래스 이름(`const Palette({…})`의 `Palette`)은 선언이라 클래스의 사용처가 아니에요. 함수와 메서드의 `enclosingRange`는 시그니처부터 본문 끝까지예요.
 - 사용처의 종류: `extends`·`with` 뒤 타입은 `extends`, `implements`·mixin의 `on` 뒤 타입은 `implements`, 뒤에 인자 목록이 오거나 `new`/`const`로 만들면 `call`, 대입의 왼쪽 끝이나 `++`/`--`면 `write`, 그 밖의 값은 `read`, 타입 표기는 `reference`예요.
+- 문서 주석(`///`, `/** … */`)의 dartdoc 링크 `[name]`·`[Type.member]`는 `reference`에 `doc: true`예요(정밀 층과 같은 표시). 이름은 코드의 사용처와 같은 규칙으로 이어요(`[Type.member]`는 `Type`과, `Type`을 수신자로 한 `member` 둘). 코드 조각(`` `[x]` ``, ```` ``` ```` 묶음)과 마크다운 링크(`[글](주소)`, `[글][참조]`, `[참조]: 주소`)는 링크가 아니에요. 보통 주석(`//`)은 보지 않아요.
 - import: `import`·`export`(다시 내보냄)·`part`(다시 내보냄)는 관계로 넣고, `part of`는 넣지 않고 이름 공간만 함께 써요(정밀 어댑터의 `dropPartOf`와 같은 결과). `package:<이름>/…`는 저장소 안 `pubspec.yaml`의 `name`이 같은 패키지의 `lib/`로, 상대 경로는 파일 폴더 기준으로 풀어요. `dart:`와 저장소 밖 패키지는 잇지 않아요.
 
 ### 추정 층이 놓치는 것 (Dart)
@@ -236,6 +237,7 @@ interface FileSyntax {
 - tree-sitter-dart가 `Provider<Cart>(…)` 같은 제네릭 호출을 비교식으로 읽어요. 그래도 `Cart`는 타입으로 이어져 `reference`가 되고, `Provider`는 저장소 밖이라 잇지 않아요.
 - 추정 층의 `extends`·`implements`도 `kindConfidence: inferred`예요(정밀 층은 scip-dart의 타입 관계로 확인해 `precise`).
 - 글 끼워 넣기에서 중괄호 없이 쓴 이름(`'연결 $roomName'`)은 사용처로 잇지 않아요(`test/flows.test.ts`가 이 놓침을 기록해요).
+- dartdoc 링크 가운데 점이 둘 이상인 것(`[p.Cart.add]`, import 접두사)은 마지막 둘(`Cart.add`)만 보고 접두사는 풀지 않아요. 이름 없는 생성자 링크(`[Cart.new]`)는 잇지 않고, `[operator +]`처럼 식별자가 아닌 링크는 읽지 않아요.
 
 ### 추정 층 적합성: dart_sample
 

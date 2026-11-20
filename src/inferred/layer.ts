@@ -35,6 +35,8 @@ export interface SyntaxReference {
    * `this.x`/`self.x`처럼 자기 자신이면 언어 규칙이 member 없이(감싸는 타입의 멤버부터 찾는 이름으로) 내요.
    */
   member?: { qualifier?: string };
+  /** 문서 주석 안의 언급(Dart `/// [withTax]`)이면 true. 관계는 reference에 doc 표시로 나가요(RelationFact.doc). */
+  doc?: boolean;
 }
 
 /** 파일 안의 import(또는 그와 비슷한 지시문) 하나. */
@@ -261,9 +263,9 @@ export async function runInferred(lang: InferredLanguage, repo: RepoInfo, opts: 
       const target = resolve(f, ref, seeing, parsed, membersByName);
       if (!target) continue;
       const def = target.file.syntax.definitions[target.index]!;
-      const kind = ref.kind === 'read' && TYPE_KINDS.has(def.kind) ? 'reference' : ref.kind;
+      const kind = ref.doc ? 'reference' : ref.kind === 'read' && TYPE_KINDS.has(def.kind) ? 'reference' : ref.kind;
       const from = { path: f.path, range: ref.range, ...(ref.in !== undefined ? { symbolKey: f.keys[ref.in]! } : {}) };
-      facts.relations.push(relation(kind, from, { symbolKey: target.file.keys[target.index]! }, source));
+      facts.relations.push({ ...relation(kind, from, { symbolKey: target.file.keys[target.index]! }, source), ...(ref.doc ? { doc: true } : {}) });
     }
   }
   return facts;

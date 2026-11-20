@@ -25,6 +25,7 @@ const NOTES = [
 
 const LAYERS = [
   { layer: 'scip-dart', env: {}, confidence: 'precise', source: 'scip-dart' },
+  { layer: 'tree-sitter-dart', env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-dart' }, confidence: 'inferred', source: 'tree-sitter-dart' },
 ] as const;
 
 /** notes.dart의 자리만 [경로, 줄, 열, 종류, doc, 정밀/추정, 출처]로 줄여 봐요. */
