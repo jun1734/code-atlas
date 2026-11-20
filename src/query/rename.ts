@@ -1,6 +1,7 @@
 // rename: 이름 하나를 새 이름으로 바꿀 때 고칠 자리 전부를 계획으로 돌려줘요. 파일은 고치지 않아요(고치는 것은 부르는 쪽).
 // 이름은 context와 같은 해석기(resolvePoint)로 찾고, 여럿에 맞으면 고르지 않고 후보를 돌려줘요.
-// 고칠 자리는 색인의 정의와 사용처예요. 정밀 층에서 온 것은 edits, 추정 층에서 온 것과 구문으로만 찾은 것은 inferred에 따로 나와요.
+// 고칠 자리는 색인의 정의와 사용처예요. 정밀 층에서 온 것은 edits, 추정 층이 이은 것은 inferred,
+// 색인이 잇지 못해 구문으로만 찾은 같은 이름 식별자는 unlinked에 따로 나와요.
 // 언어를 아는 것은 없어요. 식별자인지(주석·글 안이 아닌지)는 그 언어의 추정 규칙(isCodeIdentifier)이 가려요.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -66,10 +67,15 @@ export interface RenameBody {
   targets?: SymbolRow[];
   /** 정밀 층이 알려 준 고칠 자리. 경로, 줄, 열 순. */
   edits?: Page<RenameSite>;
-  /** 추정 층이 이은 자리와 구문으로만 찾은 자리(`unlinked`). 이름으로 이은 것이라 확인하고 고쳐요. */
+  /** 추정 층이 이은 자리. 이름으로 이은 것이라 확인하고 고쳐요. */
   inferred?: Page<RenameSite>;
+  /**
+   * 색인(정밀 층도 추정 층도)이 잇지 못했지만 정의를 품은 범위 안에 같은 이름 식별자가 적힌 자리(`kind: 'unlinked'`).
+   * 정밀 색인기가 하나로 합친 선언(이름 없는 생성자, getter와 짝인 setter) 등이에요. 구문으로만 찾은 것이라 확인하고 고쳐요.
+   */
+  unlinked?: Page<RenameSite>;
   warnings?: Page<RenameWarning>;
-  summary?: { files: number; edits: number; inferred: number; warnings: number };
+  summary?: { files: number; edits: number; inferred: number; unlinked: number; warnings: number };
   candidates?: SymbolRow[];
 }
 
@@ -189,7 +195,8 @@ export async function rename(store: GraphStore, query: string, newName: string, 
   const order = (a: RenameSite, b: RenameSite) => compareText(a.path, b.path) || a.line - b.line || a.column - b.column;
   const all = [...sites.values()].sort(order);
   const edits = all.filter((s) => s.confidence === 'precise');
-  const inferred = all.filter((s) => s.confidence === 'inferred');
+  const inferred = all.filter((s) => s.confidence === 'inferred' && s.kind !== 'unlinked');
+  const unlinked = all.filter((s) => s.kind === 'unlinked');
   const kindOrder = { conflict: 0, override: 1, mismatch: 2 } as const;
   warnings.sort((a, b) => kindOrder[a.kind] - kindOrder[b.kind] || compareText(a.path, b.path) || a.line - b.line || a.column - b.column);
   return {
@@ -200,8 +207,9 @@ export async function rename(store: GraphStore, query: string, newName: string, 
     targets,
     edits: cut(edits, limit),
     inferred: cut(inferred, limit),
+    unlinked: cut(unlinked, limit),
     warnings: cut(warnings, limit),
-    summary: { files: editedFiles.size, edits: edits.length, inferred: inferred.length, warnings: warnings.length },
+    summary: { files: editedFiles.size, edits: edits.length, inferred: inferred.length, unlinked: unlinked.length, warnings: warnings.length },
   };
 }
 
@@ -290,7 +298,7 @@ export const renameQuery: QueryDef = {
   name: 'rename',
   description:
     '이름(심볼) 하나를 새 이름으로 바꿀 때 고칠 자리(파일, 줄, 열) 전부를 계획으로 돌려줘요. 파일은 고치지 않아요: 계획대로 고치는 것은 부르는 쪽이에요. ' +
-    '정밀 색인기가 알려 준 자리는 edits, 추정 층이 이름으로 이은 자리와 색인이 잇지 못한 같은 이름 식별자(kind: unlinked)는 inferred에 따로 나오니 확인하고 고쳐요. ' +
+    '정밀 색인기가 알려 준 자리는 edits, 추정 층이 이름으로 이은 자리는 inferred, 색인이 잇지 못해 구문으로만 찾은 같은 이름 식별자는 unlinked에 따로 나오니 inferred와 unlinked는 확인하고 고쳐요. ' +
     '새 이름이 같은 범위의 다른 이름과 겹치거나(conflict) 상속으로 이어진 같은 이름 멤버가 있으면(override) warnings에 나와요. ' +
     '같은 이름이 여럿이면 하나를 고르지 않고 후보(candidates)를 돌려주니, 후보의 qualifiedName이나 key로 다시 물어요.',
   params: [
@@ -307,7 +315,7 @@ export const renameQuery: QueryDef = {
       type: 'integer',
       min: 1,
       default: DEFAULT_LIMIT,
-      description: '목록(edits, inferred, warnings)마다 앞에서부터 몇 개까지 줄지. 잘렸으면(truncated) 늘려서 다시 물어요.',
+      description: '목록(edits, inferred, unlinked, warnings)마다 앞에서부터 몇 개까지 줄지. 잘렸으면(truncated) 늘려서 다시 물어요.',
     },
   ],
   run: (store, args) => rename(store, args.query as string, args.to as string, args.limit as number),

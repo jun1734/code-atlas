@@ -611,11 +611,11 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   1. 색인이 알려 준 자리: 정의와 사용처 전부(`usesOf`). Dart의 show·hide 조합자, 글에 끼운 이름(`$x`, `${x}`), 이름 있는 생성자 선언의 클래스 이름(`Money.zero`의 `Money`)은 scip-dart가 사용처로 줘서 여기 들어요.
   2. 자리마다 저장소 파일의 그 자리 글이 옛 이름인지 확인해요. 다르면 계획에 넣지 않고 경고(`mismatch`)예요(색인이 낡았거나 색인기의 범위가 이름과 다를 때).
   3. **색인이 잇지 못한 자리(`unlinked`)**: 정의를 품은 범위(멤버면 바깥 타입의 정의 전체, 아니면 정의 자신) 안에서 옛 이름과 같은 글 가운데, 색인의 정의·관계가 없는 자리를 그 언어의 추정 규칙(`inferredFor(language)`의 `isCodeIdentifier`, `codeIdentifiersAt`)으로 읽어 식별자인 것만 골라요. 주석과 글(문자열) 안은 빼고, 글에 끼운 식(Dart `$x`·`${x}`, JS `${x}`, Python f-string `{x}`) 안은 넣어요. 질의는 문법의 노드 이름을 몰라요. 정밀 Dart 어댑터가 열쇠를 합치며 정의를 하나만 남긴 것(이름 없는 생성자 선언 `Money(…)`, getter와 짝인 setter 선언)이 여기서 나와요. 문법으로 고른 것이라 `confidence: inferred`, `source: tree-sitter-<언어>`예요. 추정 규칙이 없는 언어는 찾지 않아요.
-- **둘로 나눠요**: `edits`는 정밀 층의 자리, `inferred`는 추정 층이 이은 자리와 `unlinked`예요. 같은 자리가 둘 다에서 나오면 정밀을 둬요. 둘 다 `Page`(`limit`)이고, 잘렸으면(`truncated`) 계획이 다 나오지 않은 것이니 늘려서 다시 물어요.
+- **셋으로 나눠요**: `edits`는 정밀 층의 자리, `inferred`는 추정 층이 이은 자리, `unlinked`는 색인이 잇지 못해 구문으로만 찾은 자리(위 3)예요. 그래서 `inferred`는 추정 층에서 온 것뿐이에요. 같은 자리가 정밀과 추정 둘 다에서 나오면 정밀을 둬요. 셋 다 `Page`(`limit`)이고, 잘렸으면(`truncated`) 계획이 다 나오지 않은 것이니 늘려서 다시 물어요.
 - **경고** (`warnings`, `Page`): 종류 순(`conflict`, `override`, `mismatch`), 그다음 경로·줄·열 순. 항목의 표시는 그 경고가 가리키는 정의의 것이에요.
   - `conflict`(새 이름이 같은 범위의 다른 이름과 겹침): 멤버면 같은 타입과, 상속·구현(`extends`/`implements` 간선을 위아래로 따라간 타입)으로 이어진 타입의 멤버. 최상위 이름이면 고칠 파일에 정의된 최상위 이름, 그리고 고칠 파일이 이미 쓰는 다른 파일의 최상위 이름.
   - `override`: 상속·구현으로 이어진 타입에 옛 이름과 같은 멤버가 있어요. 함께 바꾸지 않으면 재정의 관계가 끊겨요(바꾸지는 않아요: 어느 쪽까지 바꿀지는 부르는 쪽이 정해요).
-- 답: `query`, `newName`, `status`, `oldName`, `targets`(바꿀 심볼), `edits`, `inferred`, `warnings`, `summary`(`files`: 고칠 파일 수, 각 목록의 개수).
+- 답: `query`, `newName`, `status`, `oldName`, `targets`(바꿀 심볼), `edits`, `inferred`, `unlinked`, `warnings`, `summary`(`files`: 고칠 파일 수, 각 목록의 개수).
 - 놓치는 것: 추정 층으로만 색인한 언어는 추정 층이 잇지 못한 사용처(Dart: show·hide, 글에 끼운 함수 값, 수신자 타입을 알아야 하는 멤버)가 계획에 없어요. 지역 이름(매개변수, 지역 변수)은 그래프에 없어 바꿀 수 없어요. 이름 붙은 인자(`f(amount: 1)`)처럼 색인기가 사용처로 주지 않는 자리도 없어요. 저장소 밖에서 쓰는 곳(다른 저장소, 문서)은 모르니 공개 API는 부르는 쪽이 판단해요.
 - 시험은 `test/rename.test.ts`: 예제 `rename_sample`(getter·setter 짝, 이름 있는/없는 생성자, show·hide barrel, 글에 끼운 이름, 겹치는 이름, 구현하는 인터페이스)에서 계획을 정답과 비교하고, 물은 뒤 파일이 바이트 단위로 그대로인지, 계획을 저장소 밖 사본에 적용하면 `dart analyze --fatal-infos`를 통과하는지 봐요. 추정 층 목록은 `mixed_sample`과 `CODE_ATLAS_DISABLE_INDEXERS=scip-dart`로 진짜 추정 자리를 만들어 봐요.
 

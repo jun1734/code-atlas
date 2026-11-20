@@ -24,14 +24,14 @@ function snapshot(dir: string): Map<string, Buffer> {
 }
 
 /**
- * 부르는 쪽이 하듯 계획(edits와 inferred)을 저장소 사본에 적용해요. 자리는 모두 원래 글 기준이라
+ * 부르는 쪽이 하듯 계획(edits, inferred, unlinked)을 저장소 사본에 적용해요. 자리는 모두 원래 글 기준이라
  * 한 줄 안에서는 뒤의 자리부터 바꿔요. 여러 계획을 함께 적용해도 자리가 겹치지 않으면 돼요.
  */
 function applyPlans(dir: string, plans: any[]): void {
   const byFile = new Map<string, any[]>();
   for (const plan of plans) {
-    assert.equal(plan.edits.truncated || plan.inferred.truncated, false);
-    for (const s of [...plan.edits.items, ...plan.inferred.items]) {
+    assert.equal(plan.edits.truncated || plan.inferred.truncated || plan.unlinked.truncated, false);
+    for (const s of [...plan.edits.items, ...plan.inferred.items, ...plan.unlinked.items]) {
       if (!byFile.has(s.path)) byFile.set(s.path, []);
       byFile.get(s.path)!.push(s);
     }
@@ -91,7 +91,7 @@ describe('rename_sample rename (scip-dart)', () => {
     assert.equal(plan.inferred.total, 0);
   });
 
-  it('클래스: 이름 있는 생성자의 클래스 이름은 고칠 자리, 색인이 클래스로 합친 이름 없는 생성자의 선언은 inferred(unlinked)로 나온다', () => {
+  it('클래스: 이름 있는 생성자의 클래스 이름은 고칠 자리, 색인이 클래스로 합친 이름 없는 생성자의 선언은 따로 unlinked로 나온다', () => {
     const plan = fx.ask('rename', 'Money', '--to', 'Cash');
     assert.equal(plan.status, 'found');
     assert.deepEqual(sites(plan.edits), [
@@ -104,8 +104,10 @@ describe('rename_sample rename (scip-dart)', () => {
       ['lib/src/money.dart', 17, 3, 'reference'],
       ['test/money_test.dart', 4, 17, 'reference'],
     ]);
+    // 추정 층이 이은 자리는 없어요. 구문으로만 찾은 자리는 inferred가 아니라 unlinked에 따로 나와요.
+    assert.equal(plan.inferred.total, 0);
     // 글(문자열) 'Money($cents, …)' 안의 Money는 이름이 아니라서 나오지 않아요.
-    assert.deepEqual(plan.inferred.items, [
+    assert.deepEqual(plan.unlinked.items, [
       {
         path: 'lib/src/money.dart',
         line: 15,
@@ -123,7 +125,7 @@ describe('rename_sample rename (scip-dart)', () => {
     assert.deepEqual(plan.warnings.items, []);
   });
 
-  it('getter와 setter: 짝 하나로 바뀌고, 색인이 getter로 합친 setter 선언은 inferred(unlinked)로 나온다', () => {
+  it('getter와 setter: 짝 하나로 바뀌고, 색인이 getter로 합친 setter 선언은 따로 unlinked로 나온다', () => {
     const plan = fx.ask('rename', 'Money.cents', '--to', 'amount');
     assert.equal(plan.status, 'found');
     assert.deepEqual(sites(plan.edits), [
@@ -137,8 +139,9 @@ describe('rename_sample rename (scip-dart)', () => {
       ['test/money_test.dart', 4, 31, 'write'],
       ['test/money_test.dart', 5, 13, 'read'],
     ]);
-    assert.deepEqual(sites(plan.inferred), [['lib/src/money.dart', 21, 7, 'unlinked']]);
-    assert.deepEqual(plan.summary, { files: 4, edits: 9, inferred: 1, warnings: 0 });
+    assert.equal(plan.inferred.total, 0);
+    assert.deepEqual(sites(plan.unlinked), [['lib/src/money.dart', 21, 7, 'unlinked']]);
+    assert.deepEqual(plan.summary, { files: 4, edits: 9, inferred: 0, unlinked: 1, warnings: 0 });
   });
 
   it('새 이름이 같은 범위의 다른 이름과 겹치면 경고가 나온다: 같은 파일의 최상위 이름, 같은 타입의 멤버', () => {
@@ -280,9 +283,12 @@ describe('추정 층이 찾은 자리는 계획에서 따로 나온다', () => {
       assert.equal(pair.status, 'found');
       assert.deepEqual(pair.targets.map((t: any) => t.kind), ['getter', 'setter']);
       assert.equal(pair.edits.total, 0);
+      // 추정 층이 이은 자리(inferred)와, 추정 층도 잇지 못해 구문으로만 찾은 자리(unlinked)는 따로 나와요.
       assert.deepEqual(sites(pair.inferred), [
         ['lib/src/money.dart', 19, 11, 'definition'],
         ['lib/src/money.dart', 21, 7, 'definition'],
+      ]);
+      assert.deepEqual(sites(pair.unlinked), [
         ['lib/src/money.dart', 23, 28, 'unlinked'],
         ['lib/src/money.dart', 26, 32, 'unlinked'],
       ]);
