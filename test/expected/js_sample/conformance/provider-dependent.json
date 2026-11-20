@@ -1,0 +1,37 @@
+{
+  "query": "totalProvider",
+  "status": "found",
+  "symbol": {
+    "name": "totalProvider",
+    "qualifiedName": "totalProvider",
+    "kind": "constant",
+    "definition": {
+      "path": "src/providers.js",
+      "line": 19,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 1,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/main.js",
+        "line": 10,
+        "column": 45,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 1,
+      "test": 0
+    }
+  }
+}

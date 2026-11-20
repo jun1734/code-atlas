@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>코드 지도</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 배치: 한 단 문서. 위에서 아래로 요약 → 모듈 지도(층 그림) → 순환 → 경계 점검 → 파일 표. */
+:root {
+  --bg: #f4f2eb; --surface: #ffffff; --ink: #23261f; --muted: #6c6f64; --line: #e6e3d8;
+  --green: #2e7d57; --green-ink: #246143; --green-soft: #e4efe5;
+  --amber-ink: #755a33; --amber-soft: #f6ecdc;
+  --crit: #b23a2a; --crit-soft: #f7e3de; --edge: #9d9a8c; --bar: #57b183;
+  --sans: "Gothic A1", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1a1c17; --surface: #23261f; --ink: #f1efe7; --muted: #a5a89c; --line: #383c32;
+  --green: #57b183; --green-ink: #8fd0ae; --green-soft: #24382d;
+  --amber-ink: #d2a96a; --amber-soft: #3a3122;
+  --crit: #f08f7c; --crit-soft: #45261f; --edge: #777b6c; --bar: #3f8f68; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1a1c17; --surface: #23261f; --ink: #f1efe7; --muted: #a5a89c; --line: #383c32;
+  --green: #57b183; --green-ink: #8fd0ae; --green-soft: #24382d;
+  --amber-ink: #d2a96a; --amber-soft: #3a3122;
+  --crit: #f08f7c; --crit-soft: #45261f; --edge: #777b6c; --bar: #3f8f68; color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.6 var(--sans); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 36px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3, p, ul, ol, figure { margin: 0; }
+h1 { font: 800 30px/1.2 var(--sans); letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font: 800 21px/1.3 var(--sans); text-wrap: balance; }
+h3 { font: 700 15px/1.4 var(--sans); }
+code, .mono { font-family: var(--mono); font-size: 0.87em; }
+.muted { color: var(--muted); }
+.lede { max-width: 62ch; }
+section { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.head { display: flex; flex-direction: column; gap: 10px; }
+.meta { color: var(--muted); font-size: 13px; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.fact { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.fact b { font: 800 26px/1.15 var(--sans); font-variant-numeric: tabular-nums; }
+.fact span { font-size: 13px; color: var(--muted); }
+.fact.warn b { color: var(--crit); }
+
+.findings { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; max-width: 74ch; }
+.findings li { display: grid; grid-template-columns: 54px 1fr; gap: 12px; align-items: baseline; }
+.tag { font: 700 12px/1 var(--sans); padding: 5px 0; border-radius: 6px; text-align: center; }
+.tag.ok { background: var(--green-soft); color: var(--green-ink); }
+.tag.look { background: var(--crit-soft); color: var(--crit); }
+.tag.note { background: var(--amber-soft); color: var(--amber-ink); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.scroll { overflow-x: auto; }
+figure.map svg { display: block; width: 100%; min-width: 820px; height: auto; }
+figcaption { font-size: 13px; color: var(--muted); padding: 10px 16px 14px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.key { display: inline-flex; align-items: center; gap: 6px; }
+.key i { width: 22px; height: 0; border-top: 2px solid var(--edge); }
+.key i.back { border-top: 2px dashed var(--crit); }
+
+.node rect { fill: var(--surface); stroke: var(--edge); stroke-width: 1; }
+.node.band rect { fill: var(--green-soft); stroke: none; }
+.node text { fill: var(--ink); font: 700 12px var(--sans); }
+.node text.sub { fill: var(--muted); font: 400 10.5px var(--sans); }
+.node { cursor: pointer; }
+.node:focus-visible { outline: none; }
+.node:focus-visible rect { stroke: var(--green); stroke-width: 3; }
+.node.sel rect { stroke: var(--green); stroke-width: 2.5; }
+.edge { fill: none; stroke: var(--edge); opacity: 0.55; }
+.edge.back { stroke: var(--crit); stroke-dasharray: 5 4; opacity: 1; }
+.arrow { fill: var(--crit); }
+svg.has-sel .edge { opacity: 0.08; }
+svg.has-sel .edge.on { opacity: 1; }
+svg.has-sel .edge.on:not(.back) { stroke: var(--green); }
+svg.has-sel .node { opacity: 0.4; }
+svg.has-sel .node.near, svg.has-sel .node.sel { opacity: 1; }
+
+.detail { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.detail-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.cols > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+details { border-top: 1px solid var(--line); }
+summary { cursor: pointer; padding: 7px 0; display: flex; gap: 8px; align-items: baseline; list-style-position: outside; }
+summary::marker { color: var(--muted); }
+summary .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+summary:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, th button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.pairs { list-style: none; padding: 0 0 10px 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.pill { font: 700 11px/1 var(--sans); padding: 3px 6px; border-radius: 5px; background: var(--crit-soft); color: var(--crit); white-space: nowrap; }
+.pill.soft { background: var(--amber-soft); color: var(--amber-ink); }
+.pill.ok { background: var(--green-soft); color: var(--green-ink); }
+
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 700 12px/1.3 var(--sans); color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tr.hit td { background: var(--green-soft); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.path { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; min-width: 220px; }
+td.path small { color: var(--muted); font-size: inherit; }
+td.path a { color: inherit; text-decoration: none; }
+td.path a:hover { color: var(--green-ink); text-decoration: underline; }
+td.path a:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+th button { all: unset; cursor: pointer; font: inherit; color: inherit; }
+th button[aria-pressed="true"] { color: var(--ink); }
+th button[aria-pressed="true"]::after { content: " ↓"; }
+.bar { display: inline-block; height: 8px; border-radius: 0 4px 4px 0; background: var(--bar); vertical-align: middle; margin-right: 8px; }
+.barcell { white-space: nowrap; min-width: 150px; }
+.barcell span { font-variant-numeric: tabular-nums; }
+.tools { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 12px; border-bottom: 1px solid var(--line); }
+select, input[type="search"] { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+input[type="search"] { flex: 1 1 180px; min-width: 0; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.more { all: unset; cursor: pointer; display: block; text-align: center; padding: 12px; font: 700 14px var(--sans); color: var(--green-ink); border-top: 1px solid var(--line); }
+.more[hidden] { display: none; }
+.cycle { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.cycle + .cycle { border-top: 1px solid var(--line); }
+.cycle ul { list-style: none; padding: 0; font-family: var(--mono); font-size: 12.5px; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.cycle-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.foot { font-size: 13px; color: var(--muted); max-width: 74ch; display: flex; flex-direction: column; gap: 6px; }
+.foot ul { padding-left: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <h1 id="title">코드 지도</h1>
+    <p class="lede" id="lede"></p>
+    <p class="meta" id="meta"></p>
+  </header>
+
+  <section aria-labelledby="s-sum">
+    <h2 id="s-sum">한눈에</h2>
+    <div class="facts" id="facts"></div>
+    <ul class="findings" id="findings"></ul>
+  </section>
+
+  <section aria-labelledby="s-map">
+    <h2 id="s-map">모듈 지도</h2>
+    <p class="lede">위에 있는 모듈이 아래에 있는 모듈을 가져다 써요. 모듈을 누르면 그 모듈과 이어진 선만 남고, 아래에 어떤 파일이 어떤 파일을 import하는지 나와요.</p>
+    <figure class="panel map">
+      <div class="scroll" id="map"></div>
+      <figcaption id="map-key">
+        <span class="key"><i></i>위 모듈이 아래 모듈을 import (굵을수록 import가 많음)</span>
+        <span class="key"><i class="back"></i>흐름을 거스르는 import</span>
+      </figcaption>
+    </figure>
+    <div class="panel detail" id="detail" aria-live="polite"></div>
+  </section>
+
+  <section aria-labelledby="s-back">
+    <h2 id="s-back">흐름을 거스르는 import</h2>
+    <p class="lede" id="back-lede"></p>
+    <div class="panel scroll"><table id="back"></table></div>
+  </section>
+
+  <section aria-labelledby="s-cyc">
+    <h2 id="s-cyc">서로 물린 파일</h2>
+    <p class="lede">서로를 import해서 한 덩어리가 된 파일 묶음이에요. 컴파일 오류는 아니지만, 묶음 안의 파일 하나를 떼어 옮기거나 따로 테스트하기 어려워져요.</p>
+    <div class="panel" id="cycles"></div>
+  </section>
+
+  <section aria-labelledby="s-reach">
+    <h2 id="s-reach">다른 기능 폴더에서 가져다 쓰는 것</h2>
+    <p class="lede">다른 모듈에서 그 모듈의 화면도 provider도 아닌 것을 가져오는 import예요(저장소 설정의 <code>openToOtherModules</code>에 맞지 않는 파일). 리뷰에서 짚을 후보를 파일 이름과 선언으로 추린 목록이라, 판정은 아니고 살펴볼 곳이에요.</p>
+    <div class="panel scroll"><table id="reach"></table></div>
+  </section>
+
+  <section aria-labelledby="s-sdk">
+    <h2 id="s-sdk">외부 SDK가 닿는 파일</h2>
+    <p class="lede">외부 패키지를 직접 import하는 파일이에요. 적을수록 바꾸거나 가짜로 갈아 끼우기 쉬워요.</p>
+    <div class="panel scroll"><table id="sdk"></table></div>
+  </section>
+
+  <section aria-labelledby="s-files">
+    <h2 id="s-files">파일 찾아보기</h2>
+    <p class="lede">크고, 자주 바뀌고, 여러 곳에서 쓰이는 파일이 손볼 때 조심할 곳이에요. 열 이름을 누르면 그 값으로 정렬해요.</p>
+    <div class="panel">
+      <div class="tools">
+        <select id="f-mod" aria-label="모듈"></select>
+        <input type="search" id="f-q" placeholder="파일 이름으로 찾기" aria-label="파일 이름으로 찾기">
+        <label class="chk"><input type="checkbox" id="f-untested"> 테스트가 닿지 않는 파일만</label>
+      </div>
+      <div class="scroll"><table id="files"></table></div>
+      <button class="more" id="f-more" type="button">더 보기</button>
+    </div>
+  </section>
+
+  <footer class="foot" id="foot"></footer>
+</div>
+
+<script type="application/json" id="code-map-data">/*DATA*/</script>
+<script>
+// 자료는 code-atlas가 색인한 그래프에서 뽑아 위의 code-map-data에 넣어요(src/map/data.ts의 MapData).
+const D = JSON.parse(document.getElementById('code-map-data').textContent);
+const $ = (q) => document.querySelector(q);
+const set = (e, attrs) => { for (const [k, v] of Object.entries(attrs)) { if (k === 'class') e.setAttribute('class', v); else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v); } return e; };
+const h = (tag, attrs = {}, ...kids) => { const e = set(document.createElement(tag), attrs); for (const k of kids.flat(Infinity)) if (k != null && k !== false) e.append(k); return e; };
+const s = (tag, attrs = {}, ...kids) => { const e = set(document.createElementNS('http://www.w3.org/2000/svg', tag), attrs); for (const k of kids.flat(Infinity)) if (k != null) e.append(k); return e; };
+// 배열이 섞인 자식도 펼쳐 붙여요(append는 배열을 글로 바꿔 버려요).
+const add = (el, ...kids) => { for (const k of kids.flat(Infinity)) if (k != null && k !== false) el.append(k); };
+const nf = (n) => n.toLocaleString('ko-KR');
+// 경로 줄이기: short는 모든 파일이 함께 가진 앞부분(예: lib/)을, compact는 모듈 규칙의 {module} 앞부분(예: lib/features/)까지 떼요.
+const short = (p) => p.startsWith(D.root) ? p.slice(D.root.length) : p;
+const compact = (p) => { const pre = D.compact.find((c) => p.startsWith(c)); return pre ? p.slice(pre.length) : short(p); };
+const base = (p) => p.split('/').pop();
+const mod = Object.fromEntries(D.modules.map((m) => [m.name, m]));
+const BAND = Object.fromEntries(Object.keys(D.bands).filter((b) => b in mod).map((b) => [b, mod[b].depth]));
+const isBack = (k) => D.backEdges.includes(k);
+const edgeKeys = Object.keys(D.medges);
+const totalLines = D.files.reduce((a, f) => a + f.l, 0);
+const untested = D.files.filter((f) => !f.t);
+const backAllowed = D.back.filter((b) => b.allowed);
+const crossCycle = D.cycles.filter((c) => c.mods.length > 1);
+const newBack = D.back.length - backAllowed.length;
+const allowWhere = D.allowFiles.length ? D.allowFiles.map((f) => h('code', {}, f)) : [h('code', {}, 'allowlist')];
+
+// 머리말과 요약
+document.title = D.title;
+$('#title').textContent = D.title;
+$('#lede').append(h('code', {}, D.root || './'), '의 파일에서 import를 읽어, 모듈끼리 어떻게 기대고 있는지와 살펴볼 곳을 모았어요. 자료는 code-atlas 색인에서 뽑았어요.');
+$('#meta').textContent = `${D.branch ?? '(git 아님)'} @ ${D.head ?? '-'} · ${D.date} 기준 · 파일 ${nf(D.files.length)}개 · ${nf(totalLines)}줄`;
+const fact = (v, label, warn) => h('div', { class: 'fact' + (warn ? ' warn' : '') }, h('b', {}, v), h('span', {}, label));
+$('#facts').append(
+  fact(nf(D.files.length), '파일'),
+  fact(nf(D.modules.length), '모듈'),
+  fact(nf(edgeKeys.length), '모듈 사이 의존'),
+  fact(nf(D.back.length), '흐름을 거스르는 import', newBack > 0),
+  fact(nf(D.cycles.length), '서로 물린 파일 묶음', crossCycle.length > 0),
+  fact(nf(untested.length), '테스트가 닿지 않는 파일'),
+);
+const big = [...D.files].sort((a, b) => b.l - a.l).slice(0, 2);
+const bigUn = [...untested].sort((a, b) => b.l - a.l).slice(0, 2);
+const li = (cls, word, ...kids) => h('li', {}, h('span', { class: 'tag ' + cls }, word), h('span', {}, kids));
+// 띠 모듈(모두가 쓰는 아래층)이 위 모듈을 하나도 가져오지 않으면 좋음. 들어오는 import가 모두 한 파일을 거치면 그것도 적어요.
+const bandFindings = Object.keys(BAND).sort((a, b) => BAND[a] - BAND[b]).flatMap((b) => {
+  if (edgeKeys.some((k) => k.startsWith(b + '>'))) return [];
+  const entries = [...new Set(edgeKeys.filter((k) => k.endsWith('>' + b)).flatMap((k) => D.medges[k].map(([, t]) => t)))];
+  return [li('ok', '좋음', h('code', {}, b), '은 다른 모듈을 하나도 import하지 않아요.',
+    entries.length === 1 ? [` 다른 모듈도 ${b} 안쪽 파일을 직접 잡지 않고 전부 `, h('code', {}, base(entries[0])), '를 거쳐요.'] : null)];
+});
+$('#findings').append(
+  ...bandFindings,
+  D.back.length
+    ? li(newBack ? 'look' : 'ok', newBack ? '볼 곳' : '좋음', `import ${D.back.length}개 때문에 모듈 ${D.cycleMods.length}개가 서로 돌아서 닿는 한 덩어리가 돼요. 이 ${D.back.length}개가 없으면 모듈 사이에 순환이 없어요. ${backAllowed.length}개는 허용 목록(`, allowWhere, ')에 적어 둔 것이고, ', newBack ? `나머지 ${newBack}개가 새로 볼 것이에요.` : '그 밖에는 없어요.')
+    : li('ok', '좋음', '모듈 사이에 순환이 없어요. 흐름을 거스르는 import가 없어요.'),
+  crossCycle.length
+    ? li('look', '볼 곳', `서로 물린 파일 묶음 ${D.cycles.length}개 가운데 ${crossCycle.length}개는 모듈을 넘어요: `, h('code', {}, crossCycle.map((c) => c.mods.join(' ↔ ')).join(', ')), ` (파일 ${crossCycle.map((c) => c.files.length).join(', ')}개).`)
+    : li('ok', '좋음', `서로 물린 파일 묶음 ${D.cycles.length}개는 모두 한 모듈 안이에요. 모듈을 넘는 묶음은 없어요.`),
+  big.length > 1 && li('note', '참고', '가장 큰 파일은 ', h('code', {}, base(big[0].p)), ` ${nf(big[0].l)}줄, `, h('code', {}, base(big[1].p)), ` ${nf(big[1].l)}줄이에요.`,
+    bigUn.length > 1 ? [' 테스트가 닿지 않는 파일 중에서는 ', h('code', {}, base(bigUn[0].p)), ` ${nf(bigUn[0].l)}줄, `, h('code', {}, base(bigUn[1].p)), ` ${nf(bigUn[1].l)}줄이 커요.`] : null),
+);
+
+// 모듈 지도
+const W = 980, NW = 128, NH = 46, RH = 96, TOP = 14, MAXD = Math.max(0, ...D.modules.map((m) => m.depth));
+const box = {};
+for (let d = MAXD; d >= 0; d--) {
+  const y = TOP + (MAXD - d) * RH;
+  const names = D.order.filter((n) => mod[n].depth === d && !(n in BAND));
+  const bands = Object.keys(BAND).filter((b) => BAND[b] === d);
+  if (bands.length) {
+    // 띠는 왼쪽을 나눠 갖고, 같은 층의 다른 모듈은 오른쪽에 둬요.
+    const side = names.length * (NW + 12);
+    const bw = (W - 20 - side - (bands.length - 1) * 12) / bands.length;
+    bands.forEach((b, i) => { box[b] = { x: 10 + i * (bw + 12), y, w: bw, h: NH }; });
+    names.forEach((n, i) => { box[n] = { x: W - 10 - side + 12 + i * (NW + 12), y, w: NW, h: NH }; });
+  } else {
+    const total = names.length * NW + (names.length - 1) * 12;
+    names.forEach((n, i) => { box[n] = { x: (W - total) / 2 + i * (NW + 12), y, w: NW, h: NH }; });
+  }
+}
+const H = TOP + MAXD * RH + NH + 14;
+const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `모듈 ${D.modules.length}개의 의존 층. 맨 위 ${D.order[0] ?? ''}부터 맨 아래 ${D.order.at(-1) ?? ''}까지, 흐름을 거스르는 import ${D.back.length}개를 점선으로 표시` });
+svg.append(s('defs', {}, s('marker', { id: 'arr', viewBox: '0 0 8 8', refX: 6, refY: 4, markerWidth: 7, markerHeight: 7, orient: 'auto' }, s('path', { d: 'M0,0 L8,4 L0,8 z', class: 'arrow' }))));
+const edgeEls = [];
+for (const k of edgeKeys) {
+  const [a, b] = k.split('>'), back = isBack(k);
+  if (!back && b in BAND) continue;
+  const A = box[a], B = box[b];
+  let x1 = A.x + A.w / 2, x2 = B.x + B.w / 2, y1, y2;
+  if (a in BAND) x1 = Math.min(Math.max(x2, A.x + 24), A.x + A.w - 24);
+  if (back) { x1 += 16; x2 += 16; y1 = A.y; y2 = B.y + B.h + 6; } else { y1 = A.y + A.h; y2 = B.y; }
+  const my = (y1 + y2) / 2;
+  const el = s('path', { class: 'edge' + (back ? ' back' : ''), d: `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`, 'stroke-width': back ? 1.8 : Math.min(1 + D.medges[k].length * 0.35, 4), 'marker-end': back ? 'url(#arr)' : null });
+  edgeEls.push({ el, a, b }); svg.append(el);
+}
+const nodeEls = {};
+for (const m of D.modules) {
+  const b = box[m.name], band = m.name in BAND;
+  const note = band && D.bands[m.name] ? ` · ${D.bands[m.name]}` : '';
+  const g = s('g', { class: 'node' + (band ? ' band' : ''), tabindex: 0, role: 'button', 'aria-label': `${m.name}, 파일 ${m.files}개, ${m.lines}줄`,
+    onclick: () => select(m.name), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(m.name); } } },
+    s('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 8 }),
+    s('text', { x: b.x + b.w / 2, y: b.y + 20, 'text-anchor': 'middle' }, m.name),
+    s('text', { class: 'sub', x: b.x + b.w / 2, y: b.y + 36, 'text-anchor': 'middle' }, `${m.files}개 · ${nf(m.lines)}줄${note}`));
+  nodeEls[m.name] = g; svg.append(g);
+}
+$('#map').append(svg);
+if (Object.keys(BAND).length) $('#map-key').append(h('span', {}, `${Object.keys(BAND).join('과 ')}(으)로 내려가는 선은 거의 모든 모듈에 있어서 그리지 않았어요.`));
+
+const neighbors = (m) => new Set(edgeKeys.flatMap((k) => { const [a, b] = k.split('>'); return a === m ? [b] : b === m ? [a] : []; }));
+const depList = (title, keys, other) => {
+  const col = h('div', {}, h('h3', {}, title, ' ', h('span', { class: 'muted' }, `${keys.length}곳`)));
+  if (!keys.length) col.append(h('p', { class: 'muted' }, '없어요.'));
+  for (const k of keys.sort((x, y) => D.medges[y].length - D.medges[x].length)) {
+    col.append(h('details', {}, h('summary', {}, h('code', {}, other(k)), isBack(k) && h('span', { class: 'pill' }, '거스름'), h('span', { class: 'n' }, `import ${D.medges[k].length}개`)),
+      h('ul', { class: 'pairs' }, D.medges[k].map(([f, t]) => h('li', {}, h('code', {}, compact(f)), ' → ', h('code', {}, compact(t)))))));
+  }
+  return col;
+};
+let selected = null;
+function select(name) {
+  selected = selected === name ? null : name;
+  svg.classList.toggle('has-sel', !!selected);
+  const near = selected ? neighbors(selected) : new Set();
+  for (const [n, g] of Object.entries(nodeEls)) { g.classList.toggle('sel', n === selected); g.classList.toggle('near', near.has(n)); g.setAttribute('aria-pressed', n === selected); }
+  for (const { el, a, b } of edgeEls) el.classList.toggle('on', a === selected || b === selected);
+  const box_ = $('#detail'); box_.replaceChildren();
+  if (!selected) { box_.append(h('p', { class: 'muted' }, '모듈을 누르면 여기에 그 모듈의 import가 나와요.')); return; }
+  const m = mod[selected];
+  box_.append(
+    h('div', { class: 'detail-head' }, h('h3', {}, h('code', {}, selected)),
+      h('span', { class: 'muted' }, `파일 ${m.files}개 · ${nf(m.lines)}줄 · 최근 90일 변경 ${nf(m.churn)}회 · 테스트가 닿지 않는 파일 ${m.untested}개`)),
+    h('div', { class: 'cols' },
+      depList('이 모듈이 가져다 쓰는 곳', edgeKeys.filter((k) => k.startsWith(selected + '>')), (k) => k.split('>')[1]),
+      depList('이 모듈을 가져다 쓰는 곳', edgeKeys.filter((k) => k.endsWith('>' + selected)), (k) => k.split('>')[0])));
+}
+select(D.select in mod ? D.select : null);
+
+// 흐름을 거스르는 import
+$('#back-lede').textContent = `모듈을 위에서 아래로 줄 세웠을 때 아래에서 위를 가져다 쓰는 import예요. ${D.minimal ? `어떤 순서로 세워도 최소 ${D.back.length}개가 남아요.` : `서로 도는 모듈이 많아 최소인지는 증명하지 못했어요(${D.back.length}개).`} 이 import를 옮기거나 뒤집으면 모듈 사이 순환이 사라져요.`;
+$('#back').append(h('thead', {}, h('tr', {}, h('th', {}, '가져다 쓰는 파일'), h('th', {}, '가져오는 파일'), h('th', {}, '상태'))),
+  h('tbody', {}, D.back.length ? [...D.back].sort((x, y) => y.allowed - x.allowed).map((b) => h('tr', {},
+    h('td', { class: 'path' }, short(b.from)), h('td', { class: 'path' }, short(b.to)),
+    h('td', {}, b.allowed ? [h('span', { class: 'pill ok' }, '허용 목록'), ' 허용 목록(', allowWhere.map((n) => n.cloneNode(true)), ')에 적혀 있어요.'] : [h('span', { class: 'pill' }, '볼 곳'), ' 아래 모듈이 위 모듈을 가져다 써요. 옮기거나 뒤집을 수 있는지 살펴보세요.'])))
+    : h('tr', {}, h('td', { colspan: 3, class: 'muted' }, '없어요.'))));
+
+// 서로 물린 파일
+add($('#cycles'), D.cycles.length ? D.cycles.map((c) => h('div', { class: 'cycle' },
+  h('div', { class: 'cycle-head' }, h('h3', {}, `파일 ${c.files.length}개`), h('code', {}, c.mods.join(' ↔ ')), c.mods.length > 1 ? h('span', { class: 'pill' }, '모듈을 넘음') : h('span', { class: 'pill soft' }, '한 모듈 안')),
+  h('ul', {}, c.files.map((f) => h('li', {}, compact(f)))),
+  h('details', {}, h('summary', {}, '묶음 안의 import', h('span', { class: 'n' }, `${c.edges.length}개`)),
+    h('ul', { class: 'pairs' }, c.edges.map(([f, t]) => h('li', {}, h('code', {}, base(f)), ' → ', h('code', {}, base(t))))))))
+  : h('div', { class: 'cycle muted' }, '없어요.'));
+
+// 다른 기능 폴더에서 가져다 쓰는 것
+const helperNote = `페이지도 provider도 아닌 선언이에요. 두 기능이 함께 쓰는 것이면 공용 모듈${D.shared.length ? `(${D.shared.join(', ')})` : ''}이 맞는 자리예요.`;
+$('#reach').append(h('thead', {}, h('tr', {}, h('th', {}, '가져오는 파일'), h('th', {}, '종류'), h('th', {}, '가져다 쓰는 파일'), h('th', {}, '메모'))),
+  h('tbody', {}, D.reach.length ? [...D.reach].sort((a, b) => !!a.label - !!b.label || b.from.length - a.from.length).map((r) => h('tr', {},
+    h('td', { class: 'path' }, compact(r.t)),
+    h('td', {}, r.label ? h('span', { class: 'pill soft' }, r.label) : h('span', { class: 'pill' }, 'helper')),
+    h('td', {}, h('details', { style: 'border:0' }, h('summary', { style: 'padding:0' }, `${r.from.length}개`), h('ul', { class: 'pairs', style: 'padding-left:0;padding-top:6px' }, r.from.map((f) => h('li', {}, h('code', {}, compact(f))))))),
+    h('td', {}, r.note ?? helperNote)))
+    : h('tr', {}, h('td', { colspan: 4, class: 'muted' }, '없어요.'))));
+
+// 외부 SDK
+const byPath = Object.fromEntries(D.files.map((f) => [f.p, f]));
+const pkgs = Object.entries(D.pkgUse);
+$('#sdk').append(h('thead', {}, h('tr', {}, h('th', {}, '패키지'), h('th', { class: 'num' }, '파일'), h('th', {}, '어디서'))),
+  h('tbody', {}, pkgs.length ? pkgs.map(([p, fs]) => { const byMod = {}; for (const f of fs) (byMod[byPath[f].m] ||= []).push(f);
+    return h('tr', {}, h('td', {}, h('code', {}, p), D.pkgNames[p] && h('div', { class: 'muted' }, D.pkgNames[p])), h('td', { class: 'num' }, fs.length),
+      h('td', {}, fs.length > 8 ? Object.entries(byMod).map(([m, x]) => `${m} ${x.length}`).join(' · ')
+        : h('ul', { class: 'pairs', style: 'padding:0' }, fs.map((f) => h('li', {}, h('code', {}, compact(f))))))); })
+    : h('tr', {}, h('td', { colspan: 3, class: 'muted' }, '외부 패키지를 import하는 파일이 없어요.'))));
+
+// 파일 찾아보기. 줄마다 id가 "file=<경로>"라서 주소 끝에 #file=<경로>를 붙이면 그 파일을 찾아 보여 줘요.
+const cols = [['l', '줄 수'], ['c', '90일 변경'], ['i', '쓰이는 곳'], ['o', '가져다 쓰는 곳']];
+let sortKey = 'c', shown = 25, hit = null;
+const maxOf = Object.fromEntries(cols.map(([k]) => [k, Math.max(1, ...D.files.map((f) => f[k]))]));
+add($('#f-mod'), h('option', { value: '' }, '모든 모듈'), D.modules.map((m) => h('option', { value: m.name }, `${m.name} (${m.files})`)));
+function renderFiles() {
+  const m = $('#f-mod').value, q = $('#f-q').value.trim().toLowerCase(), un = $('#f-untested').checked;
+  const rows = D.files.filter((f) => (!m || f.m === m) && (!q || f.p.toLowerCase().includes(q)) && (!un || !f.t)).sort((a, b) => b[sortKey] - a[sortKey] || b.l - a.l);
+  const barCell = (f, k) => h('td', { class: 'barcell' }, h('i', { class: 'bar', style: `width:${Math.round(f[k] / maxOf[k] * 90)}px` }), h('span', {}, nf(f[k])));
+  $('#files').replaceChildren(
+    h('thead', {}, h('tr', {}, h('th', {}, `파일 ${nf(rows.length)}개`), cols.map(([k, label]) => h('th', { class: k === 'l' || k === 'c' ? '' : 'num' }, h('button', { type: 'button', 'aria-pressed': String(sortKey === k), onclick: () => { sortKey = k; shown = 25; renderFiles(); } }, label))), h('th', {}, '테스트'))),
+    h('tbody', {}, rows.length ? rows.slice(0, shown).map((f) => { const p = compact(f.p), i = p.lastIndexOf('/'); return h('tr', { id: 'file=' + f.p, 'data-path': f.p, class: f.p === hit ? 'hit' : null },
+      // 파일을 누르면 이름 단위 그래프 화면에서 그 파일로 이어요(#file=<경로>).
+      h('td', { class: 'path' }, D.graph
+        ? h('a', { href: `${D.graph}#file=${encodeURIComponent(f.p)}`, title: '이름 그래프에서 이 파일 보기' }, h('small', {}, p.slice(0, i + 1)), p.slice(i + 1))
+        : [h('small', {}, p.slice(0, i + 1)), p.slice(i + 1)]),
+      barCell(f, 'l'), barCell(f, 'c'), h('td', { class: 'num' }, f.i), h('td', { class: 'num' }, f.o),
+      h('td', {}, f.t === 2 ? '직접' : f.t === 1 ? h('span', { class: 'muted' }, '묶음 경유') : h('span', { class: 'pill soft' }, '없음'))); })
+      : h('tr', {}, h('td', { colspan: 6, class: 'muted' }, '조건에 맞는 파일이 없어요. 모듈이나 검색어를 바꿔 보세요.'))));
+  $('#f-more').hidden = rows.length <= shown;
+  $('#f-more').textContent = `더 보기 (${nf(Math.max(rows.length - shown, 0))}개 남음)`;
+}
+for (const id of ['#f-mod', '#f-q', '#f-untested']) $(id).addEventListener('input', () => { shown = 25; hit = null; renderFiles(); });
+$('#f-more').addEventListener('click', () => { shown += 50; renderFiles(); });
+// #file=<경로>: 그 파일 하나만 남기고 줄로 데려가요. 다른 화면(이름 단위 그래프 등)이 파일로 이어 줄 때 써요.
+function showFileFromHash() {
+  const m = /^#file=(.+)$/.exec(location.hash);
+  const path = m && decodeURIComponent(m[1]);
+  if (!path || !byPath[path]) return false;
+  hit = path; $('#f-mod').value = ''; $('#f-untested').checked = false; $('#f-q').value = path; shown = 25;
+  renderFiles();
+  document.getElementById('file=' + path)?.scrollIntoView({ block: 'center' });
+  return true;
+}
+window.addEventListener('hashchange', showFileFromHash);
+if (!showFileFromHash()) renderFiles();
+
+// 읽는 법
+$('#foot').append(
+  h('p', {}, h('b', {}, '읽는 법. '), '모듈은 저장소 설정의 규칙으로 정했어요. 위에서부터 처음 맞는 규칙이 파일의 모듈이고, 어느 규칙에도 맞지 않는 파일은 지도에 없어요.'),
+  h('ul', {}, D.rules.map((r) => h('li', {}, h('code', {}, r.path), ' → ', r.module ? h('code', {}, r.module) : '{module} 자리의 폴더 이름'))),
+  h('p', {}, h('b', {}, '테스트 열. '), '테스트 파일이 그 파일을 직접 import하면 "직접", barrel처럼 다시 내보내는 파일을 거쳐 그 파일의 이름을 쓰면 "묶음 경유"예요. 실행 커버리지가 아니에요. 다른 화면을 거쳐 테스트되는 파일도 "없음"으로 나와요.'),
+  h('p', {}, h('b', {}, '변경 횟수. '), '최근 90일 동안 그 파일을 건드린 커밋 수예요(병합 커밋 제외).'),
+);
+</script>
+</body>
+</html>

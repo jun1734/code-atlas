@@ -1,0 +1,7 @@
+{
+  "modules": [
+    { "path": "lib/core/**", "module": "core" },
+    { "path": "lib/features/{module}/**" },
+    { "path": "lib/*", "module": "app" }
+  ]
+}

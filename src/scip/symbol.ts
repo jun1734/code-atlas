@@ -110,3 +110,17 @@ export function symbolNames(parsed: ParsedSymbol): { name: string; qualifiedName
   if (!last) return null;
   return { name: last.name, qualifiedName: named.map((d) => d.name).join('.') };
 }
+
+/**
+ * 정밀 색인기(scip-dart, scip-typescript)의 열쇠를 사람이 묻는 이름에 맞춰요.
+ *   Cart#`<constructor>`().    → Cart#          (이름 없는 생성자를 부르는 곳은 클래스를 쓰는 곳이에요)
+ *   Labeled#`<get>label`.      → Labeled#label. (getter. scip-typescript는 끝에 ()를 붙여 `<get>label`(). 로 적어요)
+ *   Labeled#`<set>label`.      → Labeled#label. (setter)
+ */
+export function canonicalKey(key: string): { key: string; accessor?: 'getter' | 'setter' } {
+  if (key.endsWith('#`<constructor>`().')) return { key: key.slice(0, -'`<constructor>`().'.length) };
+  const m = /`<(get|set)>([^`]+)`(?:\(\))?\.$/.exec(key);
+  if (!m) return { key };
+  const name = /^[\w+$-]+$/.test(m[2]!) ? m[2]! : `\`${m[2]}\``;
+  return { key: `${key.slice(0, m.index)}${name}.`, accessor: m[1] === 'get' ? 'getter' : 'setter' };
+}

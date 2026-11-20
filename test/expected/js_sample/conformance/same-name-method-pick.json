@@ -1,0 +1,25 @@
+{
+  "query": "Wishlist.add",
+  "status": "found",
+  "symbol": {
+    "name": "add",
+    "qualifiedName": "Wishlist.add",
+    "kind": "method",
+    "definition": {
+      "path": "src/cart.js",
+      "line": 50,
+      "column": 3
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 0,
+    "truncated": false,
+    "items": [],
+    "byRole": {
+      "app": 0,
+      "test": 0
+    }
+  }
+}

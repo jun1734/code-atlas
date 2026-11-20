@@ -1,0 +1,61 @@
+{
+  "query": "shop/__init__.py",
+  "status": "found",
+  "file": {
+    "path": "shop/__init__.py",
+    "language": "python",
+    "role": "app"
+  },
+  "defines": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "imports": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "shop/cart.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/pricing.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/providers.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ]
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "tests/test_pricing.py",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  }
+}

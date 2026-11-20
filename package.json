@@ -13,10 +13,17 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "verify:hijo": "node --test test/hijo_app/hijo_app.verify.ts"
   },
   "dependencies": {
-    "protobufjs": "^7.6.6"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@repomix/tree-sitter-wasms": "0.1.17",
+    "@sourcegraph/scip-python": "0.6.8",
+    "@sourcegraph/scip-typescript": "0.6.2",
+    "protobufjs": "^7.6.6",
+    "web-tree-sitter": "0.27.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

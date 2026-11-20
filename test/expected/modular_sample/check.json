@@ -1,0 +1,177 @@
+{
+  "config": ".code-atlas.json",
+  "summary": {
+    "files": 12,
+    "modules": 4,
+    "cycles": 2,
+    "backwardImports": 2,
+    "allowed": 1,
+    "new": 1,
+    "minimal": true,
+    "reviewCandidates": 2,
+    "unusedPublicNames": 2
+  },
+  "cycles": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "files": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            "lib/features/catalog/catalog_item.dart",
+            "lib/features/catalog/catalog_list.dart"
+          ]
+        },
+        "modules": [
+          "catalog"
+        ],
+        "imports": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            [
+              "lib/features/catalog/catalog_item.dart",
+              "lib/features/catalog/catalog_list.dart"
+            ],
+            [
+              "lib/features/catalog/catalog_list.dart",
+              "lib/features/catalog/catalog_item.dart"
+            ]
+          ]
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "files": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            "lib/features/orders/order_status.dart",
+            "lib/shared/toast.dart"
+          ]
+        },
+        "modules": [
+          "orders",
+          "shared"
+        ],
+        "imports": {
+          "total": 2,
+          "truncated": false,
+          "items": [
+            [
+              "lib/features/orders/order_status.dart",
+              "lib/shared/toast.dart"
+            ],
+            [
+              "lib/shared/toast.dart",
+              "lib/features/orders/order_status.dart"
+            ]
+          ]
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "app",
+      "layer": 3,
+      "files": 1
+    },
+    {
+      "name": "orders",
+      "layer": 2,
+      "files": 3
+    },
+    {
+      "name": "catalog",
+      "layer": 1,
+      "files": 5
+    },
+    {
+      "name": "shared",
+      "layer": 0,
+      "files": 3
+    }
+  ],
+  "backwardImports": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "from": "lib/shared/header.dart",
+        "to": "lib/features/catalog/catalog_provider.dart",
+        "fromModule": "shared",
+        "toModule": "catalog",
+        "allowed": true,
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "from": "lib/shared/toast.dart",
+        "to": "lib/features/orders/order_status.dart",
+        "fromModule": "shared",
+        "toModule": "orders",
+        "allowed": false,
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "reviewCandidates": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "target": "lib/features/catalog/price_format.dart",
+        "module": "catalog",
+        "from": [
+          "lib/features/orders/orders_page.dart"
+        ],
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "target": "lib/features/orders/order_status.dart",
+        "module": "orders",
+        "from": [
+          "lib/shared/toast.dart"
+        ],
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  },
+  "unusedPublicNames": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "name": "formatCents",
+        "kind": "function",
+        "definition": {
+          "path": "lib/features/catalog/price_format.dart",
+          "line": 5,
+          "column": 8
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "name": "shout",
+        "kind": "function",
+        "definition": {
+          "path": "lib/shared/strings.dart",
+          "line": 5,
+          "column": 8
+        },
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

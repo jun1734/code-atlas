@@ -1,0 +1,130 @@
+{
+  "query": "src/pricing.js",
+  "status": "found",
+  "file": {
+    "path": "src/pricing.js",
+    "language": "javascript",
+    "role": "app"
+  },
+  "defines": {
+    "total": 5,
+    "truncated": false,
+    "items": [
+      {
+        "key": "scip-typescript npm . . src/`pricing.js`/withTax().",
+        "name": "withTax",
+        "qualifiedName": "withTax",
+        "kind": "function",
+        "definition": {
+          "path": "src/pricing.js",
+          "line": 4,
+          "column": 10
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm . . src/`pricing.js`/shippingFee.",
+        "name": "shippingFee",
+        "qualifiedName": "shippingFee",
+        "kind": "constant",
+        "definition": {
+          "path": "src/pricing.js",
+          "line": 9,
+          "column": 7
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm . . src/`pricing.js`/discountPercent.",
+        "name": "discountPercent",
+        "qualifiedName": "discountPercent",
+        "kind": "variable",
+        "definition": {
+          "path": "src/pricing.js",
+          "line": 12,
+          "column": 5
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm . . src/`pricing.js`/setDiscount().",
+        "name": "setDiscount",
+        "qualifiedName": "setDiscount",
+        "kind": "function",
+        "definition": {
+          "path": "src/pricing.js",
+          "line": 15,
+          "column": 10
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm . . src/`pricing.js`/currentDiscount().",
+        "name": "currentDiscount",
+        "qualifiedName": "currentDiscount",
+        "kind": "function",
+        "definition": {
+          "path": "src/pricing.js",
+          "line": 21,
+          "column": 10
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "imports": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/index.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript",
+        "uses": 3
+      },
+      {
+        "path": "src/main.js",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript",
+        "uses": 3
+      },
+      {
+        "path": "test/pricing.test.js",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-typescript",
+        "uses": 3
+      }
+    ]
+  }
+}

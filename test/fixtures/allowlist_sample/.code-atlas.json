@@ -1,0 +1,10 @@
+{
+  "modules": [
+    { "path": "lib/features/{module}/**" },
+    { "path": "lib/{module}/**" }
+  ],
+  "allowlist": {
+    "from": { "modules": ["common"] },
+    "items": ["lib/features/menu/menu_page.dart"]
+  }
+}

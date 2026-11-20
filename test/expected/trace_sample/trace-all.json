@@ -1,0 +1,482 @@
+{
+  "query": {
+    "from": "lib/ui/order_button.dart",
+    "to": "lib/data/db.dart"
+  },
+  "follow": "all",
+  "depth": 10,
+  "status": "found",
+  "from": {
+    "name": "lib/ui/order_button.dart",
+    "kind": "file",
+    "path": "lib/ui/order_button.dart"
+  },
+  "to": {
+    "name": "lib/data/db.dart",
+    "kind": "file",
+    "path": "lib/data/db.dart"
+  },
+  "paths": {
+    "total": 6,
+    "truncated": false,
+    "items": [
+      {
+        "length": 2,
+        "confidence": "precise",
+        "kindConfidence": "precise",
+        "source": "scip-dart",
+        "nodes": [
+          {
+            "name": "lib/ui/order_button.dart",
+            "kind": "file",
+            "path": "lib/ui/order_button.dart"
+          },
+          {
+            "name": "lib/app/order_service.dart",
+            "kind": "file",
+            "path": "lib/app/order_service.dart"
+          },
+          {
+            "name": "lib/data/db.dart",
+            "kind": "file",
+            "path": "lib/data/db.dart"
+          }
+        ],
+        "steps": [
+          {
+            "from": "lib/ui/order_button.dart",
+            "to": "lib/app/order_service.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/ui/order_button.dart",
+              "line": 1,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "from": "lib/app/order_service.dart",
+            "to": "lib/data/db.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 2,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          }
+        ]
+      },
+      {
+        "length": 2,
+        "confidence": "precise",
+        "kindConfidence": "inferred",
+        "source": "scip-dart",
+        "nodes": [
+          {
+            "name": "OrderButton.onPressed",
+            "kind": "method",
+            "path": "lib/ui/order_button.dart",
+            "line": 9,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "OrderService.quickOrder",
+            "kind": "method",
+            "path": "lib/app/order_service.dart",
+            "line": 15,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#quickOrder().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "writeRow",
+            "kind": "function",
+            "path": "lib/data/db.dart",
+            "line": 3,
+            "column": 6,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          }
+        ],
+        "steps": [
+          {
+            "from": "OrderButton.onPressed",
+            "to": "OrderService.quickOrder",
+            "kind": "call",
+            "at": {
+              "path": "lib/ui/order_button.dart",
+              "line": 11,
+              "column": 13
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          },
+          {
+            "from": "OrderService.quickOrder",
+            "to": "writeRow",
+            "kind": "call",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 15,
+              "column": 30
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          }
+        ]
+      },
+      {
+        "length": 3,
+        "confidence": "precise",
+        "kindConfidence": "precise",
+        "source": "scip-dart",
+        "nodes": [
+          {
+            "name": "lib/ui/order_button.dart",
+            "kind": "file",
+            "path": "lib/ui/order_button.dart"
+          },
+          {
+            "name": "lib/app/order_service.dart",
+            "kind": "file",
+            "path": "lib/app/order_service.dart"
+          },
+          {
+            "name": "lib/data/audit.dart",
+            "kind": "file",
+            "path": "lib/data/audit.dart"
+          },
+          {
+            "name": "lib/data/db.dart",
+            "kind": "file",
+            "path": "lib/data/db.dart"
+          }
+        ],
+        "steps": [
+          {
+            "from": "lib/ui/order_button.dart",
+            "to": "lib/app/order_service.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/ui/order_button.dart",
+              "line": 1,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "from": "lib/app/order_service.dart",
+            "to": "lib/data/audit.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 1,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "from": "lib/data/audit.dart",
+            "to": "lib/data/db.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/data/audit.dart",
+              "line": 1,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          }
+        ]
+      },
+      {
+        "length": 3,
+        "confidence": "precise",
+        "kindConfidence": "precise",
+        "source": "scip-dart",
+        "nodes": [
+          {
+            "name": "lib/ui/order_button.dart",
+            "kind": "file",
+            "path": "lib/ui/order_button.dart"
+          },
+          {
+            "name": "lib/app/order_service.dart",
+            "kind": "file",
+            "path": "lib/app/order_service.dart"
+          },
+          {
+            "name": "lib/data/order_repository.dart",
+            "kind": "file",
+            "path": "lib/data/order_repository.dart"
+          },
+          {
+            "name": "lib/data/db.dart",
+            "kind": "file",
+            "path": "lib/data/db.dart"
+          }
+        ],
+        "steps": [
+          {
+            "from": "lib/ui/order_button.dart",
+            "to": "lib/app/order_service.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/ui/order_button.dart",
+              "line": 1,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "from": "lib/app/order_service.dart",
+            "to": "lib/data/order_repository.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 3,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "from": "lib/data/order_repository.dart",
+            "to": "lib/data/db.dart",
+            "kind": "import",
+            "at": {
+              "path": "lib/data/order_repository.dart",
+              "line": 1,
+              "column": 8
+            },
+            "confidence": "precise",
+            "kindConfidence": "precise",
+            "source": "scip-dart"
+          }
+        ]
+      },
+      {
+        "length": 3,
+        "confidence": "precise",
+        "kindConfidence": "inferred",
+        "source": "scip-dart",
+        "nodes": [
+          {
+            "name": "OrderButton.onPressed",
+            "kind": "method",
+            "path": "lib/ui/order_button.dart",
+            "line": 9,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "OrderService.placeOrder",
+            "kind": "method",
+            "path": "lib/app/order_service.dart",
+            "line": 9,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#placeOrder().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "OrderRepository.save",
+            "kind": "method",
+            "path": "lib/data/order_repository.dart",
+            "line": 4,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`order_repository.dart`/OrderRepository#save().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "writeRow",
+            "kind": "function",
+            "path": "lib/data/db.dart",
+            "line": 3,
+            "column": 6,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          }
+        ],
+        "steps": [
+          {
+            "from": "OrderButton.onPressed",
+            "to": "OrderService.placeOrder",
+            "kind": "call",
+            "at": {
+              "path": "lib/ui/order_button.dart",
+              "line": 10,
+              "column": 13
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          },
+          {
+            "from": "OrderService.placeOrder",
+            "to": "OrderRepository.save",
+            "kind": "call",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 11,
+              "column": 10
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          },
+          {
+            "from": "OrderRepository.save",
+            "to": "writeRow",
+            "kind": "call",
+            "at": {
+              "path": "lib/data/order_repository.dart",
+              "line": 4,
+              "column": 24
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          }
+        ]
+      },
+      {
+        "length": 4,
+        "confidence": "precise",
+        "kindConfidence": "inferred",
+        "source": "scip-dart",
+        "nodes": [
+          {
+            "name": "OrderButton.onPressed",
+            "kind": "method",
+            "path": "lib/ui/order_button.dart",
+            "line": 9,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/ui/`order_button.dart`/OrderButton#onPressed().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "OrderService.placeOrder",
+            "kind": "method",
+            "path": "lib/app/order_service.dart",
+            "line": 9,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#placeOrder().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "OrderService.validate",
+            "kind": "method",
+            "path": "lib/app/order_service.dart",
+            "line": 17,
+            "column": 8,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/app/`order_service.dart`/OrderService#validate().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "logAudit",
+            "kind": "function",
+            "path": "lib/data/audit.dart",
+            "line": 4,
+            "column": 6,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`audit.dart`/logAudit().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          },
+          {
+            "name": "writeRow",
+            "kind": "function",
+            "path": "lib/data/db.dart",
+            "line": 3,
+            "column": 6,
+            "key": "scip-dart pub trace_sample 1.0.0 lib/data/`db.dart`/writeRow().",
+            "confidence": "precise",
+            "source": "scip-dart"
+          }
+        ],
+        "steps": [
+          {
+            "from": "OrderButton.onPressed",
+            "to": "OrderService.placeOrder",
+            "kind": "call",
+            "at": {
+              "path": "lib/ui/order_button.dart",
+              "line": 10,
+              "column": 13
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          },
+          {
+            "from": "OrderService.placeOrder",
+            "to": "OrderService.validate",
+            "kind": "call",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 10,
+              "column": 5
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          },
+          {
+            "from": "OrderService.validate",
+            "to": "logAudit",
+            "kind": "call",
+            "at": {
+              "path": "lib/app/order_service.dart",
+              "line": 18,
+              "column": 5
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          },
+          {
+            "from": "logAudit",
+            "to": "writeRow",
+            "kind": "call",
+            "at": {
+              "path": "lib/data/audit.dart",
+              "line": 4,
+              "column": 26
+            },
+            "confidence": "precise",
+            "kindConfidence": "inferred",
+            "source": "scip-dart"
+          }
+        ]
+      }
+    ],
+    "capped": false
+  }
+}

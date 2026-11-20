@@ -1,0 +1,6 @@
+name: changes_sample
+description: code-atlas detect_changes test fixture. A small Dart app with an existing file cycle and an existing backward import.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

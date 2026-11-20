@@ -1,0 +1,363 @@
+{
+  "title": "modular_sample 코드 지도",
+  "repo": "modular_sample",
+  "branch": "main",
+  "root": "lib/",
+  "compact": [
+    "lib/features/"
+  ],
+  "rules": [
+    {
+      "path": "lib/features/{module}/**"
+    },
+    {
+      "path": "lib/shared/**",
+      "module": "shared"
+    },
+    {
+      "path": "lib/*",
+      "module": "app"
+    }
+  ],
+  "files": [
+    {
+      "p": "lib/app.dart",
+      "m": "app",
+      "l": 13,
+      "c": 1,
+      "i": 0,
+      "o": 4,
+      "t": 0
+    },
+    {
+      "p": "lib/features/catalog/catalog_item.dart",
+      "m": "catalog",
+      "l": 9,
+      "c": 1,
+      "i": 1,
+      "o": 2,
+      "t": 0
+    },
+    {
+      "p": "lib/features/catalog/catalog_list.dart",
+      "m": "catalog",
+      "l": 9,
+      "c": 1,
+      "i": 2,
+      "o": 3,
+      "t": 0
+    },
+    {
+      "p": "lib/features/catalog/catalog_page.dart",
+      "m": "catalog",
+      "l": 8,
+      "c": 1,
+      "i": 2,
+      "o": 2,
+      "t": 0
+    },
+    {
+      "p": "lib/features/catalog/catalog_provider.dart",
+      "m": "catalog",
+      "l": 3,
+      "c": 1,
+      "i": 3,
+      "o": 0,
+      "t": 0
+    },
+    {
+      "p": "lib/features/catalog/price_format.dart",
+      "m": "catalog",
+      "l": 6,
+      "c": 1,
+      "i": 3,
+      "o": 0,
+      "t": 0
+    },
+    {
+      "p": "lib/features/orders/order_status.dart",
+      "m": "orders",
+      "l": 9,
+      "c": 1,
+      "i": 2,
+      "o": 2,
+      "t": 2
+    },
+    {
+      "p": "lib/features/orders/order_status_labels.dart",
+      "m": "orders",
+      "l": 4,
+      "c": 1,
+      "i": 1,
+      "o": 0,
+      "t": 0
+    },
+    {
+      "p": "lib/features/orders/orders_page.dart",
+      "m": "orders",
+      "l": 18,
+      "c": 1,
+      "i": 1,
+      "o": 6,
+      "t": 0
+    },
+    {
+      "p": "lib/shared/header.dart",
+      "m": "shared",
+      "l": 9,
+      "c": 1,
+      "i": 4,
+      "o": 2,
+      "t": 0
+    },
+    {
+      "p": "lib/shared/money.dart",
+      "m": "shared",
+      "l": 8,
+      "c": 1,
+      "i": 0,
+      "o": 0,
+      "t": 0
+    },
+    {
+      "p": "lib/shared/shared.dart",
+      "m": "shared",
+      "l": 3,
+      "c": 1,
+      "i": 0,
+      "o": 2,
+      "t": 2
+    },
+    {
+      "p": "lib/shared/strings.dart",
+      "m": "shared",
+      "l": 8,
+      "c": 1,
+      "i": 4,
+      "o": 0,
+      "t": 1
+    },
+    {
+      "p": "lib/shared/toast.dart",
+      "m": "shared",
+      "l": 5,
+      "c": 1,
+      "i": 1,
+      "o": 1,
+      "t": 0
+    }
+  ],
+  "modules": [
+    {
+      "name": "app",
+      "files": 1,
+      "depth": 3,
+      "lines": 13,
+      "churn": 1,
+      "untested": 1
+    },
+    {
+      "name": "orders",
+      "files": 3,
+      "depth": 2,
+      "lines": 31,
+      "churn": 3,
+      "untested": 2
+    },
+    {
+      "name": "catalog",
+      "files": 5,
+      "depth": 1,
+      "lines": 35,
+      "churn": 5,
+      "untested": 5
+    },
+    {
+      "name": "shared",
+      "files": 5,
+      "depth": 0,
+      "lines": 33,
+      "churn": 5,
+      "untested": 3
+    }
+  ],
+  "medges": {
+    "app>catalog": [
+      [
+        "lib/app.dart",
+        "lib/features/catalog/catalog_page.dart"
+      ],
+      [
+        "lib/app.dart",
+        "lib/features/catalog/price_format.dart"
+      ]
+    ],
+    "app>orders": [
+      [
+        "lib/app.dart",
+        "lib/features/orders/orders_page.dart"
+      ]
+    ],
+    "app>shared": [
+      [
+        "lib/app.dart",
+        "lib/shared/header.dart"
+      ]
+    ],
+    "catalog>shared": [
+      [
+        "lib/features/catalog/catalog_list.dart",
+        "lib/shared/strings.dart"
+      ],
+      [
+        "lib/features/catalog/catalog_page.dart",
+        "lib/shared/header.dart"
+      ]
+    ],
+    "orders>shared": [
+      [
+        "lib/features/orders/order_status.dart",
+        "lib/shared/toast.dart"
+      ],
+      [
+        "lib/features/orders/orders_page.dart",
+        "lib/shared/header.dart"
+      ],
+      [
+        "lib/features/orders/orders_page.dart",
+        "lib/shared/strings.dart"
+      ]
+    ],
+    "orders>catalog": [
+      [
+        "lib/features/orders/orders_page.dart",
+        "lib/features/catalog/catalog_page.dart"
+      ],
+      [
+        "lib/features/orders/orders_page.dart",
+        "lib/features/catalog/catalog_provider.dart"
+      ],
+      [
+        "lib/features/orders/orders_page.dart",
+        "lib/features/catalog/price_format.dart"
+      ]
+    ],
+    "shared>catalog": [
+      [
+        "lib/shared/header.dart",
+        "lib/features/catalog/catalog_provider.dart"
+      ]
+    ],
+    "shared>orders": [
+      [
+        "lib/shared/toast.dart",
+        "lib/features/orders/order_status.dart"
+      ]
+    ]
+  },
+  "backEdges": [
+    "shared>catalog",
+    "shared>orders"
+  ],
+  "back": [
+    {
+      "from": "lib/shared/header.dart",
+      "to": "lib/features/catalog/catalog_provider.dart",
+      "allowed": true
+    },
+    {
+      "from": "lib/shared/toast.dart",
+      "to": "lib/features/orders/order_status.dart",
+      "allowed": false
+    }
+  ],
+  "order": [
+    "app",
+    "orders",
+    "catalog",
+    "shared"
+  ],
+  "cycleMods": [
+    "orders",
+    "catalog",
+    "shared"
+  ],
+  "minimal": true,
+  "cycles": [
+    {
+      "files": [
+        "lib/features/catalog/catalog_item.dart",
+        "lib/features/catalog/catalog_list.dart"
+      ],
+      "mods": [
+        "catalog"
+      ],
+      "edges": [
+        [
+          "lib/features/catalog/catalog_item.dart",
+          "lib/features/catalog/catalog_list.dart"
+        ],
+        [
+          "lib/features/catalog/catalog_list.dart",
+          "lib/features/catalog/catalog_item.dart"
+        ]
+      ]
+    },
+    {
+      "files": [
+        "lib/features/orders/order_status.dart",
+        "lib/shared/toast.dart"
+      ],
+      "mods": [
+        "orders",
+        "shared"
+      ],
+      "edges": [
+        [
+          "lib/features/orders/order_status.dart",
+          "lib/shared/toast.dart"
+        ],
+        [
+          "lib/shared/toast.dart",
+          "lib/features/orders/order_status.dart"
+        ]
+      ]
+    }
+  ],
+  "reach": [
+    {
+      "t": "lib/features/catalog/price_format.dart",
+      "module": "catalog",
+      "from": [
+        "lib/features/orders/orders_page.dart"
+      ],
+      "label": null,
+      "note": null
+    },
+    {
+      "t": "lib/features/orders/order_status.dart",
+      "module": "orders",
+      "from": [
+        "lib/shared/toast.dart"
+      ],
+      "label": null,
+      "note": null
+    }
+  ],
+  "shared": [
+    "shared"
+  ],
+  "allowFiles": [
+    "tool/boundaries.dart"
+  ],
+  "bands": {
+    "shared": ""
+  },
+  "pkgUse": {
+    "meta": [
+      "lib/shared/money.dart"
+    ]
+  },
+  "pkgNames": {},
+  "select": "catalog"
+}

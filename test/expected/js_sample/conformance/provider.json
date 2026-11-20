@@ -1,0 +1,59 @@
+{
+  "query": "cartProvider",
+  "status": "found",
+  "symbol": {
+    "name": "cartProvider",
+    "qualifiedName": "cartProvider",
+    "kind": "constant",
+    "definition": {
+      "path": "src/providers.js",
+      "line": 16,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/main.js",
+        "line": 6,
+        "column": 31,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/providers.js",
+        "line": 19,
+        "column": 53,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "totalProvider",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "test/pricing.test.js",
+        "line": 7,
+        "column": 22,
+        "role": "test",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 2,
+      "test": 1
+    }
+  }
+}

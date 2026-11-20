@@ -1,0 +1,57 @@
+{
+  "query": "totalProvider",
+  "status": "found",
+  "symbol": {
+    "name": "totalProvider",
+    "qualifiedName": "totalProvider",
+    "kind": "variable",
+    "definition": {
+      "path": "shop/providers.py",
+      "line": 6,
+      "column": 1
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.py",
+        "line": 1,
+        "column": 61,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "bin/checkout.py",
+        "line": 10,
+        "column": 26,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/__init__.py",
+        "line": 4,
+        "column": 38,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ],
+    "byRole": {
+      "app": 3,
+      "test": 0
+    }
+  }
+}

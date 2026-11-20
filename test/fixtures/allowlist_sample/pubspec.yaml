@@ -1,0 +1,6 @@
+name: allowlist_sample
+description: code-atlas check 허용 목록 테스트용 예제. 허용은 (가져다 쓰는 모듈, 대상) 쌍이라, 같은 대상을 다른 모듈이 거꾸로 가져오면 새 위반이에요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

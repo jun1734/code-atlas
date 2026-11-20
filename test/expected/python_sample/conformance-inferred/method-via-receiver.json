@@ -1,0 +1,25 @@
+{
+  "query": "Cart.total",
+  "status": "found",
+  "symbol": {
+    "name": "total",
+    "qualifiedName": "Cart.total",
+    "kind": "method",
+    "definition": {
+      "path": "shop/cart.py",
+      "line": 28,
+      "column": 9
+    },
+    "confidence": "inferred",
+    "source": "tree-sitter-python"
+  },
+  "uses": {
+    "total": 0,
+    "truncated": false,
+    "items": [],
+    "byRole": {
+      "app": 0,
+      "test": 0
+    }
+  }
+}

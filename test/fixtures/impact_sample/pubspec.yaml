@@ -1,0 +1,6 @@
+name: impact_sample
+description: code-atlas impact 테스트용 예제. 금액 도우미를 장바구니가, 장바구니를 계산이, 계산을 앱과 테스트가 쓰는 작은 Dart 앱이에요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

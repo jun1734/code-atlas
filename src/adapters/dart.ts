@@ -1,9 +1,10 @@
 // Dart 정밀 어댑터: 저장소 안의 Dart 패키지마다 scip-dart를 돌리고 SCIP 색인을 사실로 옮겨요.
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { appendFacts, emptyFacts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
+import { appendFacts, emptyFacts, IndexerMissing, type Facts, type LanguageAdapter, type RepoInfo } from '../facts.ts';
 import { run, runOrThrow } from '../run.ts';
 import { scipToFacts } from '../scip/to-facts.ts';
+import { refineDartFacts } from './dart-refine.ts';
 
 /** 시험한 scip-dart 버전. README와 CI도 이 버전을 깔아요. */
 const SCIP_DART_VERSION = '1.8.1';
@@ -48,11 +49,49 @@ const toLinuxForm = (s: string) =>
     .replace(/`([^`]*\\[^`]*)`/g, (_, path: string) => path.split('\\').map(descriptorName).join('/'))
     .replaceAll('\\', '/');
 
+/**
+ * `part of 'a.dart';` 지시문은 scip-dart가 a.dart로 가는 import처럼 적어요. 하지만 part 파일은 a.dart와 한 라이브러리라
+ * 기대는 방향이 아니에요(a.dart의 `part` 지시문이 이미 이어 줘요). 그대로 두면 라이브러리마다 서로 물린 파일 묶음이 생겨서 빼요.
+ */
+function dropPartOf(facts: Facts, readText: (path: string) => string | null): Facts {
+  const lines = new Map<string, string[]>();
+  const lineOf = (path: string, line: number) => {
+    let text = lines.get(path);
+    if (!text) lines.set(path, (text = (readText(path) ?? '').split('\n')));
+    return text[line] ?? '';
+  };
+  facts.relations = facts.relations.filter(
+    (r) => !(r.kind === 'import' && 'path' in r.to && /^\s*part\s+of\b/.test(lineOf(r.from.path, r.from.range.startLine))),
+  );
+  return facts;
+}
+
+/** 저장소 기준 경로의 소스 글. 없으면 null. */
+function readSource(root: string, path: string): string | null {
+  try {
+    return readFileSync(join(root, path), 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 export const dartAdapter: LanguageAdapter = {
   name: 'scip-dart',
   language: 'dart',
+  install: SCIP_DART_INSTALL,
 
   applies: (repo) => dartPackages(repo).length > 0,
+
+  // `dart:async`처럼 ':'이 든 이름은 SDK 라이브러리예요(pub 패키지 이름에는 ':'이 없어요).
+  isStandardLibrary: (pkg) => pkg.includes(':'),
+
+  // scip-dart는 패키지마다 pub get이 만든 패키지 설정을 읽어요. git이 무시해서 커밋에는 없어요.
+  toolState: (repo) =>
+    dartPackages(repo).map((pkg) => {
+      const at = (file: string) => (pkg ? `${pkg}/${file}` : file);
+      // 패키지 설정은 pub get이 pubspec.yaml과 pubspec.lock으로 만든 거라 둘이 같아야 그 커밋에도 맞아요.
+      return { files: [at('.dart_tool/package_config.json'), at('.dart_tool/package_graph.json')], sameAs: [at('pubspec.yaml'), at('pubspec.lock')] };
+    }),
 
   async index(repo, workDir) {
     const probe = run('dart', ['pub', 'global', 'run', 'scip_dart', '--version']);
@@ -66,7 +105,9 @@ export const dartAdapter: LanguageAdapter = {
       const out = join(workDir, `dart-${i}.scip`);
       // 경로는 절대 경로로 줘요. './'로 주면 scip-dart 1.8.1이 패키지 전체를 '중첩 패키지'로 보고 0개를 색인해요.
       runOrThrow('dart', ['pub', 'global', 'run', 'scip_dart', '-o', out, pkgRoot], pkgRoot);
-      appendFacts(facts, scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm }));
+      const raw = scipToFacts(out, { source: this.name, language: this.language, pathPrefix: pkg, normalize: toLinuxForm });
+      const readText = (path: string) => readSource(repo.root, path);
+      appendFacts(facts, dropPartOf(refineDartFacts(raw, { pathPrefix: pkg, readText }), readText));
     }
     return facts;
   },

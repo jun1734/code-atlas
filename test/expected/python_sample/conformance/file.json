@@ -1,0 +1,124 @@
+{
+  "query": "shop/pricing.py",
+  "status": "found",
+  "file": {
+    "path": "shop/pricing.py",
+    "language": "python",
+    "role": "app"
+  },
+  "defines": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "key": "scip-python python . 0 `shop.pricing`/withTax().",
+        "name": "withTax",
+        "qualifiedName": "withTax",
+        "kind": "function",
+        "definition": {
+          "path": "shop/pricing.py",
+          "line": 4,
+          "column": 5
+        },
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "key": "scip-python python . 0 `shop.pricing`/shippingFee.",
+        "name": "shippingFee",
+        "qualifiedName": "shippingFee",
+        "kind": "constant",
+        "definition": {
+          "path": "shop/pricing.py",
+          "line": 10,
+          "column": 1
+        },
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "key": "scip-python python . 0 `shop.pricing`/discountPercent.",
+        "name": "discountPercent",
+        "qualifiedName": "discountPercent",
+        "kind": "variable",
+        "definition": {
+          "path": "shop/pricing.py",
+          "line": 13,
+          "column": 1
+        },
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "key": "scip-python python . 0 `shop.pricing`/setDiscount().",
+        "name": "setDiscount",
+        "qualifiedName": "setDiscount",
+        "kind": "function",
+        "definition": {
+          "path": "shop/pricing.py",
+          "line": 16,
+          "column": 5
+        },
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ]
+  },
+  "imports": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "shop/__init__.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/cart.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python",
+        "uses": 5
+      },
+      {
+        "path": "shop/__init__.py",
+        "role": "app",
+        "confidence": "inferred",
+        "source": "scip-python",
+        "uses": 4
+      },
+      {
+        "path": "shop/cart.py",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-python",
+        "uses": 5
+      },
+      {
+        "path": "tests/test_pricing.py",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-python",
+        "uses": 4
+      }
+    ]
+  }
+}

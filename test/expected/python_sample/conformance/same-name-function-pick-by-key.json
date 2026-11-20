@@ -1,0 +1,32 @@
+{
+  "query": "main",
+  "status": "ambiguous",
+  "candidates": [
+    {
+      "key": "scip-python python . 0 `bin.checkout`/main().",
+      "name": "main",
+      "qualifiedName": "main",
+      "kind": "function",
+      "definition": {
+        "path": "bin/checkout.py",
+        "line": 4,
+        "column": 5
+      },
+      "confidence": "precise",
+      "source": "scip-python"
+    },
+    {
+      "key": "scip-python python . 0 `tests.test_pricing`/main().",
+      "name": "main",
+      "qualifiedName": "main",
+      "kind": "function",
+      "definition": {
+        "path": "tests/test_pricing.py",
+        "line": 4,
+        "column": 5
+      },
+      "confidence": "precise",
+      "source": "scip-python"
+    }
+  ]
+}

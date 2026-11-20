@@ -1,0 +1,4 @@
+{
+  "modules": [{ "path": "lib/{module}/**" }],
+  "flows": { "entries": [{ "name": "pay" }] }
+}

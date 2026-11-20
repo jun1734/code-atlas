@@ -1,0 +1,59 @@
+{
+  "query": "discountPercent",
+  "status": "found",
+  "symbol": {
+    "name": "discountPercent",
+    "qualifiedName": "discountPercent",
+    "kind": "variable",
+    "definition": {
+      "path": "src/pricing.ts",
+      "line": 10,
+      "column": 12
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "line": 19,
+        "column": 50,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "Cart.add",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/pricing.ts",
+        "line": 14,
+        "column": 3,
+        "role": "app",
+        "kind": "write",
+        "kindConfidence": "inferred",
+        "in": "setDiscount",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/pricing.ts",
+        "line": 15,
+        "column": 3,
+        "role": "app",
+        "kind": "write",
+        "kindConfidence": "inferred",
+        "in": "setDiscount",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 3,
+      "test": 0
+    }
+  }
+}

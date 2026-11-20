@@ -1,0 +1,97 @@
+{
+  "config": ".code-atlas.json",
+  "summary": {
+    "names": 9,
+    "clusters": 2,
+    "singletons": 0,
+    "crossModule": 1,
+    "modularity": 0.433
+  },
+  "clusters": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "size": 6,
+        "representative": {
+          "name": "formatReceipt",
+          "kind": "function",
+          "definition": {
+            "path": "lib/misc/receipt_format.dart",
+            "line": 6,
+            "column": 8
+          }
+        },
+        "names": {
+          "total": 6,
+          "truncated": false,
+          "items": [
+            "Invoice",
+            "LineItem",
+            "formatReceipt",
+            "lineTax",
+            "taxRate",
+            "withTax"
+          ]
+        },
+        "files": {
+          "total": 4,
+          "truncated": false,
+          "items": [
+            "lib/billing/invoice.dart",
+            "lib/billing/line_item.dart",
+            "lib/billing/tax.dart",
+            "lib/misc/receipt_format.dart"
+          ]
+        },
+        "modules": [
+          "billing",
+          "misc"
+        ],
+        "crossModule": true,
+        "internalEdges": 17,
+        "externalEdges": 1,
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "size": 3,
+        "representative": {
+          "name": "Message",
+          "kind": "class",
+          "definition": {
+            "path": "lib/chat/message.dart",
+            "line": 3,
+            "column": 7
+          }
+        },
+        "names": {
+          "total": 3,
+          "truncated": false,
+          "items": [
+            "Message",
+            "Room",
+            "Sender"
+          ]
+        },
+        "files": {
+          "total": 3,
+          "truncated": false,
+          "items": [
+            "lib/chat/message.dart",
+            "lib/chat/room.dart",
+            "lib/chat/sender.dart"
+          ]
+        },
+        "modules": [
+          "chat"
+        ],
+        "crossModule": false,
+        "internalEdges": 10,
+        "externalEdges": 1,
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}

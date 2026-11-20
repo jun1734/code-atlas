@@ -1,0 +1,247 @@
+{
+  "source": "hijo_app scripts/code-map/build.mjs (PR #188, 47dbba6) run on 7ba0197",
+  "commit": "7ba019787559e4c02cea6840a7d646d077753b9d",
+  "files": 205,
+  "cycles": [
+    [
+      "lib/features/current_state_tests/share/instagram_story_sender.dart",
+      "lib/features/current_state_tests/share/kakao_share_sender.dart",
+      "lib/features/current_state_tests/share/result_card.dart",
+      "lib/features/current_state_tests/share/share_cards.dart",
+      "lib/features/current_state_tests/share/share_plus_sender.dart",
+      "lib/features/current_state_tests/share/share_sender.dart"
+    ],
+    [
+      "lib/features/current_state_tests/test_flow.dart",
+      "lib/features/current_state_tests/test_intro_page.dart",
+      "lib/features/current_state_tests/test_questions_page.dart",
+      "lib/features/current_state_tests/test_result_page.dart"
+    ],
+    [
+      "lib/features/auth/consent/signup_consent.dart",
+      "lib/features/auth/consent/signup_consent_page.dart"
+    ],
+    [
+      "lib/features/calendar/calendar_tab.dart",
+      "lib/features/calendar/day_sheet.dart"
+    ],
+    [
+      "lib/features/current_state_tests/share/scenes/scene_art.dart",
+      "lib/features/current_state_tests/share/scenes/scene_drawings.dart"
+    ]
+  ],
+  "modules": [
+    {
+      "name": "main",
+      "layer": 9
+    },
+    {
+      "name": "entry",
+      "layer": 8
+    },
+    {
+      "name": "splash",
+      "layer": 2
+    },
+    {
+      "name": "shell",
+      "layer": 7
+    },
+    {
+      "name": "menu",
+      "layer": 6
+    },
+    {
+      "name": "home",
+      "layer": 5
+    },
+    {
+      "name": "light_actions",
+      "layer": 3
+    },
+    {
+      "name": "profile",
+      "layer": 5
+    },
+    {
+      "name": "support",
+      "layer": 2
+    },
+    {
+      "name": "onboarding",
+      "layer": 1
+    },
+    {
+      "name": "diary",
+      "layer": 3
+    },
+    {
+      "name": "detox",
+      "layer": 3
+    },
+    {
+      "name": "current_state_tests",
+      "layer": 3
+    },
+    {
+      "name": "calendar",
+      "layer": 4
+    },
+    {
+      "name": "day_record",
+      "layer": 2
+    },
+    {
+      "name": "class_reviews",
+      "layer": 3
+    },
+    {
+      "name": "classes",
+      "layer": 2
+    },
+    {
+      "name": "auth",
+      "layer": 4
+    },
+    {
+      "name": "legal",
+      "layer": 3
+    },
+    {
+      "name": "notifications",
+      "layer": 2
+    },
+    {
+      "name": "help",
+      "layer": 2
+    },
+    {
+      "name": "content",
+      "layer": 2
+    },
+    {
+      "name": "common",
+      "layer": 1
+    },
+    {
+      "name": "hijo_facts",
+      "layer": 0
+    },
+    {
+      "name": "design_system",
+      "layer": 0
+    }
+  ],
+  "backwardImports": [
+    {
+      "from": "lib/features/common/app_header.dart",
+      "to": "lib/features/notifications/notifications_page.dart",
+      "allowed": true
+    },
+    {
+      "from": "lib/features/common/firestore_write.dart",
+      "to": "lib/features/auth/auth_error_message.dart",
+      "allowed": true
+    },
+    {
+      "from": "lib/features/common/help_line.dart",
+      "to": "lib/features/help/help_page.dart",
+      "allowed": true
+    },
+    {
+      "from": "lib/features/common/tab_frame.dart",
+      "to": "lib/features/content/content_repository.dart",
+      "allowed": true
+    }
+  ],
+  "reviewCandidates": [
+    {
+      "target": "lib/features/auth/auth_error_message.dart",
+      "from": [
+        "lib/features/common/firestore_write.dart",
+        "lib/features/profile/account_page.dart",
+        "lib/features/profile/deletion/deletion_status_state.dart"
+      ]
+    },
+    {
+      "target": "lib/features/auth/social/naver_auth.dart",
+      "from": [
+        "lib/features/profile/deletion/account_deletion_providers.dart"
+      ]
+    },
+    {
+      "target": "lib/features/classes/class_booking.dart",
+      "from": [
+        "lib/features/calendar/calendar_tab.dart",
+        "lib/features/calendar/day_done.dart",
+        "lib/features/calendar/day_sheet.dart",
+        "lib/features/class_reviews/class_review_write_page.dart",
+        "lib/features/class_reviews/class_reviews_tab.dart"
+      ]
+    },
+    {
+      "target": "lib/features/content/class_links.dart",
+      "from": [
+        "lib/features/current_state_tests/results/result_classes.dart"
+      ]
+    },
+    {
+      "target": "lib/features/content/current_state_test_edition.dart",
+      "from": [
+        "lib/features/current_state_tests/invite/invite_result_sections.dart",
+        "lib/features/current_state_tests/results/domain_battery_result.dart",
+        "lib/features/current_state_tests/results/part_sum_result.dart",
+        "lib/features/current_state_tests/results/result_classes.dart",
+        "lib/features/current_state_tests/results/result_sections.dart",
+        "lib/features/current_state_tests/results/sum_level_result.dart",
+        "lib/features/current_state_tests/results/test_result_head.dart",
+        "lib/features/current_state_tests/results/two_axis_result.dart",
+        "lib/features/current_state_tests/scoring.dart",
+        "lib/features/current_state_tests/test_flow.dart",
+        "lib/features/current_state_tests/test_intro_sections.dart",
+        "lib/features/current_state_tests/test_questions_page.dart",
+        "lib/features/current_state_tests/test_records.dart",
+        "lib/features/current_state_tests/test_result_page.dart"
+      ]
+    },
+    {
+      "target": "lib/features/content/current_state_test.dart",
+      "from": [
+        "lib/features/current_state_tests/current_state_tests_tab.dart",
+        "lib/features/current_state_tests/my_test_results_page.dart",
+        "lib/features/current_state_tests/test_flow.dart",
+        "lib/features/current_state_tests/test_intro_page.dart",
+        "lib/features/current_state_tests/test_questions_page.dart",
+        "lib/features/current_state_tests/test_records.dart",
+        "lib/features/current_state_tests/test_result_page.dart",
+        "lib/features/shell/invite_handoff.dart"
+      ]
+    },
+    {
+      "target": "lib/features/content/light_action.dart",
+      "from": [
+        "lib/features/calendar/day_done.dart",
+        "lib/features/current_state_tests/share/share_card_decor.dart",
+        "lib/features/light_actions/light_actions_tab.dart"
+      ]
+    },
+    {
+      "target": "lib/features/content/mochi_question.dart",
+      "from": [
+        "lib/features/home/question/mochi_question_card.dart"
+      ]
+    },
+    {
+      "target": "lib/features/onboarding/onboarding_frame.dart",
+      "from": [
+        "lib/features/splash/welcome_splash.dart"
+      ]
+    },
+    {
+      "target": "lib/features/onboarding/onboarding_pages.dart",
+      "from": [
+        "lib/features/splash/welcome_splash.dart"
+      ]
+    }
+  ]
+}

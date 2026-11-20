@@ -1,0 +1,117 @@
+{
+  "query": "src/pricing.ts",
+  "status": "found",
+  "file": {
+    "path": "src/pricing.ts",
+    "language": "typescript",
+    "role": "app"
+  },
+  "defines": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "key": "scip-typescript npm ts_sample 1.0.0 src/`pricing.ts`/withTax().",
+        "name": "withTax",
+        "qualifiedName": "withTax",
+        "kind": "function",
+        "definition": {
+          "path": "src/pricing.ts",
+          "line": 2,
+          "column": 17
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm ts_sample 1.0.0 src/`pricing.ts`/shippingFee.",
+        "name": "shippingFee",
+        "qualifiedName": "shippingFee",
+        "kind": "constant",
+        "definition": {
+          "path": "src/pricing.ts",
+          "line": 7,
+          "column": 14
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm ts_sample 1.0.0 src/`pricing.ts`/discountPercent.",
+        "name": "discountPercent",
+        "qualifiedName": "discountPercent",
+        "kind": "variable",
+        "definition": {
+          "path": "src/pricing.ts",
+          "line": 10,
+          "column": 12
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "key": "scip-typescript npm ts_sample 1.0.0 src/`pricing.ts`/setDiscount().",
+        "name": "setDiscount",
+        "qualifiedName": "setDiscount",
+        "kind": "function",
+        "definition": {
+          "path": "src/pricing.ts",
+          "line": 13,
+          "column": 17
+        },
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "imports": {
+    "total": 0,
+    "truncated": false,
+    "items": []
+  },
+  "importedBy": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/index.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ]
+  },
+  "usedBy": {
+    "total": 3,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript",
+        "uses": 3
+      },
+      {
+        "path": "src/main.ts",
+        "role": "app",
+        "confidence": "precise",
+        "source": "scip-typescript",
+        "uses": 3
+      },
+      {
+        "path": "test/pricing.test.ts",
+        "role": "test",
+        "confidence": "precise",
+        "source": "scip-typescript",
+        "uses": 3
+      }
+    ]
+  }
+}

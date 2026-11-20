@@ -1,0 +1,48 @@
+{
+  "query": "shippingFee",
+  "status": "found",
+  "symbol": {
+    "name": "shippingFee",
+    "qualifiedName": "shippingFee",
+    "kind": "constant",
+    "definition": {
+      "path": "lib/src/pricing.dart",
+      "line": 5,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-dart"
+  },
+  "uses": {
+    "total": 2,
+    "byRole": {
+      "app": 1,
+      "test": 1
+    },
+    "truncated": false,
+    "items": [
+      {
+        "path": "lib/src/cart.dart",
+        "line": 24,
+        "column": 18,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "Cart.total",
+        "confidence": "precise",
+        "source": "scip-dart"
+      },
+      {
+        "path": "test/pricing_test.dart",
+        "line": 8,
+        "column": 47,
+        "role": "test",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-dart"
+      }
+    ]
+  }
+}
