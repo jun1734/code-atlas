@@ -41,6 +41,9 @@ const ITEM_QUESTIONS: string[][] = [
   ['search', 'cart'],
   ['clusters'],
   ['detect_changes'],
+  ['rename', 'Cart', '--to', 'Basket'],
+  ['rename', 'Cart.total', '--to', 'add'],
+  ['rename', 'add', '--to', 'push'],
 ];
 
 describe('답의 계약 (명령줄과 MCP)', () => {

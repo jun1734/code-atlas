@@ -227,6 +227,7 @@ interface FileSyntax {
   - `usersOf(path)`: 파일이 정의한 이름을 쓰는 다른 파일과 사용처 수. 이름으로 이어서 barrel을 거친 곳도 나와요.
   - `filePaths()`, `definitions()`(정의 전부와 바로 바깥 심볼 `parentKey`), `referencedKeys()`(사용처가 있는 열쇠): 저장소 전체를 훑는 검사(check)용.
   - `externalRefs()`: 파일마다 가리키는 저장소 밖 심볼의 열쇠(같은 쌍은 한 번). 코드 지도의 "외부 SDK가 닿는 파일"용.
+  - `relationSitesIn(path)`: 파일에 적힌 관계(import 빼고)가 시작하는 자리 전부(저장소 밖 심볼로 가는 것 포함). rename이 색인이 이미 무엇인가로 이은 자리를 `unlinked` 찾기에서 빼요.
 - `open`은 스키마 버전이 다른 옛 색인을 비우고 새로 만들어요. 그러면 다음 넣기가 처음부터 색인이 돼요.
 
 ### 증분 반영
@@ -393,7 +394,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 ## 지점 풀기와 서술
 
-`src/query/point.ts`. context, impact, trace가 같은 것을 써요.
+`src/query/point.ts`. context, impact, trace, rename이 같은 것을 써요.
 
 - `resolvePoint(store, query)`: 물은 글이 색인된 파일 경로와 정확히 맞으면(`\`는 `/`로) `file`, 아니면 이름(`findSymbols`: key → qualifiedName → name)으로 `symbol`, 여럿이면 `ambiguous`(후보), 없으면 `not_found`.
 - `Point`와 `pointOfSymbol`, `pointOfFile`, `pointOfNode`: 답에 지점을 적는 꼴(`name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`). trace의 지점과 impact의 항목, clusters의 대표 이름이 이것으로 적혀요. `locationOf`는 적힌 자리에서 경로·줄·열만 남겨요.
@@ -417,6 +418,23 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 - `confidence`: 그 관계가 있다는 것(어디서 무엇을 쓰는지)의 믿음. 정밀 어댑터(scip-dart)의 관계는 `precise`, 추정 층(Tree-sitter)의 관계는 `inferred`예요. `inferred` 구간은 이름으로 이은 것이라 다른 같은 이름일 수 있어요.
 - `kindConfidence`: 그 관계의 종류(`kind`)의 믿음. Dart에서 `call`·`read`·`write`·`reference`는 문법으로 가려 `inferred`, `import`와 상속·구현은 `precise`예요. 그래서 Dart의 `follow: calls` 경로는 늘 `kindConfidence: inferred`예요: 관계는 정밀하지만, 그것이 "호출"이라는 것은 문법으로 가린 추정이에요(예: 함수를 값으로 넘기는 곳은 `read`로 가려져 호출 경로에서 빠져요).
+
+## 질의: rename
+
+`src/query/rename.ts`. 이름 하나를 새 이름으로 바꿀 때 고칠 자리 전부의 계획(`rename <이름> --to <새 이름>`)이에요. **파일은 고치지 않아요.** 계획대로 고치는 것은 부르는 쪽이에요.
+
+- 이름: context와 같은 해석기(`resolvePoint`). 여럿이면 `ambiguous`와 후보, 없으면 `not_found`. 다만 후보가 모두 같은 파일, 같은 바깥 이름의 getter·setter면 접근자 짝 하나로 보고 함께 바꿔요(추정 층은 getter와 setter를 따로 적어요. 정밀 Dart 어댑터는 이미 한 열쇠로 합쳐요). 파일 경로, 식별자가 아닌 새 이름(점·공백), 지금과 같은 새 이름은 오류(`UserError`)예요.
+- **고칠 자리** (`RenameSite`): 한 줄 안의 `[column, endColumn)`(1부터, UTF-16 단위) 글 `oldText`를 `newText`로. `kind`(`definition`, 사용처의 관계 종류, `unlinked`), `role`, 감싸는 이름 `in`, `confidence`, `source`. 경로, 줄, 열 순이에요. 언어마다 모양이 같아요.
+  1. 색인이 알려 준 자리: 정의와 사용처 전부(`usesOf`). Dart의 show·hide 조합자, 글에 끼운 이름(`$x`, `${x}`), 이름 있는 생성자 선언의 클래스 이름(`Money.zero`의 `Money`)은 scip-dart가 사용처로 줘서 여기 들어요.
+  2. 자리마다 저장소 파일의 그 자리 글이 옛 이름인지 확인해요. 다르면 계획에 넣지 않고 경고(`mismatch`)예요(색인이 낡았거나 색인기의 범위가 이름과 다를 때).
+  3. **색인이 잇지 못한 자리(`unlinked`)**: 정의를 품은 범위(멤버면 바깥 타입의 정의 전체, 아니면 정의 자신) 안에서 옛 이름과 같은 글 가운데, 색인의 정의·관계가 없는 자리를 그 언어의 문법(언어 목록 `LANGUAGES`의 추정 규칙이 쓰는 Tree-sitter 문법)으로 읽어 식별자인 것만 골라요. 주석과 글(문자열) 안은 빼고, 글에 끼운 식(substitution, interpolation) 안은 넣어요. 정밀 Dart 어댑터가 열쇠를 합치며 정의를 하나만 남긴 것(이름 없는 생성자 선언 `Money(…)`, getter와 짝인 setter 선언)이 여기서 나와요. 문법으로 고른 것이라 `confidence: inferred`, `source: tree-sitter-<언어>`예요. 추정 규칙이 없는 언어는 찾지 않아요.
+- **둘로 나눠요**: `edits`는 정밀 층의 자리, `inferred`는 추정 층이 이은 자리와 `unlinked`예요. 같은 자리가 둘 다에서 나오면 정밀을 둬요. 둘 다 `Page`(`limit`)이고, 잘렸으면(`truncated`) 계획이 다 나오지 않은 것이니 늘려서 다시 물어요.
+- **경고** (`warnings`, `Page`): 종류 순(`conflict`, `override`, `mismatch`), 그다음 경로·줄·열 순. 항목의 표시는 그 경고가 가리키는 정의의 것이에요.
+  - `conflict`(새 이름이 같은 범위의 다른 이름과 겹침): 멤버면 같은 타입과, 상속·구현(`extends`/`implements` 간선을 위아래로 따라간 타입)으로 이어진 타입의 멤버. 최상위 이름이면 고칠 파일에 정의된 최상위 이름, 그리고 고칠 파일이 이미 쓰는 다른 파일의 최상위 이름.
+  - `override`: 상속·구현으로 이어진 타입에 옛 이름과 같은 멤버가 있어요. 함께 바꾸지 않으면 재정의 관계가 끊겨요(바꾸지는 않아요: 어느 쪽까지 바꿀지는 부르는 쪽이 정해요).
+- 답: `query`, `newName`, `status`, `oldName`, `targets`(바꿀 심볼), `edits`, `inferred`, `warnings`, `summary`(`files`: 고칠 파일 수, 각 목록의 개수).
+- 놓치는 것: 추정 층으로만 색인한 언어는 추정 층이 잇지 못한 사용처(Dart: show·hide, 글에 끼운 함수 값, 수신자 타입을 알아야 하는 멤버)가 계획에 없어요. 지역 이름(매개변수, 지역 변수)은 그래프에 없어 바꿀 수 없어요. 이름 붙은 인자(`f(amount: 1)`)처럼 색인기가 사용처로 주지 않는 자리도 없어요. 저장소 밖에서 쓰는 곳(다른 저장소, 문서)은 모르니 공개 API는 부르는 쪽이 판단해요.
+- 시험은 `test/rename.test.ts`: 예제 `rename_sample`(getter·setter 짝, 이름 있는/없는 생성자, show·hide barrel, 글에 끼운 이름, 겹치는 이름, 구현하는 인터페이스)에서 계획을 정답과 비교하고, 물은 뒤 파일이 바이트 단위로 그대로인지, 계획을 저장소 밖 사본에 적용하면 `dart analyze --fatal-infos`를 통과하는지 봐요. 추정 층 목록은 `mixed_sample`과 `CODE_ATLAS_DISABLE_INDEXERS=scip-dart`로 진짜 추정 자리를 만들어 봐요.
 
 ## 코드 지도 (map)
 

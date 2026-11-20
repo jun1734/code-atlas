@@ -1,6 +1,6 @@
 # 답의 계약
 
-모든 도구(context, impact, check, detect_changes, trace, search, clusters …)의 답이 지키는 약속이에요. 명령줄과 MCP 서버는 같은 답을 내요.
+모든 도구(context, impact, check, detect_changes, trace, search, clusters, rename …)의 답이 지키는 약속이에요. 명령줄과 MCP 서버는 같은 답을 내요.
 지키는 곳은 `src/answer.ts`(봉투, 목록, 항목)와 `src/queries.ts`(실행기) 한곳이고, 시험은 `test/contract.test.ts`가 도구 호출 경계에서 해요.
 
 ## 답의 모양
