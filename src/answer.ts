@@ -21,6 +21,11 @@ export interface IndexInfo {
   indexedAt: string;
   /** 색인 뒤에 커밋이 바뀌었거나 작업 트리가 색인할 때와 달라졌으면 true, 그대로면 false, 알 수 없으면 null. */
   stale: boolean | null;
+  /**
+   * 답이 다른 커밋의 색인과 견준 것이면(detect_changes의 바꾸기 전) 그 커밋과 그 색인을 만든 때.
+   * 바뀐 것이 없어 그 색인을 쓰지 않았으면 indexedAt은 null. 커밋 색인은 낡지 않아요.
+   */
+  base?: { commit: string; indexedAt: string | null };
 }
 
 /** 답의 항목이 지는 표시: 얼마나 믿을 수 있는지와 어느 색인기가 냈는지. */
@@ -101,9 +106,9 @@ export function indexInfo(store: GraphStore): IndexInfo {
   return { repo: meta.repoRoot, commit: meta.commit, indexedAt: meta.indexedAt, stale: isStale(meta) };
 }
 
-/** 몸통에 봉투를 씌워요. `index`가 맨 앞에 와요. */
-export function envelope<B extends Body>(store: GraphStore, body: B): Answer<B> {
-  return { index: indexInfo(store), ...body };
+/** 몸통에 봉투를 씌워요. `index`가 맨 앞에 와요. info를 주면(질의가 다른 색인으로 답했을 때) 그것이 봉투예요. */
+export function envelope<B extends Body>(store: GraphStore, body: B, info?: IndexInfo): Answer<B> {
+  return { index: info ?? indexInfo(store), ...body };
 }
 
 /** 답을 바깥에 내는 글 모양. 명령줄과 MCP가 같은 글을 내요. */

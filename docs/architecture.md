@@ -530,6 +530,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   - 경계 위반(`structure.violations`): 흐름을 거스르는 import 가운데 허용 목록에 없는 것(check의 새 위반). (가져다 쓰는 파일, 대상)이 바꾸기 전에도 위반이었으면 `existing`, 아니면 `introduced`예요. `newImport`는 그 import 자체가 이 변경으로 생겼는지예요. `false`면 이미 있던 import가, 새 import 때문에 모듈 순서(흐름을 거스르는 수가 가장 적은 순서)가 바뀌며 위반이 된 거예요.
 - 줄 범위를 쓰려고 그래프 저장소에 정의 전체의 줄(`body_line`, `body_end_line`)을 둬요(스키마 4).
 - 질의 실행기는 이 질의 때문에 `run`이 Promise를 돌려줄 수 있고 색인 파일 자리(`ctx.db`)를 받아요(`src/queries.ts`).
+- **봉투**: 답을 만든 색인을 `ctx.describeIndex`로 알려요. `--head`면 head 커밋의 색인(`stale: false`), 아니면 저장소 색인이고, 둘 다 `base`(바꾸기 전 커밋과 그 색인을 만든 때)를 더해요(docs/contract.md 약속 1).
 
 ## 질의: clusters
 

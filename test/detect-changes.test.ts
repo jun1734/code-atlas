@@ -147,6 +147,9 @@ describe('changes_sample detect_changes (작업 트리)', () => {
     assert.equal(fx.gitStatus(), status);
     assert.equal(answer.reindexed, true);
     assert.equal(answer.index.stale, false);
+    // 바꾼 뒤는 작업 트리(저장소 색인), 바꾸기 전은 base(HEAD) 커밋의 색인이에요.
+    assert.equal(answer.index.commit, fx.head());
+    assert.equal(answer.index.base.commit, fx.head());
     assert.deepEqual(unmarked(answer), []);
     // 고친 것이 없으면 다시 색인하지 않아요.
     assert.equal(fx.ask('detect_changes').reindexed, false);
@@ -219,6 +222,13 @@ describe('changes_sample detect_changes (두 커밋 사이)', () => {
       assert.deepEqual(answer.base, { ref: first, commit: first });
       assert.deepEqual(answer.head, { ref: second, commit: second });
       assert.equal(answer.reindexed, false);
+      // 봉투는 답을 만든 색인을 말해요: 바꾼 뒤는 head 커밋의 색인, 바꾸기 전은 base 커밋의 색인.
+      // 둘 다 커밋 색인이라 작업 트리가 고쳐져 있어도(저장소 색인은 낡았어도) 낡지 않았어요.
+      assert.equal(answer.index.commit, second);
+      assert.equal(answer.index.stale, false);
+      assert.equal(answer.index.repo, fx.ask('context', 'withVat').index.repo);
+      assert.equal(answer.index.base.commit, first);
+      assert.match(answer.index.base.indexedAt, /^\d{4}-\d\d-\d\dT/);
       assert.deepEqual(changed(answer), ['modified lib/core/money.dart#withVat', 'removed lib/core/money.dart#rounded']);
     } finally {
       fx.restore();

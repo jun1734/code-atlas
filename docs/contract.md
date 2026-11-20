@@ -29,7 +29,11 @@
    - `commit`: 색인 기준 커밋. git 저장소가 아니면 `null`.
    - `indexedAt`: 색인한 때(ISO 8601).
    - `stale`: 색인 뒤로 바뀐 것이 있는지. HEAD가 `commit`과 다르거나 작업 트리가 색인할 때와 달라졌으면(`git status --porcelain`에 나오는 파일과 그 내용으로 비교) `true`, 그대로면 `false`, 알 수 없으면(git 저장소가 아님) `null`. `true`면 답을 그대로 믿지 말고 다시 색인해요.
-   - 봉투는 실행기(`askQuery`)가 씌워요. 질의는 몸통만 만들고, 몸통에 `index`를 넣을 수 없어요(`Body` 타입이 막아요).
+   - **봉투는 답을 만든 색인을 말해요.** 보통은 물은 저장소의 색인이에요. 답을 다른 색인으로 만든 질의는 그 색인을 말해요:
+     - detect_changes `--head <커밋>`: `commit`은 head 커밋, `indexedAt`은 그 커밋 색인을 만든 때, `stale`은 `false`(커밋 색인은 커밋을 꺼내 색인한 것이라 작업 트리와 상관없이 낡지 않아요). `repo`는 물은 저장소예요.
+     - detect_changes(작업 트리): 저장소 색인(낡았으면 먼저 다시 색인한 뒤)의 봉투예요.
+     - detect_changes는 둘 다 `base: { commit, indexedAt }`(바꾸기 전 커밋과 그 커밋 색인을 만든 때)를 더해요. 바뀐 것이 없어 그 색인을 쓰지 않았으면 `indexedAt: null`이에요. 다른 질의의 봉투에는 `base`가 없어요.
+   - 봉투는 실행기(`askQuery`)가 씌워요. 질의는 몸통만 만들고, 몸통에 `index`를 넣을 수 없어요(`Body` 타입이 막아요). 다른 색인으로 답한 질의는 `ctx.describeIndex(info)`로 봉투를 알려요.
 2. **목록: 길어질 수 있는 목록은 `{ total, truncated, items }`예요.**
    - `items`는 앞에서부터 `limit`개, `total`은 자르기 전 전체 개수, `truncated`는 `items`가 전체보다 적은지.
    - 질의는 `cut(all, limit)`(전체를 앞에서부터 자름)이나 `page(items, total)`(이미 자른 것)로 만들어요. `limit` 인자의 기본은 `DEFAULT_LIMIT`(100), 가장 작은 값은 1이에요.
@@ -81,7 +85,7 @@
    ```
 
    - `run`은 몸통만 돌려줘요(`index`는 넣지 않아요). 목록은 `page(items, total)`로, 항목에는 `confidence`와 `source`를 붙여요.
-   - `run(store, args, ctx)`는 몸통이나 그 Promise를 돌려줘요. 봉투는 `run`이 끝난 뒤의 색인 상태로 씌워요. `ctx.db`는 물은 저장소의 색인 파일 자리예요(detect_changes가 다시 색인하거나 그 옆에 커밋 색인을 둘 때 써요). 다른 질의는 `store`와 `args`만 써요.
+   - `run(store, args, ctx)`는 몸통이나 그 Promise를 돌려줘요. 봉투는 `run`이 끝난 뒤의 색인 상태로 씌워요(저장소 색인이 아닌 색인으로 답했으면 `ctx.describeIndex(info)`로 그 색인을 알려요). `ctx.db`는 물은 저장소의 색인 파일 자리예요(detect_changes가 다시 색인하거나 그 옆에 커밋 색인을 둘 때 써요). 다른 질의는 `store`와 `args`만 써요.
    - `params`는 명령줄 옵션(`--depth 3`, 위치 인자 하나)과 MCP 입력 스키마(zod)가 둘 다 여기서 만들어져요. 인자 검사(필수, 정수, 가장 작은 값, 고를 수 있는 값 `choices`)는 `checkArgs`가 해요. `choices`는 MCP 입력 스키마에서 enum이 돼요. 인자가 여럿이면 질의 함수는 옵션 객체로 받아요(위치 인자를 늘어놓지 않아요). 저장소 설정 인자는 `CONFIG_PARAM`을 그대로 넣어요. 타입은 지금 `string`과 `integer`뿐이고, 더 필요하면 `Param.type`과 `checkArgs`, `src/mcp.ts`의 `schemaOf`, 이 문서를 같이 고쳐요.
    - `repo`, `db`는 실행기가 따로 받아요. `params`에 넣지 않아요.
    - 이름 있는 인자는 질의끼리 이름이 같아도 돼요(명령줄은 모든 질의의 옵션을 글로 받아요).

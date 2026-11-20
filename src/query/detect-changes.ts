@@ -6,8 +6,8 @@
 // - "바꾸기 전"은 base 커밋을 따로 색인한 것(src/snapshot.ts), "바꾼 뒤"는 작업 트리면 저장소 색인(낡았으면 다시 색인),
 //   커밋이면 그 커밋의 색인이에요. 지운 이름의 영향은 바꾸기 전 그래프에서, 나머지는 바꾼 뒤 그래프에서 찾아요(impact와 같은 탐색).
 // - 구조(순환, 흐름을 거스르는 import)는 양쪽에 check를 돌려 비교해요. 규칙(저장소 설정)은 양쪽 모두 지금 저장소의 것이에요.
-// 봉투(index)는 질의 실행기가 씌워요(src/answer.ts).
-import { compareText, cut, DEFAULT_LIMIT, type Page, type Sourced, sourcedOf } from '../answer.ts';
+// 봉투(index)는 질의 실행기가 씌우지만, 답을 만든 색인(바꾼 뒤, 바꾸기 전 base)은 이 질의가 알려요(ctx.describeIndex).
+import { compareText, cut, DEFAULT_LIMIT, type IndexInfo, indexInfo, type Page, type Sourced, sourcedOf } from '../answer.ts';
 import { diffFiles, type FileDiff, type LineSpan, resolveCommit } from '../diff.ts';
 import type { FileRole, SymbolKind } from '../facts.ts';
 import { isStale } from '../freshness.ts';
@@ -130,6 +130,8 @@ export interface DetectChangesOptions {
   config?: string;
   /** 저장소 색인 파일. 다시 색인하거나 커밋 색인을 그 옆에 둘 때 써요. */
   db: string;
+  /** 답을 만든 색인(바꾼 뒤와 바꾸기 전)을 봉투로 알려요(질의 실행기의 ctx.describeIndex). */
+  describeIndex?: (info: IndexInfo) => void;
 }
 
 /** 목록을 자르지 않고 받을 때 check에 주는 limit. */
@@ -218,6 +220,11 @@ export async function detectChanges(store: GraphStore, opts: DetectChangesOption
     }
     const names: Record<Change, number> = { added: 0, removed: 0, modified: 0, moved: 0 };
     for (const c of changes) if (c.kind !== 'file') names[c.change]++;
+
+    // 봉투: 바꾼 뒤의 색인(작업 트리면 저장소 색인, 커밋이면 그 커밋의 색인. 커밋 색인은 낡지 않아요)과 바꾸기 전 커밋의 색인.
+    const head: IndexInfo =
+      headCommit === null ? indexInfo(store) : { repo: root, commit: headCommit, indexedAt: after.meta().indexedAt, stale: false };
+    opts.describeIndex?.({ ...head, base: { commit: baseCommit, indexedAt: diffs.length > 0 ? before.meta().indexedAt : null } });
 
     return {
       base: { ref: opts.base, commit: baseCommit },
@@ -467,5 +474,6 @@ export const detectChangesQuery: QueryDef = {
       hotUses: args.hot as number,
       config: args.config as string | undefined,
       db: ctx.db,
+      describeIndex: ctx.describeIndex,
     }),
 };

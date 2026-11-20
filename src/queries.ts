@@ -1,7 +1,7 @@
 // 질의 목록과 실행기. 명령줄(src/cli.ts)과 MCP 서버(src/mcp.ts)는 이 목록을 똑같이 감싸요.
 // 새 질의는 src/query/<이름>.ts에 QueryDef 하나를 만들어 QUERIES에 한 줄 더하면 양쪽에 붙어요.
 // 붙이는 법은 docs/contract.md에 있어요.
-import { type Answer, type Body, envelope } from './answer.ts';
+import { type Answer, type Body, envelope, type IndexInfo } from './answer.ts';
 import type { GraphStore } from './graph/store.ts';
 import { dbOf, openIndex, type Target, UserError } from './locate.ts';
 import { checkQuery } from './query/check.ts';
@@ -50,6 +50,11 @@ export interface QueryDef {
 export interface QueryContext {
   /** 물은 저장소의 색인 파일(절대 경로). 색인을 다시 하거나 그 옆에 다른 색인을 둘 때 써요. */
   db: string;
+  /**
+   * 답을 저장소 색인이 아닌 다른 색인(커밋 색인)에서 만들었거나 다른 색인과 견줬으면, 봉투에 쓸 그 색인의 정보를 알려요.
+   * 부르지 않으면 봉투는 저장소 색인의 것이에요. 질의는 몸통에 index를 넣지 못하니 이것으로만 봉투를 정해요.
+   */
+  describeIndex(info: IndexInfo): void;
 }
 
 /** 명령줄과 MCP에 붙는 질의 전부. */
@@ -83,13 +88,17 @@ export function checkArgs(def: QueryDef, raw: Record<string, unknown>): Args {
   return args;
 }
 
-/** 저장소의 색인을 열어 질의를 돌리고, 봉투를 씌운 답을 돌려줘요. 봉투는 질의가 끝난 뒤의 색인 상태예요. */
+/**
+ * 저장소의 색인을 열어 질의를 돌리고, 봉투를 씌운 답을 돌려줘요. 봉투는 질의가 끝난 뒤의 색인 상태예요.
+ * 질의가 다른 색인으로 답했다고 알렸으면(ctx.describeIndex) 그것이 봉투예요.
+ */
 export async function askQuery(def: QueryDef, raw: Record<string, unknown>, target: Target): Promise<Answer> {
   const args = checkArgs(def, raw);
   const store = openIndex(target);
   try {
-    const body = await def.run(store, args, { db: dbOf(target) });
-    return envelope(store, body);
+    let described = null as IndexInfo | null;
+    const body = await def.run(store, args, { db: dbOf(target), describeIndex: (info) => (described = info) });
+    return envelope(store, body, described ?? undefined);
   } finally {
     store.close();
   }
