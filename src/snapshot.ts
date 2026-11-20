@@ -4,16 +4,30 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import type { RepoInfo } from './facts.ts';
+import { git } from './git.ts';
 import { GraphStore } from './graph/store.ts';
 import { indexRepo } from './indexer.ts';
-import { git } from './git.ts';
+import { LANGUAGES } from './languages.ts';
 
 /**
- * 색인기가 읽지만 git이 무시해서 커밋에 없는 파일(패키지 설정). 꺼낸 커밋에는 없으니 지금 작업 트리의 같은 자리에서 빌려 와요.
- * 언어 어댑터가 알려 주는 것이 맞지만 어댑터 인터페이스에 아직 그 칸이 없어서 여기 적어요.
- * 그 커밋의 의존성이 지금과 다르면 빌린 설정이 맞지 않을 수 있어요(그때는 그 패키지 밖의 이름을 놓칠 수 있어요).
+ * 색인기가 읽지만 git이 무시해서 커밋에 없는 파일(도구 상태: 패키지 설정 등)을 지금 작업 트리의 같은 자리에서 빌려 와요.
+ * 어느 파일인지는 언어 어댑터가 알려 줘요(LanguageAdapter.toolState).
  */
-const TOOL_STATE_FILES = ['.dart_tool/package_config.json', '.dart_tool/package_graph.json'];
+function borrowToolState(root: string, clone: string): void {
+  const info: RepoInfo = { root: clone, trackedFiles: git(clone, ['ls-files', '-z']).split('\0').filter(Boolean) };
+  for (const { precise } of LANGUAGES) {
+    if (!precise?.applies(info)) continue;
+    for (const state of precise.toolState(info)) {
+      for (const file of state.files) {
+        const from = join(root, file);
+        if (!existsSync(from)) continue;
+        mkdirSync(dirname(join(clone, file)), { recursive: true });
+        copyFileSync(from, join(clone, file));
+      }
+    }
+  }
+}
 
 /** 커밋 색인의 자리. */
 export function commitDb(mainDb: string, commit: string): string {
@@ -47,18 +61,7 @@ export async function indexCommit(root: string, mainDb: string, commit: string):
     const clone = join(work, basename(root));
     git(root, ['clone', '--quiet', '--shared', '--no-checkout', root, clone]);
     git(clone, ['-c', 'advice.detachedHead=false', 'checkout', '--quiet', '--detach', commit]);
-    const dirs = new Set(['']);
-    for (const f of git(clone, ['ls-files', '-z']).split('\0')) {
-      for (let d = dirname(f); d !== '.' && d !== '' && !dirs.has(d); d = dirname(d)) dirs.add(d);
-    }
-    for (const dir of dirs) {
-      for (const file of TOOL_STATE_FILES) {
-        const from = join(root, dir, file);
-        if (!existsSync(from)) continue;
-        mkdirSync(dirname(join(clone, dir, file)), { recursive: true });
-        copyFileSync(from, join(clone, dir, file));
-      }
-    }
+    borrowToolState(root, clone);
     // 다 만든 뒤에 제자리로 옮겨요. 도중에 멈춰도 반쯤 된 색인을 쓰지 않게요.
     // 같은 폴더에 만들어 옮겨요(다른 드라이브 사이에서는 옮기기가 안 돼요).
     const partial = `${db}.partial`;

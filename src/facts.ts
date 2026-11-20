@@ -142,6 +142,12 @@ export interface RepoInfo {
   trackedFiles: string[] | null;
 }
 
+/** 커밋 색인이 지금 작업 트리에서 빌려 오는 도구 상태 파일 한 묶음(보통 패키지 하나). */
+export interface ToolState {
+  /** 빌려 올 파일(저장소 기준 경로, '/' 구분). 작업 트리에 없는 것은 건너뛰어요. */
+  files: string[];
+}
+
 /** 언어 하나를 맡는 어댑터. 저장소를 받아 공통 형식의 사실을 내요. */
 export interface LanguageAdapter {
   /** 어댑터(색인기) 이름. 관계의 source로 남아요. */
@@ -156,6 +162,11 @@ export interface LanguageAdapter {
    * 예: scip-dart는 `dart:async`를 패키지 이름으로 적어요.
    */
   isStandardLibrary(pkg: string): boolean;
+  /**
+   * 색인기가 읽지만 git이 무시해서 커밋에는 없는 파일(패키지 설정 등)의 묶음. 커밋 색인(src/snapshot.ts)이 그 커밋을 꺼낸 뒤
+   * 지금 작업 트리의 같은 자리에서 빌려 와요. repo는 꺼낸 커밋이에요(trackedFiles는 그 커밋의 파일). 없으면 빈 배열.
+   */
+  toolState(repo: RepoInfo): ToolState[];
   /**
    * 저장소를 색인해 사실을 내요. 저장소의 추적 파일을 바꾸면 안 돼요.
    * 임시 파일은 workDir(저장소 밖)에 써요.

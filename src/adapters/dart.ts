@@ -85,6 +85,13 @@ export const dartAdapter: LanguageAdapter = {
   // `dart:async`처럼 ':'이 든 이름은 SDK 라이브러리예요(pub 패키지 이름에는 ':'이 없어요).
   isStandardLibrary: (pkg) => pkg.includes(':'),
 
+  // scip-dart는 패키지마다 pub get이 만든 패키지 설정을 읽어요. git이 무시해서 커밋에는 없어요.
+  toolState: (repo) =>
+    dartPackages(repo).map((pkg) => {
+      const at = (file: string) => (pkg ? `${pkg}/${file}` : file);
+      return { files: [at('.dart_tool/package_config.json'), at('.dart_tool/package_graph.json')] };
+    }),
+
   async index(repo, workDir) {
     const probe = run('dart', ['pub', 'global', 'run', 'scip_dart', '--version']);
     if (!probe.ok) {

@@ -77,6 +77,11 @@ export const typescriptAdapter: LanguageAdapter = {
   // 아직 기본 라이브러리를 따로 가리지 않아요(지금까지와 같아요).
   isStandardLibrary: () => false,
 
+  // 빌려 오지 않아요. scip-typescript가 node_modules에서 읽는 것은 저장소 밖 패키지의 타입이라(그 이름은 그래프에 넣지 않아요)
+  // 커밋 색인은 node_modules 없이 색인해요. 그래서 그 패키지에서 온 값의 멤버와, node_modules 링크로만 풀리는
+  // 작업 공간 패키지 import는 커밋 색인에서 잇지 못할 수 있어요(docs/architecture.md "커밋 색인").
+  toolState: () => [],
+
   async index(repo: RepoInfo, workDir: string) {
     if (!scipTypeScriptInstalled()) {
       throw new IndexerMissing(`scip-typescript를 찾지 못했어요.`, SCIP_TYPESCRIPT_INSTALL);

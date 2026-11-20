@@ -18,7 +18,12 @@ interface LanguageAdapter {
   readonly install: string;              // 색인기 설치 명령. 예: 'dart pub global activate scip_dart 1.8.1'
   applies(repo: RepoInfo): boolean;      // 이 저장소에 이 언어가 있는지
   isStandardLibrary(pkg: string): boolean; // 심볼 열쇠의 패키지 이름이 언어 기본 라이브러리(SDK)인지. 예: Dart의 'dart:async'
+  toolState(repo: RepoInfo): ToolState[];  // 색인기가 읽지만 git이 무시해 커밋에 없는 파일 묶음(커밋 색인이 작업 트리에서 빌려 와요)
   index(repo: RepoInfo, workDir: string): Promise<Facts>;
+}
+
+interface ToolState {
+  files: string[];                 // 빌려 올 파일(저장소 기준 경로). 작업 트리에 없으면 건너뛰어요
 }
 
 interface RepoInfo {
@@ -514,7 +519,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 - **바뀐 줄** (`src/diff.ts`): `git diff -U0 -M`. 작업 트리를 볼 때는 git 색인의 사본(임시 파일, `GIT_INDEX_FILE`)에 작업 트리 전부를 담아(`git add -A`) base와 비교해요. 그래서 추적하지 않는 새 파일도 보고, 옮긴 파일도 알아보고, 사용자의 staging은 그대로예요(새 파일의 blob이 `.git/objects`에 남을 수 있어요). 이진 파일, 빈 파일, 권한만 바뀐 파일은 이름 바꾸기가 아니면 빠져요.
 - **두 그래프**: 바꾸기 전은 base 커밋의 색인, 바꾼 뒤는 `head`가 없으면 저장소 색인(낡았으면 먼저 다시 색인하고 `reindexed: true`), 있으면 그 커밋의 색인이에요. 바뀐 것이 없으면 base를 색인하지 않아요.
-- **커밋 색인** (`src/snapshot.ts`): 저장소 색인 옆 `<색인>@<커밋 앞 12자>.db`. 임시 폴더에 로컬 복제(`git clone --shared --no-checkout`, 네트워크 없음)를 만들어 그 커밋을 꺼내고 `indexRepo`로 색인한 뒤 지워요. 커밋은 바뀌지 않으니 한 번 만들면 계속 써요(스키마가 다르면 다시 만들어요). git이 무시해 커밋에 없는 패키지 설정(`.dart_tool/package_config.json`, `package_graph.json`)은 지금 작업 트리의 같은 자리에서 빌려 와요. 그 커밋의 의존성이 지금과 다르면 맞지 않을 수 있어요. 어댑터가 이 목록을 알려 주는 것이 맞지만 어댑터 인터페이스에 아직 그 칸이 없어요.
+- **커밋 색인** (`src/snapshot.ts`): 저장소 색인 옆 `<색인>@<커밋 앞 12자>.db`. 임시 폴더에 로컬 복제(`git clone --shared --no-checkout`, 네트워크 없음)를 만들어 그 커밋을 꺼내고 `indexRepo`로 색인한 뒤 지워요. 커밋은 바뀌지 않으니 한 번 만들면 계속 써요(스키마가 다르면 다시 만들어요). git이 무시해 커밋에 없는 도구 상태 파일은 지금 작업 트리의 같은 자리에서 빌려 와요. 어느 파일인지는 어댑터가 알려 줘요(`toolState`): Dart는 패키지마다 `.dart_tool/package_config.json`과 `package_graph.json`, Python은 없음(scip-python에 빈 환경을 줘요), JavaScript/TypeScript는 없음(`node_modules`는 저장소 밖 패키지의 타입이라 빌리지 않아요. 그래서 커밋 색인에서는 그 패키지에서 온 값의 멤버와, `node_modules` 링크로만 풀리는 작업 공간 패키지 import를 잇지 못할 수 있어요). 그 커밋의 의존성이 지금과 다르면 빌린 설정이 맞지 않을 수 있어요.
 - **줄 → 이름**: 바꾸기 전 줄(지우거나 고친 줄)은 바꾸기 전 그래프의 이름에, 바꾼 뒤 줄(더하거나 고친 줄)은 바꾼 뒤 그래프의 이름에 옮겨요. 줄마다 그 줄을 품는 가장 안쪽 이름(`extentsIn`의 정의 전체 범위)이 건드린 이름이에요. 그래서 메서드 하나를 고치면 클래스가 아니라 그 메서드가 나오고, 위에 줄을 더해 자리만 밀린 이름은 나오지 않아요. 이름 밖의 줄(import, 파일 머리 주석)은 이름으로 옮기지 않아요(import가 바뀌어 생긴 구조 문제는 아래 구조에서 봐요).
 - **바뀜(`change`)**: 같은 경로의 이름은 열쇠로 짝지어요. 바꾼 뒤에만 있으면 `added`, 바꾸기 전에만 있으면 `removed`, 양쪽에 있고 어느 쪽이든 건드렸으면 `modified`. 옮긴 파일은 열쇠에 경로가 들어 있어 달라지니 바깥 타입을 붙인 이름과 종류로 짝짓고, 건드리지 않았으면 `moved`, 건드렸으면 `modified`이고 둘 다 `movedFrom`(옮기기 전 경로)이 붙어요. 파일 자체가 생기거나 지워지거나 옮겨졌으면 그 파일도 항목 하나(`kind: 'file'`, `confidence: 'precise'`, `source: 'git'`: git이 알려 준 사실이라서요)예요. 색인하지 않는 파일(문서 등)은 빠져요.
 - **영향**: 바뀐 것마다 impact와 같은 탐색(`reachImpact`, 이름은 멤버와 함께 출발, 파일은 파일 노드만). 지운 이름은 바꾸기 전 그래프에서(그것을 쓰던 곳), 나머지는 바꾼 뒤 그래프에서 찾아요. 바뀐 항목의 `impact`는 요약(`affected`, `byDistance`, `moreBeyondDepth`, `tests`)이고, 항목은 답의 `affected`(`Page`)에 모두 합쳐 나와요: 같은 곳(경로, 종류, 이름)은 가장 가까운 거리로 하나, `from`은 닿은 바뀐 이름들, `changed`는 그곳도 이 변경이 건드렸는지(바뀐 이름이거나, 파일이면 diff에 든 파일)예요. `changed: false`인 곳이 고치지 않은 채 남은 영향이에요.

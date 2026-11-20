@@ -56,6 +56,9 @@ export const pythonAdapter: LanguageAdapter = {
   // 아직 기본 라이브러리를 따로 가리지 않아요(지금까지와 같아요).
   isStandardLibrary: () => false,
 
+  // scip-python에는 빈 환경(설치 패키지 없음)을 줘서 작업 트리에서 빌려 올 것이 없어요.
+  toolState: () => [],
+
   async index(repo, workDir) {
     const entry = scipPythonEntry();
     if (!entry) throw new IndexerMissing(`scip-python을 찾지 못했어요.`, SCIP_PYTHON_INSTALL);
