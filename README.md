@@ -3,7 +3,7 @@
 여러 언어의 코드를 이름(심볼) 단위로 색인해, 언어와 무관한 그래프 하나에 쌓고 질문을 던지는 도구예요.
 "이 이름은 어디서 정의되고 어디서 쓰이나"를 문자열 검색이 아니라 컴파일러 수준 색인으로 답해요.
 
-지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`, `rename`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
+지금 되는 것: Dart 저장소 색인(정밀: scip-dart, 추정: Tree-sitter), `context`, `check`, `impact`, `detect_changes`, `search`, `trace`, `clusters`, `rename`, `flows`(명령줄과 MCP 서버), 코드 지도 HTML(`map`, 명령줄). 앞으로 붙을 것(Python·JS/TS 등)은 [jun1734/hijo#204](https://github.com/jun1734/hijo/issues/204)에 있어요.
 
 ## 준비
 
@@ -57,6 +57,11 @@ node src/cli.ts search total --kind function,method --language dart --folder lib
 
 # 묶음: 서로 촘촘히 엮인 이름들(Louvain). 묶음마다 이름, 파일, 대표 이름, 여러 모듈에 걸쳤는지(crossModule)
 node src/cli.ts clusters --repo path/to/repo
+
+# 실행 흐름: 진입점(불리지 않는 이름, 설정의 flows.entries)에서 호출을 따라 거치는 이름들
+node src/cli.ts flows --repo path/to/repo
+node src/cli.ts flows --depth 5 --length 10 --limit 20 --repo path/to/repo  # 깊이, 흐름마다 이름 수, 흐름 수
+node src/cli.ts flows petMotionOffProvider --repo path/to/repo             # 이 이름이 든 묶음과 이 이름을 거치는 흐름
 
 # 두 지점 사이 경로: from이 어떤 호출을 거쳐 to까지 가나(가장 짧은 것부터, --limit개까지)
 node src/cli.ts trace OrderButton --to writeRow --repo path/to/repo

@@ -40,6 +40,8 @@ const ITEM_QUESTIONS: string[][] = [
   ['trace', 'main', '--to', 'withTax'],
   ['search', 'cart'],
   ['clusters'],
+  ['flows'],
+  ['flows', 'withTax'],
   ['detect_changes'],
   ['rename', 'Cart', '--to', 'Basket'],
   ['rename', 'Cart.total', '--to', 'add'],

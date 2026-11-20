@@ -1,0 +1,484 @@
+{
+  "query": null,
+  "config": ".code-atlas.json",
+  "depth": 10,
+  "length": 30,
+  "summary": {
+    "entries": 4,
+    "uncalled": 2,
+    "cycles": 1,
+    "configured": 1,
+    "unmatched": []
+  },
+  "flows": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "entry": {
+          "name": "main",
+          "kind": "function",
+          "path": "lib/main.dart",
+          "line": 5,
+          "column": 6,
+          "key": "scip-dart pub flow_sample 1.0.0 lib/`main.dart`/main().",
+          "confidence": "precise",
+          "source": "scip-dart"
+        },
+        "reasons": [
+          "uncalled"
+        ],
+        "size": 12,
+        "confidence": "precise",
+        "source": "scip-dart",
+        "kindConfidence": "inferred",
+        "beyondDepth": false,
+        "steps": {
+          "total": 11,
+          "truncated": false,
+          "items": [
+            {
+              "name": "pay",
+              "kind": "function",
+              "path": "lib/checkout/checkout.dart",
+              "line": 5,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`checkout.dart`/pay().",
+              "depth": 1,
+              "from": "main",
+              "relation": "call",
+              "at": {
+                "path": "lib/main.dart",
+                "line": 6,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "priceWithTax",
+              "kind": "function",
+              "path": "lib/checkout/price.dart",
+              "line": 1,
+              "column": 5,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`price.dart`/priceWithTax().",
+              "depth": 2,
+              "from": "pay",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/checkout.dart",
+                "line": 6,
+                "column": 17
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "roundUp",
+              "kind": "function",
+              "path": "lib/checkout/price.dart",
+              "line": 3,
+              "column": 5,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`price.dart`/roundUp().",
+              "depth": 3,
+              "from": "priceWithTax",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/price.dart",
+                "line": 1,
+                "column": 33
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "printReceipt",
+              "kind": "function",
+              "path": "lib/checkout/receipt.dart",
+              "line": 3,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`receipt.dart`/printReceipt().",
+              "depth": 2,
+              "from": "pay",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/checkout.dart",
+                "line": 7,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "log",
+              "kind": "function",
+              "path": "lib/shared/log.dart",
+              "line": 2,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/shared/`log.dart`/log().",
+              "depth": 3,
+              "from": "printReceipt",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/receipt.dart",
+                "line": 3,
+                "column": 33
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "openChat",
+              "kind": "function",
+              "path": "lib/chat/chat.dart",
+              "line": 3,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`chat.dart`/openChat().",
+              "depth": 1,
+              "from": "main",
+              "relation": "call",
+              "at": {
+                "path": "lib/main.dart",
+                "line": 7,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "connect",
+              "kind": "function",
+              "path": "lib/chat/chat.dart",
+              "line": 8,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`chat.dart`/connect().",
+              "depth": 2,
+              "from": "openChat",
+              "relation": "call",
+              "at": {
+                "path": "lib/chat/chat.dart",
+                "line": 4,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "roomName",
+              "kind": "getter",
+              "path": "lib/chat/chat.dart",
+              "line": 13,
+              "column": 12,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`chat.dart`/roomName.",
+              "depth": 3,
+              "from": "connect",
+              "relation": "read",
+              "at": {
+                "path": "lib/chat/chat.dart",
+                "line": 8,
+                "column": 28
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "sendHello",
+              "kind": "function",
+              "path": "lib/chat/chat.dart",
+              "line": 10,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`chat.dart`/sendHello().",
+              "depth": 2,
+              "from": "openChat",
+              "relation": "call",
+              "at": {
+                "path": "lib/chat/chat.dart",
+                "line": 5,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "greeting",
+              "kind": "variable",
+              "path": "lib/chat/chat.dart",
+              "line": 16,
+              "column": 7,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`chat.dart`/greeting.",
+              "depth": 3,
+              "from": "sendHello",
+              "relation": "read",
+              "at": {
+                "path": "lib/chat/chat.dart",
+                "line": 10,
+                "column": 25
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "makeGreeting",
+              "kind": "function",
+              "path": "lib/chat/chat.dart",
+              "line": 18,
+              "column": 8,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`chat.dart`/makeGreeting().",
+              "depth": 4,
+              "from": "greeting",
+              "relation": "call",
+              "at": {
+                "path": "lib/chat/chat.dart",
+                "line": 16,
+                "column": 18
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            }
+          ]
+        }
+      },
+      {
+        "entry": {
+          "name": "pay",
+          "kind": "function",
+          "path": "lib/checkout/checkout.dart",
+          "line": 5,
+          "column": 6,
+          "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`checkout.dart`/pay().",
+          "confidence": "precise",
+          "source": "scip-dart"
+        },
+        "reasons": [
+          "config"
+        ],
+        "size": 5,
+        "confidence": "precise",
+        "source": "scip-dart",
+        "kindConfidence": "inferred",
+        "beyondDepth": false,
+        "steps": {
+          "total": 4,
+          "truncated": false,
+          "items": [
+            {
+              "name": "priceWithTax",
+              "kind": "function",
+              "path": "lib/checkout/price.dart",
+              "line": 1,
+              "column": 5,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`price.dart`/priceWithTax().",
+              "depth": 1,
+              "from": "pay",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/checkout.dart",
+                "line": 6,
+                "column": 17
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "roundUp",
+              "kind": "function",
+              "path": "lib/checkout/price.dart",
+              "line": 3,
+              "column": 5,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`price.dart`/roundUp().",
+              "depth": 2,
+              "from": "priceWithTax",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/price.dart",
+                "line": 1,
+                "column": 33
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "printReceipt",
+              "kind": "function",
+              "path": "lib/checkout/receipt.dart",
+              "line": 3,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`receipt.dart`/printReceipt().",
+              "depth": 1,
+              "from": "pay",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/checkout.dart",
+                "line": 7,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "log",
+              "kind": "function",
+              "path": "lib/shared/log.dart",
+              "line": 2,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/shared/`log.dart`/log().",
+              "depth": 2,
+              "from": "printReceipt",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/receipt.dart",
+                "line": 3,
+                "column": 33
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            }
+          ]
+        }
+      },
+      {
+        "entry": {
+          "name": "refund",
+          "kind": "function",
+          "path": "lib/admin/refund.dart",
+          "line": 8,
+          "column": 6,
+          "key": "scip-dart pub flow_sample 1.0.0 lib/admin/`refund.dart`/refund().",
+          "confidence": "precise",
+          "source": "scip-dart"
+        },
+        "reasons": [
+          "uncalled"
+        ],
+        "size": 4,
+        "confidence": "precise",
+        "source": "scip-dart",
+        "kindConfidence": "inferred",
+        "beyondDepth": false,
+        "steps": {
+          "total": 3,
+          "truncated": false,
+          "items": [
+            {
+              "name": "priceWithTax",
+              "kind": "function",
+              "path": "lib/checkout/price.dart",
+              "line": 1,
+              "column": 5,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`price.dart`/priceWithTax().",
+              "depth": 1,
+              "from": "refund",
+              "relation": "call",
+              "at": {
+                "path": "lib/admin/refund.dart",
+                "line": 9,
+                "column": 16
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "roundUp",
+              "kind": "function",
+              "path": "lib/checkout/price.dart",
+              "line": 3,
+              "column": 5,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/checkout/`price.dart`/roundUp().",
+              "depth": 2,
+              "from": "priceWithTax",
+              "relation": "call",
+              "at": {
+                "path": "lib/checkout/price.dart",
+                "line": 1,
+                "column": 33
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            },
+            {
+              "name": "log",
+              "kind": "function",
+              "path": "lib/shared/log.dart",
+              "line": 2,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/shared/`log.dart`/log().",
+              "depth": 1,
+              "from": "refund",
+              "relation": "call",
+              "at": {
+                "path": "lib/admin/refund.dart",
+                "line": 10,
+                "column": 3
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            }
+          ]
+        }
+      },
+      {
+        "entry": {
+          "name": "ping",
+          "kind": "function",
+          "path": "lib/chat/heartbeat.dart",
+          "line": 2,
+          "column": 6,
+          "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`heartbeat.dart`/ping().",
+          "confidence": "precise",
+          "source": "scip-dart"
+        },
+        "reasons": [
+          "cycle"
+        ],
+        "size": 2,
+        "confidence": "precise",
+        "source": "scip-dart",
+        "kindConfidence": "inferred",
+        "beyondDepth": false,
+        "steps": {
+          "total": 1,
+          "truncated": false,
+          "items": [
+            {
+              "name": "pong",
+              "kind": "function",
+              "path": "lib/chat/heartbeat.dart",
+              "line": 6,
+              "column": 6,
+              "key": "scip-dart pub flow_sample 1.0.0 lib/chat/`heartbeat.dart`/pong().",
+              "depth": 1,
+              "from": "ping",
+              "relation": "call",
+              "at": {
+                "path": "lib/chat/heartbeat.dart",
+                "line": 3,
+                "column": 14
+              },
+              "confidence": "precise",
+              "kindConfidence": "inferred",
+              "source": "scip-dart"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

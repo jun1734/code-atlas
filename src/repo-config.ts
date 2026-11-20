@@ -39,6 +39,19 @@ export interface RepoConfig {
   unused: { private: string; ignore: string[] };
   /** 코드 지도 화면(`map` 명령)만 쓰는 칸. 검사 결과는 바꾸지 않아요. */
   map: MapConfig;
+  /** 실행 흐름(flows)의 진입점. */
+  flows: FlowsConfig;
+}
+
+/** 실행 흐름의 진입점 설정. */
+export interface FlowsConfig {
+  /**
+   * 진입점으로 지정한 이름. `name`은 바깥 타입을 붙인 이름(qualifiedName)에 맞추는 glob이에요(`*`는 아무 글자, 예: `*Page.build`).
+   * 코드 안에서 불리는 이름이어도 진입점이에요.
+   */
+  entries: SymbolMatcher[];
+  /** 앱 코드 어디서도 불리지 않는 이름(과 밖에서 불리지 않는 순환)을 진입점으로 셈할지. 기본 true. */
+  uncalled: boolean;
 }
 
 /** 코드 지도 화면의 설정. 모두 선택이에요. */
@@ -82,6 +95,7 @@ const DEFAULTS: Omit<RepoConfig, 'path'> = {
   openToOtherModules: { files: [], symbols: [] },
   unused: { private: '_*', ignore: ['main'] },
   map: {},
+  flows: { entries: [], uncalled: true },
 };
 
 const toSlash = (p: string) => p.replaceAll('\\', '/');
@@ -118,6 +132,10 @@ export function loadRepoConfig(repoRoot: string, explicitPath?: string): RepoCon
       ignore: raw.unused?.ignore ?? DEFAULTS.unused.ignore,
     },
     map: raw.map ?? DEFAULTS.map,
+    flows: {
+      entries: raw.flows?.entries ?? DEFAULTS.flows.entries,
+      uncalled: raw.flows?.uncalled ?? DEFAULTS.flows.uncalled,
+    },
   };
 }
 
@@ -153,9 +171,9 @@ export function readAllowlist(repoRoot: string, source: AllowlistSource): string
   return items;
 }
 
-/** 저장소 설정을 고르는 질의 인자(check, impact, clusters가 같이 써요). 명령줄 `--config`, MCP `config`. */
+/** 저장소 설정을 고르는 질의 인자(check, impact, clusters, flows가 같이 써요). 명령줄 `--config`, MCP `config`. */
 export const CONFIG_PARAM: Param = {
   name: 'config',
   type: 'string',
-  description: '저장소 설정 파일 경로(모듈 기준). 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
+  description: '저장소 설정 파일 경로(모듈 기준, flows의 진입점). 없으면 색인한 저장소 뿌리의 .code-atlas.json, 그것도 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나).',
 };
