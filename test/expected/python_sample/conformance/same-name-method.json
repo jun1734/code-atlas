@@ -1,0 +1,32 @@
+{
+  "query": "add",
+  "status": "ambiguous",
+  "candidates": [
+    {
+      "key": "scip-python python . 0 `shop.cart`/Cart#add().",
+      "name": "add",
+      "qualifiedName": "Cart.add",
+      "kind": "method",
+      "definition": {
+        "path": "shop/cart.py",
+        "line": 25,
+        "column": 9
+      },
+      "confidence": "precise",
+      "source": "scip-python"
+    },
+    {
+      "key": "scip-python python . 0 `shop.cart`/Wishlist#add().",
+      "name": "add",
+      "qualifiedName": "Wishlist.add",
+      "kind": "method",
+      "definition": {
+        "path": "shop/cart.py",
+        "line": 43,
+        "column": 9
+      },
+      "confidence": "precise",
+      "source": "scip-python"
+    }
+  ]
+}

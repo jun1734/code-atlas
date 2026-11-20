@@ -1,0 +1,5 @@
+# code-atlas 테스트용 작은 Python 예제 저장소(언어 적합성 묶음의 Python 쪽). 바깥 패키지에 기대지 않아요.
+[project]
+name = "python_sample"
+version = "1.0.0"
+requires-python = ">=3.10"

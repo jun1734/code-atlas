@@ -1,0 +1,47 @@
+{
+  "query": "Totaled",
+  "status": "found",
+  "symbol": {
+    "name": "Totaled",
+    "qualifiedName": "Totaled",
+    "kind": "interface",
+    "definition": {
+      "path": "shop/cart.py",
+      "line": 7,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "shop/__init__.py",
+        "line": 2,
+        "column": 44,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/cart.py",
+        "line": 21,
+        "column": 21,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "Cart",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ],
+    "byRole": {
+      "app": 2,
+      "test": 0
+    }
+  }
+}

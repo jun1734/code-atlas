@@ -1,0 +1,6 @@
+name: polyglot_app
+description: code-atlas 테스트용 예제. Dart 앱(app/)과 Python 함수(functions/)가 한 저장소에 섞여 있어요.
+publish_to: none
+version: 1.0.0
+environment:
+  sdk: ^3.5.0

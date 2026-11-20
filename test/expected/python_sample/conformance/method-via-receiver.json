@@ -1,0 +1,70 @@
+{
+  "query": "Cart.total",
+  "status": "found",
+  "symbol": {
+    "name": "total",
+    "qualifiedName": "Cart.total",
+    "kind": "method",
+    "definition": {
+      "path": "shop/cart.py",
+      "line": 28,
+      "column": 9
+    },
+    "confidence": "precise",
+    "source": "scip-python"
+  },
+  "uses": {
+    "total": 4,
+    "truncated": false,
+    "items": [
+      {
+        "path": "bin/checkout.py",
+        "line": 10,
+        "column": 16,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "shop/providers.py",
+        "line": 6,
+        "column": 40,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "totalProvider",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "tests/test_pricing.py",
+        "line": 7,
+        "column": 23,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-python"
+      },
+      {
+        "path": "tests/test_pricing.py",
+        "line": 9,
+        "column": 15,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-python"
+      }
+    ],
+    "byRole": {
+      "app": 2,
+      "test": 2
+    }
+  }
+}
