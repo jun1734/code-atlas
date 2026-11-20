@@ -1,0 +1,92 @@
+{
+  "query": "Cart",
+  "status": "found",
+  "symbol": {
+    "name": "Cart",
+    "qualifiedName": "Cart",
+    "kind": "class",
+    "definition": {
+      "path": "src/cart.ts",
+      "line": 15,
+      "column": 14
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 6,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "line": 31,
+        "column": 31,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "GiftCart",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/main.ts",
+        "line": 12,
+        "column": 16,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/main.ts",
+        "line": 12,
+        "column": 27,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/providers.ts",
+        "line": 12,
+        "column": 37,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "in": "cartProvider",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/providers.ts",
+        "line": 12,
+        "column": 55,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "cartProvider",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "test/pricing.test.ts",
+        "line": 8,
+        "column": 11,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 5,
+      "test": 1
+    }
+  }
+}

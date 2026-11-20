@@ -1,0 +1,25 @@
+{
+  "query": "Cart.total",
+  "status": "found",
+  "symbol": {
+    "name": "total",
+    "qualifiedName": "Cart.total",
+    "kind": "method",
+    "definition": {
+      "path": "src/cart.ts",
+      "line": 22,
+      "column": 3
+    },
+    "confidence": "inferred",
+    "source": "tree-sitter-typescript"
+  },
+  "uses": {
+    "total": 0,
+    "truncated": false,
+    "items": [],
+    "byRole": {
+      "app": 0,
+      "test": 0
+    }
+  }
+}

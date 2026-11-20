@@ -1,0 +1,37 @@
+{
+  "query": "Labeled",
+  "status": "found",
+  "symbol": {
+    "name": "Labeled",
+    "qualifiedName": "Labeled",
+    "kind": "class",
+    "definition": {
+      "path": "src/cart.js",
+      "line": 15,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 1,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.js",
+        "line": 22,
+        "column": 20,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "Cart",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 1,
+      "test": 0
+    }
+  }
+}

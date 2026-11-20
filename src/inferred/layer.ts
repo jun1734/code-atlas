@@ -73,6 +73,8 @@ export interface InferredLanguage {
   readonly grammar: string;
   /** 파일마다 문법이 다를 때(예: .tsx). 없으면 grammar. */
   grammarFor?(path: string): string;
+  /** 파일마다 언어 이름이 다를 때(JavaScript와 TypeScript를 한 규칙으로 읽는 등). 없으면 language. 파일 사실의 language가 돼요. */
+  fileLanguage?(path: string): string;
   /** 이 언어의 파일인지(보통 확장자). */
   owns(path: string): boolean;
   /** 색인에서 뺄 파일인지(생성된 코드, 빌드 산출물). text는 파일 글. */
@@ -194,7 +196,7 @@ export async function runInferred(lang: InferredLanguage, repo: RepoInfo, opts: 
   const facts: Facts = { files: [], symbols: [], relations: [] };
   for (const f of parsed.values()) {
     if (!f.emit) continue;
-    facts.files.push({ path: f.path, language: lang.language, role: f.role });
+    facts.files.push({ path: f.path, language: lang.fileLanguage?.(f.path) ?? lang.language, role: f.role });
     f.syntax.definitions.forEach((d, i) => {
       facts.symbols.push({
         key: f.keys[i]!,

@@ -36,8 +36,8 @@ interface RepoInfo {
 
 두 종류가 있어요.
 
-- **정밀 어댑터**: 그 언어의 SCIP 색인기를 돌리고 `src/scip/to-facts.ts`로 SCIP 색인을 사실로 옮겨요. `confidence: 'precise'`. 지금은 Dart(`src/adapters/dart.ts`, scip-dart)만 있어요.
-- **추정 층**: Tree-sitter로 구문을 읽고 이름으로 이어요. `confidence: 'inferred'`. 언어마다 문법 하나와 작은 규칙(`InferredLanguage`)이에요. 지금은 Dart(`src/inferred/dart.ts`)가 있어요. 아래 "추정 층".
+- **정밀 어댑터**: 그 언어의 SCIP 색인기를 돌리고 `src/scip/to-facts.ts`로 SCIP 색인을 사실로 옮겨요. `confidence: 'precise'`. 지금은 Dart(`src/adapters/dart.ts`, scip-dart)와 JavaScript/TypeScript(`src/adapters/typescript.ts`, scip-typescript)가 있어요.
+- **추정 층**: Tree-sitter로 구문을 읽고 이름으로 이어요. `confidence: 'inferred'`. 언어마다 문법 하나와 작은 규칙(`InferredLanguage`)이에요. 지금은 Dart(`src/inferred/dart.ts`)와 JavaScript/TypeScript(`src/inferred/typescript.ts`)가 있어요. 아래 "추정 층".
 
 ### 사실(Facts)
 
@@ -107,6 +107,30 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
   - `reference` (`inferred`): 그 밖의 타입 언급(타입 표기, `find.byType(X)` 등).
 - **`part of` 빼기** (`src/adapters/dart.ts`의 `dropPartOf`): `part of 'a.dart';` 지시문은 scip-dart가 a.dart로 가는 import처럼 적지만 넣지 않아요. part 파일은 a.dart와 한 라이브러리라 기대는 방향이 아니고, a.dart의 `part` 지시문이 이미 이어 줘요. 넣으면 라이브러리마다 서로 물린 파일 묶음이 생겨요.
 
+
+### JavaScript/TypeScript 어댑터 (scip-typescript)
+
+`src/adapters/typescript.ts`(색인기 실행), `src/adapters/typescript-runner.ts`(자식 프로세스), `src/adapters/typescript-refine.ts`(다듬기), 관례는 `src/adapters/typescript-conventions.ts`. JavaScript와 TypeScript는 서로 가져다 쓰니 한 프로그램으로 함께 읽어서 `LANGUAGES`의 한 줄(`language: 'typescript'`)이에요. 파일의 `language`는 확장자대로 `typescript`(`.ts`·`.tsx`·`.mts`·`.cts`) 또는 `javascript`(`.js`·`.jsx`·`.mjs`·`.cjs`)예요.
+
+- **scip-typescript는 npm 의존성이에요**(`@sourcegraph/scip-typescript` 0.6.2, `npm ci`로 함께 깔려요). 찾지 못하면 `IndexerMissing`이에요.
+- **명령줄 대신 안의 `ProjectIndexer`를 불러요.** scip-typescript 명령줄은 프로젝트 폴더의 `tsconfig.json`을 그대로 쓰거나(색인할 파일을 고를 수 없어요), 없으면 `--infer-tsconfig`로 저장소에 `tsconfig.json`을 새로 써요. 저장소를 바꾸지 않으려고 자식 프로세스(`typescript-runner.ts`)에서 컴파일러 설정과 파일 목록을 만들어 `ProjectIndexer`에 바로 넘겨요. 프로젝트 뿌리(심볼 열쇠의 패키지와 경로를 정하는 곳)는 늘 저장소 뿌리예요(작업 폴더에 둔 설정 파일을 프로젝트로 주면 저장소 밖 파일로 보고 열쇠가 파일 이름만 남아요). 내부 API라 버전을 정확히(0.6.2) 묶었어요. scip-typescript가 stdout에 진행 글을 써서 자식 프로세스로 돌려요(MCP stdio를 더럽히지 않게). 자식에게도 부모의 Node 설정(`--import` 네트워크 차단 장치 포함)을 줘요.
+- **색인하는 파일**: 저장소의 JS/TS 파일 전부(`git ls-files --cached --others --exclude-standard`), 설정 파일의 `include`와 상관없어요(스크립트 폴더처럼 include 밖 파일도 색인해요). 빼는 것: `node_modules/` 안, 패키지 뿌리(가장 가까운 `package.json` 폴더, 없으면 저장소 뿌리) 바로 아래의 `dist/`·`build/`·`out/`·`coverage/`, `*.min.js`·`*.bundle.js`, 머리(앞 1000자)에 `@generated`·`GENERATED CODE - DO NOT MODIFY`·`This file was generated`가 있는 파일. 숨김 폴더는 빼지 않아요(`.claude/hooks/*.js` 같은 것도 코드예요).
+- **컴파일러 설정**: 파일마다 가장 가까운 `tsconfig.json`(같은 폴더에 없으면 `jsconfig.json`)의 `compilerOptions`를 쓰고, `allowJs: true`, `noEmit: true`를 덧씌워요. 설정 파일이 없는 파일(순수 JavaScript 폴더)은 기본 설정(ESNext, `moduleResolution: bundler`, `allowJs`, JSX 보존)이에요. 설정 파일을 읽지 못하면(설치되지 않은 패키지를 `extends`하는 등) 기본 설정이에요.
+- **테스트 파일**: 경로에 `test/`·`tests/`·`__tests__/`·`spec/`·`__mocks__/` 폴더가 있거나 이름이 `*.test.*`·`*.spec.*`이면 `role: 'test'`.
+- **넣지 않는 심볼**: 매개변수·타입 매개변수(scip-typescript는 전역 심볼로 적어요), CommonJS `module.exports = { a }`가 만든 속성 심볼(`a0:`).
+- **열쇠 맞추기**: 생성자(`` Cart#`<constructor>`(). ``)는 클래스(`Cart#`)로 합쳐요. `new Cart()`는 클래스 `Cart`를 부르는 곳(`call`)이에요. getter·setter(`` Labeled#`<get>label`(). ``)는 그 이름(`Labeled#label.`)으로 합치고 종류를 `getter`/`setter`로 둬요(Dart 어댑터와 같아요).
+- **사용처가 아닌 자리**: import의 이름(`import { a }`), require를 구조 분해한 이름(`const { a } = require('./x')`), 내보내기 목록(`export { a }`, `module.exports = { a }`, `exports.a = a`)은 scip-typescript가 occurrence로 적지만 넣지 않아요(Dart의 `show`/`hide` 이름처럼). 파일 → 파일 `import` 관계는 남아요. CommonJS의 `module.exports`는 scip-typescript가 그 파일 자신을 가리키는 occurrence로 적어서, 자기 자신으로 가는 import는 빼요.
+- **사용처의 종류**: scip-typescript 0.6.2는 읽기/쓰기 역할을 주지 않아서(모두 역할 없음) 추정 층과 같은 추출기(`extractJsTs`)로 구문을 읽어 가려요(`kindConfidence: 'inferred'`). 부르면 `call`(`new X()` 포함), 대입의 왼쪽·`++`/`--`면 `write`, 그 밖의 값은 `read`, 타입 표기는 `reference`. `extends`/`implements`는 감싸는 타입의 `supertypes`(scip-typescript가 준 사실)에 대상이 있을 때만 `kindConfidence: 'precise'`예요.
+- **정의 전체의 자리**: scip-typescript는 여러 줄에 걸친 변수 선언(`export const x = { … }`) 등에 `enclosingRange`를 주지 않아요. 같은 자리의 구문 정의로 채우고 사용처를 감싸는 심볼(`in`)을 다시 찾아요.
+- **정밀 층이 잇지 못한 자리는 추정으로 메워요**(`fillGaps`). 추정 층을 같이 돌려, scip-typescript의 occurrence가 하나도 없는 자리(지역 이름·저장소 밖 이름도 occurrence가 있는 자리로 쳐요)에서 추정 층이 이은 사용처를 가져와요. 대상 열쇠는 같은 자리의 정밀 심볼 열쇠로 바꾸고, `confidence`·`kindConfidence`는 `inferred`, `source`는 `tree-sitter-typescript`예요. 지금 메우는 것은 JSDoc의 이름(`@implements {X}`, `@extends {X}`, `@type {X}`, `@param {X}` 등)이에요. TypeScript 검사기는 JSDoc 타입을 쓰지만 scip-typescript는 occurrence로 내지 않아요.
+  - **수신자.이름은 메우지 않아요.** scip-typescript가 잇지 못한 멤버는 수신자가 `any`(JSON 답, 타입 없는 외부 모듈 등)인 자리예요. 같은 이름 멤버가 하나뿐이면 잇는 추정 층의 규칙을 그대로 쓰면, code-atlas 자신을 색인했을 때 288곳이 메워졌는데 대부분 틀렸어요(`answer.status` → `CliResult.status`, 배열의 `.map` → `RepoConfig.map` 등). 그래서 이름(수신자 없는) 자리만 메워요. 타입 없는 JavaScript에서 `x.method()`의 수신자를 모르면 그 사용처는 답에 없어요(JSDoc 타입을 달면 정밀로 잡혀요).
+
+**한계**
+
+- 저장소 밖 패키지의 타입은 그 패키지가 `node_modules`에 깔려 있을 때만 알아요(색인기는 `npm install`을 대신 돌리지 않아요). 깔려 있지 않으면 그 패키지에서 온 값은 `any`라 그 값의 멤버는 잇지 못해요. 저장소 안 이름 사이의 관계는 상관없어요.
+- `tsconfig.json`의 `references`(프로젝트 참조)와 workspace 설정은 따로 보지 않아요. 파일마다 가장 가까운 설정 파일의 `compilerOptions`만 써요(`paths` 별칭은 그 설정 파일 기준으로 풀려요).
+- JSDoc의 `@interface`는 보지 않아요. JavaScript에서 `@interface`를 단 클래스는 `class`예요.
+
 ## 추정 층
 
 정밀 색인기가 없거나 실패한 언어, 그리고 정밀 색인기가 덮지 못한 파일(예: Dart 패키지 밖의 스크립트)을 Tree-sitter로 읽어 색인해요. 여기서 나온 심볼과 관계는 모두 `confidence: 'inferred'`, `kindConfidence: 'inferred'`, `source: 'tree-sitter-<언어>'`예요.
@@ -119,6 +143,7 @@ SCIP에서 옮기는 규칙(`src/scip/to-facts.ts`):
 2. 정밀 어댑터를 돌려요. 이름이 환경 변수 `CODE_ATLAS_DISABLE_INDEXERS`(쉼표로 여럿)에 있으면 돌리지 않고 "설치되어 있지 않음"으로 쳐요. 테스트가 색인기를 지우지 않고 "없을 때"를 만드는 장치예요(정밀 색인기가 말썽일 때 추정 층만 쓰는 데도 써요).
 3. 정밀 어댑터가 `IndexerMissing`을 던지면 `reason: 'missing'`, 다른 오류면 `'failed'`예요. stderr에 무엇이 없는지(실패했는지), 설치 명령(`install`), 그 언어를 추정 층으로 색인했다는 것을 적고, 색인 요약의 `fallbacks`에 남겨요. 색인 전체는 멈추지 않아요. 추정 규칙이 없는 언어는 안내만 내고 건너뛰어요(`inferredBy: null`).
    - Dart: `scip-dart`가 없으면 missing, 패키지 설정(`.dart_tool/package_config.json`)이 없는 패키지가 있으면 failed예요(지금은 패키지 하나만 실패해도 그 언어 전체가 추정 층으로 가요).
+   - JavaScript/TypeScript: code-atlas의 `node_modules`에 `@sourcegraph/scip-typescript`가 없으면 missing, scip-typescript 자식 프로세스가 실패하면 failed예요. 설정 파일이 없어서 실패하지는 않아요(기본 설정으로 색인해요).
 4. 정밀 사실이 덮지 못한 이 언어의 파일(정밀 사실의 `files`에 없고, 추정 규칙의 `excluded`에도 걸리지 않는 파일)이 있으면 추정 층을 돌려요. 없으면 돌리지 않아요(정밀 색인이 모두 덮은 저장소는 Tree-sitter를 읽지도 않아요).
 
 **정밀 사실은 덮어쓰지 않아요.** 추정 층은 정밀 사실이 있는 파일을 읽기는 하지만(이름 잇기에 그 파일의 정의와 import가 필요해요) 그 파일의 사실(파일, 정의, 그 파일에 적힌 관계)은 내지 않아요(`InferredRun.emit`). 색인기가 한 번 더 걸러요(`withoutCovered`). 추정 층의 관계가 정밀 파일의 이름을 가리킬 때는 같은 자리(경로, 이름의 줄·열)의 정밀 심볼 열쇠로 이어요. 그래서 패키지 밖 스크립트에서 패키지의 `Cart`를 쓰면, 정의는 정밀 그대로이고 그 사용처 하나만 추정으로 붙어요.
@@ -132,6 +157,7 @@ interface InferredLanguage {
   language: string;                       // 정밀 어댑터의 language와 같게(예: 'dart')
   grammar: string;                        // @repomix/tree-sitter-wasms의 문법 이름(dart, python, javascript, typescript, tsx …)
   grammarFor?(path: string): string;      // 파일마다 문법이 다를 때(.tsx 등)
+  fileLanguage?(path: string): string;    // 파일마다 언어 이름이 다를 때(JS/TS: javascript, typescript). 없으면 language
   owns(path: string): boolean;            // 이 언어의 파일인지(확장자)
   excluded(path: string, text: string, repo: RepoView): boolean; // 생성된 코드, 빌드 산출물
   role(path: string, repo: RepoView): 'app' | 'test';
@@ -196,6 +222,73 @@ interface FileSyntax {
 | `same-name-method` | 통과 | |
 | `same-name-method-pick` | 통과 | |
 | `same-name-function-pick-by-key` | 통과 | 추정 열쇠로 다시 물어도 하나가 나와요 |
+| `file` | 통과 | |
+| `file-barrel` | 통과 | |
+| `excluded-symbol` | 통과 | |
+| `excluded-file` | 통과 | |
+
+### JavaScript/TypeScript 규칙 (`src/inferred/typescript.ts`)
+
+- 문법은 파일마다 골라요(`grammarFor`): `.tsx`는 `tsx`, TypeScript는 `typescript`, JavaScript(JSX 포함)는 `javascript`. 파일의 `language`는 `fileLanguage`로 `typescript`/`javascript`예요. 출처 이름은 둘 다 `tree-sitter-typescript`예요.
+- 파일 고르기와 역할은 정밀 어댑터와 같은 관례(`src/adapters/typescript-conventions.ts`)예요.
+- 정의: 클래스(`abstract` 포함), 인터페이스, 타입 별칭(`type`), enum(값은 `constant`), namespace, 함수, 메서드, getter, setter, 필드(클래스 필드, TypeScript 매개변수 속성, 인터페이스의 속성), 최상위 변수(`const`면 `constant`). 생성자는 정의를 만들지 않고 클래스에 속해요. `export`·`export default`·`declare` 안의 선언도 같아요.
+- 사용처의 종류: `extends` 뒤는 `extends`, `implements` 뒤는 `implements`, JSDoc의 `@implements {X}`는 `implements`, `@extends {X}`(`@augments`)는 `extends`. 부르면(`f()`, `new X()`) `call`, 대입의 왼쪽이나 `++`/`--`면 `write`, 그 밖의 값은 `read`, 타입 표기와 JSDoc 타입(`@type {X}`, `@param {X}` …)은 `reference`예요.
+- 지역 이름은 정의가 든 함수 전체(안쪽 함수 포함)를 한 범위로 봐요(Dart와 같아요). 파일 최상위 문장 안(블록, `test(…, () => {})` 같은 콜백)의 지역 이름은 파일 하나를 한 범위로 봐요.
+- import: ES 모듈(`import … from`, `export … from`은 다시 내보냄), CommonJS(`require('x')`, `module.exports = require('x')`와 `module.exports = { ...require('x') }`는 다시 내보냄), 동적 `import('x')`. 상대 경로는 꼬리를 붙여 보고(`.ts`, `.tsx`, `.js` …), `.js`로 적은 TypeScript 파일(`./a.js` → `a.ts`)과 폴더의 `index`도 찾아요. 저장소 안 다른 `package.json`의 `name`으로 가져오면 그 폴더 안에서 찾아요(작업 공간). 그 밖의 패키지는 잇지 않아요.
+- 모듈을 통째로 받은 이름: 저장소 안 모듈(`import * as p from './p'`, `const p = require('./p')`)의 `p.x`는 이름 `x`로 찾아요. 저장소 밖 모듈(`const path = require('path')`)의 `path.x`는 잇지 않아요(같은 이름 멤버로 잘못 잇지 않게).
+- 이름을 가져오거나 내보내기만 하는 자리(import 이름, require 구조 분해, 내보내기 목록)는 사용처가 아니에요. 정밀 어댑터에 그 자리를 알려 줘요(`bindings`).
+
+### 추정 층이 놓치는 것 (JavaScript/TypeScript)
+
+- Dart와 같아요: 수신자의 타입을 알아야 고를 수 있는 멤버(같은 이름 멤버가 여럿일 때)는 잇지 않아요. 같은 이름 멤버가 하나뿐이면 수신자가 무엇이든 이어요.
+- 별칭으로 가져온 이름(`import { a as b }`, `const { a: b } = require()`)의 사용처(`b`)는 놓쳐요. default import도 놓쳐요.
+- `tsconfig.json`의 `paths` 별칭(`@/x`)은 풀지 않아요(정밀 층은 풀어요).
+
+### 추정 층 적합성: ts_sample
+
+TypeScript 예제(`test/fixtures/ts_sample`, `tsconfig.json`이 있는 ES 모듈). mixin 문법이 없어서 `Labeled`는 바탕 클래스, provider는 작은 `Container`가 읽는 모듈 수준 함수예요. 최상위 변수에 쓰는 곳은 그 파일 안(`setDiscount`)이에요(ES 모듈의 가져온 변수에는 쓸 수 없어요). 정밀 층의 답은 모두 정밀(`scip-typescript`)이에요.
+
+| 질문 | 결과 | 비고 |
+| --- | --- | --- |
+| `module-function` | 통과 | 호출, 함수 값으로 읽기, barrel(`export *`)을 거친 사용처, 앱/테스트 |
+| `module-constant` | 통과 | |
+| `module-variable` | 통과 | 쓰기(`=`, `+=`)와 읽기 |
+| `provider` | 통과 | |
+| `provider-dependent` | 통과 | |
+| `class` | 통과 | `new` 호출, 상속, 타입 표기. 상속의 `kindConfidence`만 정밀 층(`precise`)과 달라요 |
+| `interface` | 통과 | 구현 |
+| `mixin` | 통과 | 바탕 클래스 상속(`extends`) |
+| `getter` | 통과 | 같은 이름 멤버가 하나뿐이라 이어져요 |
+| `method-via-receiver` | 놓침 | `Cart.total`의 사용처 4곳을 모두 놓쳐요. 수신자(`container.read(cartProvider)`가 돌려준 값, `new Cart()`의 결과)의 타입을 모르고 `Totaled.total`과 이름이 같아서 잇지 않아요 |
+| `same-name-method` | 통과 | |
+| `same-name-method-pick` | 통과 | |
+| `same-name-function-pick-by-key` | 통과 | 추정 열쇠로 다시 물어도 하나가 나와요 |
+| `file` | 통과 | |
+| `file-barrel` | 통과 | |
+| `excluded-symbol` | 통과 | `// @generated` 파일, `dist/`, git이 무시하는 `local/` |
+| `excluded-file` | 통과 | |
+
+### 추정 층 적합성: js_sample
+
+JavaScript 예제(`test/fixtures/js_sample`): 설정 파일(`package.json`, `tsconfig.json`, `jsconfig.json`)이 하나도 없는 CommonJS(`require`, `module.exports`) 폴더예요. barrel은 `module.exports = { ...require('./cart'), … }`예요. 인터페이스는 JSDoc(`@interface`가 붙은 클래스와 `@implements {Totaled}`), 타입 표기는 JSDoc `@type {Cart}`예요. `Container.read`에 JSDoc 타입(`@template`)이 있어서 정밀 층이 돌려준 값의 타입(`Cart`)을 알아요.
+
+정밀 층의 답에도 추정 항목이 있어요(정답 파일에 그대로 있어요): JSDoc `@implements {Totaled}`(`interface`의 사용처 하나), JSDoc `@type {Cart}`(`class`의 `src/main.js` 12줄)는 scip-typescript가 occurrence로 내지 않아 정밀 어댑터가 추정 층으로 메워요(`confidence: inferred`, `source: tree-sitter-typescript`).
+
+| 질문 | 결과 | 비고 |
+| --- | --- | --- |
+| `module-function` | 통과 | 내보내기 목록(`module.exports = { withTax }`)은 사용처가 아니에요 |
+| `module-constant` | 통과 | |
+| `module-variable` | 통과 | |
+| `provider` | 통과 | |
+| `provider-dependent` | 통과 | |
+| `class` | 통과 | |
+| `interface` | 통과 | JSDoc `@implements` |
+| `mixin` | 통과 | |
+| `getter` | 통과 | |
+| `method-via-receiver` | 놓침 | ts_sample과 같아요(4곳을 모두 놓쳐요) |
+| `same-name-method` | 통과 | |
+| `same-name-method-pick` | 통과 | |
+| `same-name-function-pick-by-key` | 통과 | |
 | `file` | 통과 | |
 | `file-barrel` | 통과 | |
 | `excluded-symbol` | 통과 | |

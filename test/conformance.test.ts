@@ -26,6 +26,11 @@ interface Run {
 const RUNS: Run[] = [
   { fixture: 'dart_sample', layer: 'precise' },
   { fixture: 'dart_sample', layer: 'inferred', env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-dart' }, inferredSource: 'tree-sitter-dart' },
+  { fixture: 'ts_sample', layer: 'precise' },
+  { fixture: 'ts_sample', layer: 'inferred', env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-typescript' }, inferredSource: 'tree-sitter-typescript' },
+  // 설정 파일(package.json, tsconfig.json, jsconfig.json)이 없는 순수 JavaScript(CommonJS) 폴더예요.
+  { fixture: 'js_sample', layer: 'precise' },
+  { fixture: 'js_sample', layer: 'inferred', env: { CODE_ATLAS_DISABLE_INDEXERS: 'scip-typescript' }, inferredSource: 'tree-sitter-typescript' },
 ];
 
 /** 표시(믿음, 출처, 열쇠)를 뺀 답. 추정 층이 정밀 층과 같은 것을 찾았는지 볼 때 써요. */

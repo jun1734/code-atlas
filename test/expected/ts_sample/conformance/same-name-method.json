@@ -1,0 +1,32 @@
+{
+  "query": "add",
+  "status": "ambiguous",
+  "candidates": [
+    {
+      "key": "scip-typescript npm ts_sample 1.0.0 src/`cart.ts`/Cart#add().",
+      "name": "add",
+      "qualifiedName": "Cart.add",
+      "kind": "method",
+      "definition": {
+        "path": "src/cart.ts",
+        "line": 18,
+        "column": 3
+      },
+      "confidence": "precise",
+      "source": "scip-typescript"
+    },
+    {
+      "key": "scip-typescript npm ts_sample 1.0.0 src/`cart.ts`/Wishlist#add().",
+      "name": "add",
+      "qualifiedName": "Wishlist.add",
+      "kind": "method",
+      "definition": {
+        "path": "src/cart.ts",
+        "line": 36,
+        "column": 3
+      },
+      "confidence": "precise",
+      "source": "scip-typescript"
+    }
+  ]
+}

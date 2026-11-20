@@ -1,0 +1,48 @@
+{
+  "query": "shippingFee",
+  "status": "found",
+  "symbol": {
+    "name": "shippingFee",
+    "qualifiedName": "shippingFee",
+    "kind": "constant",
+    "definition": {
+      "path": "src/pricing.ts",
+      "line": 7,
+      "column": 14
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 2,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.ts",
+        "line": 27,
+        "column": 18,
+        "role": "app",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "Cart.total",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "test/pricing.test.ts",
+        "line": 7,
+        "column": 48,
+        "role": "test",
+        "kind": "read",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 1,
+      "test": 1
+    }
+  }
+}

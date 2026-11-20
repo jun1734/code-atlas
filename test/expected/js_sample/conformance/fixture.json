@@ -1,0 +1,5 @@
+{
+  "pricingFile": "src/pricing.js",
+  "barrelFile": "src/index.js",
+  "generatedFile": "src/receipt.generated.js"
+}

@@ -1,0 +1,81 @@
+{
+  "query": "Cart",
+  "status": "found",
+  "symbol": {
+    "name": "Cart",
+    "qualifiedName": "Cart",
+    "kind": "class",
+    "definition": {
+      "path": "src/cart.js",
+      "line": 22,
+      "column": 7
+    },
+    "confidence": "precise",
+    "source": "scip-typescript"
+  },
+  "uses": {
+    "total": 5,
+    "truncated": false,
+    "items": [
+      {
+        "path": "src/cart.js",
+        "line": 42,
+        "column": 24,
+        "role": "app",
+        "kind": "extends",
+        "kindConfidence": "precise",
+        "in": "GiftCart",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/main.js",
+        "line": 12,
+        "column": 14,
+        "role": "app",
+        "kind": "reference",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "inferred",
+        "source": "tree-sitter-typescript"
+      },
+      {
+        "path": "src/main.js",
+        "line": 13,
+        "column": 21,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "src/providers.js",
+        "line": 16,
+        "column": 32,
+        "role": "app",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "cartProvider",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      },
+      {
+        "path": "test/pricing.test.js",
+        "line": 8,
+        "column": 11,
+        "role": "test",
+        "kind": "call",
+        "kindConfidence": "inferred",
+        "in": "main",
+        "confidence": "precise",
+        "source": "scip-typescript"
+      }
+    ],
+    "byRole": {
+      "app": 4,
+      "test": 1
+    }
+  }
+}
