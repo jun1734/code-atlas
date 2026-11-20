@@ -406,6 +406,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 
 - `GraphStore.edges({ kinds? })`: 관계 하나가 간선 하나(`EdgeRow`). 출발은 사용처를 감싸는 심볼(파일 최상위면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import). 저장소 밖 심볼을 가리키는 관계는 빠져요.
 - `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
+  - 매개변수는 노드가 아니에요(정의 목록에 없어요). 그런데 색인기는 매개변수 기본값 안의 사용처(`{int extra = baseFee}`)를 그 매개변수가 감싼 것으로 적고, 이름 있는 인자는 매개변수를 가리켜요. 그래서 간선의 끝이 매개변수면 그 매개변수가 적힌 자리를 감싸는 가장 안쪽 정의(함수, 생성자 등)로 옮겨 붙여요(`GraphStore.parameterOwners()`. scip-dart가 매개변수의 바깥 심볼을 주지 않아서 정의가 차지하는 줄 `extentsIn`으로 찾아요). 감싸는 정의가 없으면 출발은 그 파일, 도착이면 간선을 빼요. 전에는 이런 간선을 따라간 impact가 오류로 멈췄어요(hijo_app 이름의 3분의 1).
 - `graph.in(id)` / `graph.out(id)`: 이 노드를 쓰는 간선 / 이 노드가 쓰는 간선. `graph.node(id)`는 이름, 정의 파일, 역할(app/test), 정의(`DefinitionRow`)를 줘요. `graph.fileNodes(path)`는 파일과 그 파일이 정의한 심볼의 노드예요.
 - `graph.reach(starts, 'in' | 'out', maxDepth)`: 너비 우선으로 거리별 도착점(`Reached`)을 줘요. 같은 거리라면 정밀한 길을 먼저 골라요. 길에 추정 관계가 하나라도 있으면 그 도착점은 `inferred`예요. 결과 순서는 거리, 그 안에서 id 순이라 다시 돌려도 같아요.
 - `graph.members(id)`: 그 노드와 그 안에 정의된 심볼(멤버, 멤버의 멤버 …). 이름 하나를 출발점·도착점으로 삼을 때 써요(impact, trace).
@@ -469,8 +470,20 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
   - 테스트 열: 테스트 파일(`role: 'test'`)이 직접 import하면 2(`importersOf`), 그 파일이 정의한 이름을 다른 파일(barrel 등)을 거쳐 쓰면 1(`usersOf`), 아니면 0이에요. barrel에 들었어도 테스트가 그 이름을 쓰지 않으면 0이에요(옛 코드 지도는 1이었어요).
   - 외부 SDK: `externalRefs()`의 열쇠 가운데 라이브러리(파일) 자체를 가리키는 것(SCIP 기술자가 모두 namespace)의 패키지 이름(`src/map/packages.ts`). 그 패키지를 import한 파일이에요. 언어 기본 라이브러리(`dart:async`처럼 ':'이 든 이름)와 저장소 자신의 패키지는 빼요.
   - 그래프에 없는 둘: 줄 수(작업 트리의 파일, 끝 줄바꿈도 한 줄로 셈)와 최근 90일 변경 횟수(`git log --since="90 days ago" --no-merges`). 브랜치는 그릴 때의 `git rev-parse --abbrev-ref HEAD`, 커밋은 색인 기준 커밋이에요(낡았으면 다시 색인하니 둘이 맞아요).
-- `template.html`: 화면. 그리는 것만 해요(띠 모듈 배치, 요약 문장, 표). 파일 표의 줄마다 `id="file=<경로>"`가 있고, 주소의 `#file=<경로>`를 읽어 그 파일을 보여 줘요. 다른 화면(이름 단위 그래프 등)이 파일로 이어 줄 자리예요.
+- `template.html`: 화면. 그리는 것만 해요(띠 모듈 배치, 요약 문장, 표). 파일 표의 줄마다 `id="file=<경로>"`가 있고, 주소의 `#file=<경로>`를 읽어 그 파일을 보여 줘요. 파일 이름은 이름 단위 그래프 화면의 그 파일(`<graph>#file=<경로>`, `MapData.graph`)로 가는 링크예요.
 - 시험은 `test/map.test.ts`(예제를 색인하고 `map`을 불러 HTML에 든 자료를 정답과 비교)와 `npm run verify:hijo`(hijo_app 7ba0197에서 옛 코드 지도와 비교)예요. 화면의 생김새는 브라우저로 띄워 확인해요.
+
+### 이름 단위 그래프 화면
+
+`map`이 코드 지도 옆에 `<지도 이름>-graph.html`도 그려요(출력의 `graph`). 이름이나 파일 하나를 골라 정의, 사용처, 영향 범위를 그래프로 보고 이웃을 눌러 따라가요. 밖에서 받는 것이 없어요(라이브러리도 글꼴도 없이 시스템 글꼴과 직접 그린 SVG).
+
+- `graph-data.ts`: `symbolGraphData(store, meta)`가 `GraphData`를 만들어요. 계산은 질의에 맡겨요.
+  - 노드 순서는 `search`(조건 없음)의 답 순서(많이 쓰이는 것이 먼저), 그다음 파일(경로 순), 그다음 영향 범위에서 만난 그 밖의 정의예요. 화면의 검색이 이 순서로 보여요.
+  - 이름마다 `context`(사용처 `GRAPH_USES_LIMIT`개)와 `impact`(깊이 3, 영향 받는 곳 `GRAPH_AFFECTED_LIMIT`개와 거리별 전체 개수), 파일마다 `context`의 네 목록(정의하는 이름, 가져오는 파일, 가져가는 파일, 쓰는 파일)과 `impact`를 그대로 담아요. 이름 수천 개를 잇달아 물어서 impact에는 그래프와 설정을 한 번만 읽어 넘겨요(`prepareImpact`, `impact(…, prepared)`).
+  - 영향 받는 곳마다 한 단계 가까운 노드(via)를 노드 번호로 담아요: 한 거리 가까운 항목 가운데 impact 답의 `via.name`과 이름이 같은 것이고, 거리 1은 고른 것이에요.
+  - 정밀/추정과 출처는 답의 항목마다 그대로 담아요. 칸 이름과 튜플의 뜻은 `GraphNode`의 주석에 있어요. hijo_app(이름 4,108개, 파일 329개)에서 HTML 4.3MB, `map` 전체 18초쯤이에요.
+- `graph.html`: 화면. 검색은 `search` 질의의 맞춤 규칙(`words`, `matches`)의 소스를 `renderSymbolGraph`가 그대로 넣어 써요(규칙을 화면에 따로 짜지 않아요). 파일은 경로 일부로 찾아요. 그래프는 칸 다섯(정의 → 고른 것 → 거리 1, 2, 3. 칸마다 10개까지 그리고 나머지는 "더" 칸과 아래 목록)이고, 좁은 폭(680px 아래)에서는 칸이 위에서 아래로 쌓여요. 정밀 관계는 실선, 추정 관계는 노란 점선, 정의가 추정인 이름은 노란 점선 테두리예요. 주소는 `#symbol=<열쇠>`나 `#file=<경로>`라 뒤로 가기로 따라온 길을 되짚어요.
+- 시험은 `test/graph-view.test.ts`: 예제를 정밀 층과 추정 층(`CODE_ATLAS_DISABLE_INDEXERS=scip-dart`)으로 색인하고, 그래프 자료가 같은 저장소에 명령줄로 물은 search·context·impact의 답과 같은지 봐요.
 
 ## 질의 실행기와 바깥 껍데기
 

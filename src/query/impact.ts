@@ -92,9 +92,20 @@ export interface ImpactOptions {
   config?: string;
 }
 
-export function impact(store: GraphStore, query: string, opts: ImpactOptions): ImpactBody {
-  const graph = Graph.load(store);
-  const counts = store.useCounts();
+/** 여러 이름의 영향 범위를 잇달아 물을 때(그래프 화면) 한 번만 만들어 넘기는 것. 없으면 질의마다 그래프와 설정을 읽어요. */
+export interface ImpactPrepared {
+  graph: Graph;
+  counts: Map<string, number>;
+  modules: ReturnType<typeof repoModules>;
+}
+
+export function prepareImpact(store: GraphStore, config?: string): ImpactPrepared {
+  return { graph: Graph.load(store), counts: store.useCounts(), modules: repoModules(store, config) };
+}
+
+export function impact(store: GraphStore, query: string, opts: ImpactOptions, prepared?: ImpactPrepared): ImpactBody {
+  const graph = prepared?.graph ?? Graph.load(store);
+  const counts = prepared?.counts ?? store.useCounts();
   const isHot = (key: string) => (counts.get(key) ?? 0) >= opts.hotUses;
 
   // 출발점: 파일이면 그 파일과 그 파일이 정의한 이름, 이름이면 그 심볼과 그 안의 것(멤버, 생성자).
@@ -117,7 +128,7 @@ export function impact(store: GraphStore, query: string, opts: ImpactOptions): I
     target = { ...symbol, uses: counts.get(key) ?? 0, hot: isHot(key) };
   }
 
-  const { config, moduleOf } = repoModules(store, opts.config);
+  const { config, moduleOf } = prepared?.modules ?? repoModules(store, opts.config);
   const { items, moreBeyondDepth } = reachImpact({ graph, moduleOf, counts, hotUses: opts.hotUses, depth: opts.depth }, starts);
 
   const byDistance: Record<string, number> = {};
