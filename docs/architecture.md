@@ -176,6 +176,7 @@ interface FileSyntax {
 - 지역 이름은 정의가 든 함수 전체에서 하나의 범위로 봐요. 그래서 함수 안 어디서든 같은 이름의 지역 이름이 있으면 그 함수 안의 같은 이름 최상위 정의 사용처를 놓쳐요.
 - tree-sitter-dart가 `Provider<Cart>(…)` 같은 제네릭 호출을 비교식으로 읽어요. 그래도 `Cart`는 타입으로 이어져 `reference`가 되고, `Provider`는 저장소 밖이라 잇지 않아요.
 - 추정 층의 `extends`·`implements`도 `kindConfidence: inferred`예요(정밀 층은 scip-dart의 타입 관계로 확인해 `precise`).
+- 글 끼워 넣기에서 중괄호 없이 쓴 이름(`'연결 $roomName'`)은 사용처로 잇지 않아요(`test/flows.test.ts`가 이 놓침을 기록해요).
 
 ### 추정 층 적합성: dart_sample
 
@@ -277,11 +278,11 @@ interface FileSyntax {
 
 ## 저장소 설정과 모듈
 
-모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요.
+모듈은 "파일 경로 → 모듈 이름"이에요. check(흐름, 층), impact(모듈별 묶음), clusters(여러 모듈에 걸침)가 모두 같은 함수를 써요. 저장소 설정의 `flows`는 실행 흐름(flows)의 진입점이에요.
 
 - `src/repo-config.ts`: `loadRepoConfig(repoRoot, explicitPath?)`가 저장소 뿌리의 `.code-atlas.json`(명령줄 `--config`, MCP `config` 인자로 다른 파일)을 읽어 `RepoConfig`를 돌려줘요. 파일이 없으면 기본 설정(뿌리 바로 아래 폴더 하나가 모듈 하나)이에요. `readAllowlist(repoRoot, source)`는 허용 목록 하나의 대상 파일을 읽어요.
 - `src/modules.ts`: `moduleResolver(config)`가 `(path) => 모듈 이름 | null` 함수(`ModuleOf`)를 만들어요. `null`은 어느 규칙에도 맞지 않는 파일(검사 밖)이에요. 질의는 `repoModules(store, configPath)`(설정 읽기 + `moduleResolver`)를 써요. `globToRegExp`, `nameGlobToRegExp`도 여기 있어요.
-- 설정 파일을 고르는 질의 인자는 `CONFIG_PARAM`(`src/repo-config.ts`) 하나를 check, impact, clusters가 같이 써요.
+- 설정 파일을 고르는 질의 인자는 `CONFIG_PARAM`(`src/repo-config.ts`) 하나를 check, impact, clusters, flows가 같이 써요.
 
 `.code-atlas.json` 형식(칸은 모두 선택, 빠지면 기본값):
 
@@ -313,6 +314,10 @@ interface FileSyntax {
     "packages": { "http": "HTTP" },                    // 외부 SDK 표에 올릴 패키지와 보일 이름. 없으면 밖 패키지 전부
     "reviewNotes": [{ "modules": ["models"], "label": "데이터 타입", "note": "…" }], // 리뷰 후보의 꼬리표·메모(없으면 helper)
     "select": "orders"                                 // 처음 골라 둘 모듈. 없으면 흐름을 거스르는 import가 닿는 첫 모듈
+  },
+  "flows": {                     // 실행 흐름(flows)의 진입점
+    "entries": [{ "name": "*Page.build" }, { "kinds": ["function"], "name": "main" }], // qualifiedName에 맞추는 glob. 불리는 이름이어도 진입점
+    "uncalled": true                                    // 불리지 않는 이름(과 밖에서 불리지 않는 순환)도 진입점으로(기본 true)
   }
 }
 ```
@@ -376,10 +381,27 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 - **답**: `clusters`(`Page`)는 둘 이상이 든 묶음이에요. 큰 것부터, 같으면 대표 이름순. 항목마다 `size`, `representative`(묶음 안 이름과 엮인 무게가 가장 큰 선언, 같으면 id 순: 이름·종류·정의 위치), `names`(이름순), `files`(경로순), `modules`(`repoModules`로 구한 모듈, 어느 모듈에도 안 든 파일은 빠짐), `crossModule`(모듈이 둘 이상), `internalEdges`/`externalEdges`(묶음 안/밖과의 관계 수), `confidence`(묶음 안 관계 가운데 가장 낮은 것), `source`. `names`와 `files`는 check의 `cycles.files`처럼 같은 `limit`으로 잘리는 안쪽 목록(`InnerList`)이고, `size`가 이름 수예요.
 - `summary`: 셈한 이름 수(`names`), 묶음 수(`clusters`), 혼자 남은 이름 수(`singletons`, 목록에 안 나옴), 여러 모듈에 걸친 묶음 수(`crossModule`), 나눈 결과의 모듈성(`modularity`, 소수 셋째 자리).
 - 모듈 기준은 check와 같은 저장소 설정이에요(`--config`, MCP `config`).
+- 묶음 계산(`computeClusters`)은 자르기 전 묶음 전부를 내요. clusters 답과 flows의 "이 이름이 든 묶음"(`clustersOf`: 이름의 최상위 선언이 든 묶음)이 이것을 같이 써서, 두 답의 묶음이 늘 같아요.
+
+## 질의: flows
+
+`src/query/flows.ts`. 진입점에서 시작하는 실행 흐름이에요. 낯선 기능의 큰 줄기를 파악하고, 이름 하나가 어느 묶음과 어느 흐름에 속하는지(변경이 어떤 사용자 경로에 닿는지) 답해요. 정답이 하나인 문제가 아니라서, 예제 저장소(`test/fixtures/flow_sample`)는 흐름이 뚜렷한 작은 저장소로 잡았어요.
+
+- **그래프**: `Graph.load(store, { kinds: ['call', 'read'] })`에서 코드를 돌리는 관계만 따라가요. 부름(`call`)은 모두, 읽기(`read`)는 읽으면 코드가 도는 것만이에요: getter(본문)와 모듈 수준 변수(`kind: variable`이고 바깥 심볼이 없는 것. 초기화 식에서 부르는 것은 그 변수가 부른 것으로 잡혀요. Dart 최상위 변수는 처음 읽을 때 초기화되고, Riverpod provider도 이렇게 읽혀요). 필드·상수 읽기와 타입 참조, import는 따라가지 않아요. 노드는 앱 코드(`role: 'app'`)의 심볼(이름 공간 빼고)이고, 테스트 코드가 부르는 것은 셈하지 않아요. 두 이름 사이 관계가 여럿이면 대표 하나(정밀한 것, 종류가 정밀한 것, 적힌 자리 순)예요.
+- **진입점** (`reasons`):
+  - `uncalled`: 앱 코드 어디서도(파일 최상위 포함) 부르거나 읽어 돌리지 않으면서, 앱 코드의 이름을 하나라도 부르는 이름. Flutter의 `build`처럼 프레임워크가 부르는 것, 값으로 넘겨지는 콜백, 쓰이지 않는 코드가 여기 들어요.
+  - `cycle`: 서로만 부르는 순환(강연결 요소 둘 이상, check의 `stronglyConnected`) 가운데 밖에서 부르는 곳이 없는 것. 노드 id가 가장 작은 이름 하나가 진입점이에요. 이게 없으면 그런 순환은 어느 흐름에도 안 나와요.
+  - `config`: 저장소 설정 `flows.entries`(이름 glob을 `qualifiedName`에, `kinds`를 종류에 맞춤)에 맞는 이름. 코드 안에서 불려도 진입점이에요. 맞는 이름이 없는 glob은 `summary.unmatched`에 나와요. `flows.uncalled: false`면 앞의 둘은 셈하지 않아요.
+- **흐름 하나**: 진입점에서 깊이 우선(앞 순회)으로 따라가요. 한 이름이 부르는 것들은 관계가 적힌 자리(경로, 줄, 열) 순이라, 거치는 이름의 순서가 대략 실행 순서예요(분기·반복·비동기는 보지 않아요). 흐름 안에서 이미 나온 이름은 다시 펼치지 않아요(같은 이름을 두 번 적지 않고, 순환도 여기서 끊겨요). `depth`(기본 10)까지만 따라가고, 그 끝의 이름이 흐름에 없는 이름을 더 부르면 `beyondDepth: true`예요.
+- 클래스를 만들면(`Cart()`) 클래스에 닿지만 그 멤버로 들어가지 않아요(trace와 같아요). 인터페이스 메서드를 부르는 곳은 구현으로 이어지지 않아서, 구현 메서드는 불리지 않는 진입점으로 나올 수 있어요.
+- **답**: `query`(물은 이름 또는 `null`), `config`, `depth`, `length`, `summary`(`entries`, `uncalled`, `cycles`, `configured`, `unmatched`: 거르기 전 전체), `flows`(`Page`, `limit`). 흐름은 큰 것(`size`)부터, 같으면 진입점 이름, 열쇠 순이에요.
+  - 흐름 하나: `entry`(지점), `reasons`, `size`(진입점 포함 이름 수), `steps`(`Page`, 진입점 다음부터 `length`개, 기본 30), `beyondDepth`, 그리고 구간 가운데 가장 낮은 `confidence`·`kindConfidence`와 출처 모두(`source`). 구간이 없으면(설정한 진입점이 아무것도 안 부르면) 진입점의 표시예요.
+  - 구간(`steps`의 항목): 이름의 지점(`name`, `kind`, `path`, `line`, `column`, `key`), `depth`(진입점이 부르면 1), `from`(부른 이름), `relation`(`call`/`read`), `at`(적힌 자리), 그 관계의 `confidence`·`kindConfidence`·`source`. 추정 층이 낸 관계를 지나는 구간은 `confidence: inferred`예요(trace의 "추정 관계의 표시"와 같은 규칙).
+- **이름을 물으면** (`flows <이름>`): `resolvePoint`로 풀어요(여럿이면 `ambiguous`와 `candidates`, 없으면 `not_found`). 찾으면 `status: 'found'`, `target`(지점), `clusters`(`Page`: 그 이름의 최상위 선언이 든 묶음. 혼자 남은 이름이면 빈 목록), 그리고 그 이름(과 그 멤버, 파일이면 그 파일이 정의한 이름)을 거치는 흐름만이에요. 흐름마다 `hits`(흐름에서 맞은 이름, 흐름 순)가 붙어요. 거치는지는 `depth` 안에서 봐요(`length`로 잘린 구간도 셈해요).
 
 ## 그래프 탐색
 
-`src/graph/traverse.ts`. impact, trace, clusters가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.
+`src/graph/traverse.ts`. impact, trace, clusters, flows가 함께 써요. 질의마다 탐색을 따로 만들지 않아요.
 
 - `GraphStore.edges({ kinds? })`: 관계 하나가 간선 하나(`EdgeRow`). 출발은 사용처를 감싸는 심볼(파일 최상위면 그 파일), 도착은 저장소 안의 심볼 또는 파일(import). 저장소 밖 심볼을 가리키는 관계는 빠져요.
 - `Graph.load(store, { kinds? })`: 간선과 정의를 메모리의 인접 목록으로 올려요. 노드 id는 심볼 `s:<열쇠>`, 파일 `f:<경로>`(`nodeId`).
@@ -396,7 +418,7 @@ hijo_app 7ba0197로 맞춰 보기: `HIJO_APP_REPO=<hijo_app 저장소> npm run v
 `src/query/point.ts`. context, impact, trace가 같은 것을 써요.
 
 - `resolvePoint(store, query)`: 물은 글이 색인된 파일 경로와 정확히 맞으면(`\`는 `/`로) `file`, 아니면 이름(`findSymbols`: key → qualifiedName → name)으로 `symbol`, 여럿이면 `ambiguous`(후보), 없으면 `not_found`.
-- `Point`와 `pointOfSymbol`, `pointOfFile`, `pointOfNode`: 답에 지점을 적는 꼴(`name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`). trace의 지점과 impact의 항목, clusters의 대표 이름이 이것으로 적혀요. `locationOf`는 적힌 자리에서 경로·줄·열만 남겨요.
+- `Point`와 `pointOfSymbol`, `pointOfFile`, `pointOfNode`: 답에 지점을 적는 꼴(`name`, `kind`, `path`, 심볼이면 `line`, `column`, `key`, `confidence`, `source`). trace의 지점과 impact의 항목, clusters의 대표 이름, flows의 진입점과 구간이 이것으로 적혀요. `locationOf`는 적힌 자리에서 경로·줄·열만 남겨요.
 
 ## 질의: trace
 
