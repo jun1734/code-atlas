@@ -84,7 +84,8 @@ const positions: Record<string, string[]> = {};
 const writeIndex = (index: { documents?: { relativePath: string; occurrences: { range: number[] }[] }[] }) => {
   for (const doc of index.documents ?? []) {
     const path = doc.relativePath.replaceAll('\\', '/');
-    (positions[path] ??= []).push(...doc.occurrences.map((o) => positionKey(o.range[0]!, o.range[1]!)));
+    const list = (positions[path] ??= []);
+    for (const o of doc.occurrences) list.push(positionKey(o.range[0]!, o.range[1]!));
   }
   writeSync(out, toBinary(IndexSchema, index));
 };

@@ -124,11 +124,19 @@ export function emptyFacts(): Facts {
   return { files: [], symbols: [], relations: [] };
 }
 
+/**
+ * items를 into 뒤에 순서대로 붙여요. `into.push(...items)`는 배열을 함수 인자로 펼쳐서, 저장소 크기만큼 커지는 배열에서는
+ * 엔진의 인자 수 한도를 넘어 `Maximum call stack size exceeded`로 실패해요. 그런 배열은 이것으로 붙여요.
+ */
+export function appendAll<T>(into: T[], items: readonly T[]): void {
+  for (const item of items) into.push(item);
+}
+
 /** part의 사실을 into 뒤에 붙여요. */
 export function appendFacts(into: Facts, part: Facts): void {
-  into.files.push(...part.files);
-  into.symbols.push(...part.symbols);
-  into.relations.push(...part.relations);
+  appendAll(into.files, part.files);
+  appendAll(into.symbols, part.symbols);
+  appendAll(into.relations, part.relations);
 }
 
 /** drop이 참인 파일과, 그 파일에서 정의한 심볼, 그 파일에 적힌 관계, 그 파일로 가는 import를 빼요. */
