@@ -115,7 +115,8 @@ function localMoves(g: Weighted, m2: number): { community: number[]; moved: bool
 
 /** Louvain 2단계: 묶음 하나를 노드 하나로 접어요. 묶음 안의 무게는 자기 고리가 돼요. */
 function aggregate(g: Weighted, community: number[]): Weighted {
-  const n = Math.max(-1, ...community) + 1;
+  // 노드 수만큼 긴 배열이라 Math.max에 펼쳐 넘기지 않아요(인자 수 한도).
+  const n = community.reduce((max, c) => Math.max(max, c), -1) + 1;
   const adj = Array.from({ length: n }, () => new Map<number, number>());
   for (let i = 0; i < g.n; i++) {
     for (const [j, w] of g.adj[i]!) {

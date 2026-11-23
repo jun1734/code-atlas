@@ -9,7 +9,7 @@
 //    (supertypes)로 확인한 것만 precise예요. scip-typescript가 주지 않은 정의 전체의 자리(enclosingRange)도 구문으로 채워요.
 // 6) scip-typescript가 아무것도 잇지 못한 자리(occurrence가 하나도 없는 자리)는 추정 층이 이은 것을 추정으로 붙여요.
 //    예: JSDoc의 `@implements {X}`·`@type {X}`. 수신자.이름(수신자가 any)은 메우지 않아요(fillGaps).
-import { emptyFacts, placeKey, positionKey, type Facts, type Range, type RelationFact, type RelationKind, type RepoInfo, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { appendAll, emptyFacts, placeKey, positionKey, type Facts, type Range, type RelationFact, type RelationKind, type RepoInfo, type SymbolFact, type SymbolKind } from '../facts.ts';
 import { inferredSource, runInferred, type RepoView } from '../inferred/layer.ts';
 import { parserFor } from '../inferred/tree-sitter.ts';
 import { extractJsTs, typescriptInferred, type JsTsSyntax } from '../inferred/typescript.ts';
@@ -117,7 +117,7 @@ export async function refineTypeScriptFacts(raw: Facts, opts: RefineOptions): Pr
   }
 
   // 6) scip-typescript가 잇지 못한 자리를 추정 층으로 메워요.
-  relations.push(...(await fillGaps(opts, covered, symbols, (path) => syntax.get(path)?.members ?? new Set())));
+  appendAll(relations, await fillGaps(opts, covered, symbols, (path) => syntax.get(path)?.members ?? new Set()));
   return { files, symbols, relations };
 }
 

@@ -13,7 +13,7 @@
 // 5) 사용처의 종류: 문법으로 가리고(kindConfidence: inferred), 상속은 scip-python이 준 타입 관계(supertypes)로 확인한 것만
 //    extends로 부르고 precise로 둬요. Python의 바탕 타입은 하나의 방법(상속)이라 implements는 쓰지 않아요.
 import { HEAD_LENGTH } from './conventions.ts';
-import { dropFiles, placeKey, positionKey, TYPE_KINDS, type Facts, type Range, type RelationFact, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { appendAll, dropFiles, placeKey, positionKey, TYPE_KINDS, type Facts, type Range, type RelationFact, type SymbolFact, type SymbolKind } from '../facts.ts';
 import { parserFor } from '../inferred/tree-sitter.ts';
 import { pythonSyntax, type PythonSyntax } from '../inferred/python.ts';
 import { parseSymbol } from '../scip/symbol.ts';
@@ -123,7 +123,7 @@ export async function refinePythonFacts(raw: Facts, opts: PythonRefineOptions): 
     } else if (kind === 'read' && target && TYPE_KINDS.has(target.kind)) kind = 'reference';
     relations.push({ ...r, kind, from, kindConfidence });
   }
-  relations.push(...importedNameGaps(syntax, symbols, relations, opts, enclosing));
+  appendAll(relations, importedNameGaps(syntax, symbols, relations, opts, enclosing));
   return { files: facts.files, symbols, relations };
 }
 

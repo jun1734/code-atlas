@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import protobuf from 'protobufjs';
-import { emptyFacts, type Facts, type Range, type RelationFact, type RelationKind, type SymbolFact, type SymbolKind } from '../facts.ts';
+import { appendAll, emptyFacts, type Facts, type Range, type RelationFact, type RelationKind, type SymbolFact, type SymbolKind } from '../facts.ts';
 import { parseSymbol, symbolNames, type ParsedSymbol } from './symbol.ts';
 
 const protoPath = fileURLToPath(new URL('../../proto/scip.proto', import.meta.url));
@@ -168,7 +168,7 @@ export function scipToFacts(scipFile: string, opts: ScipToFactsOptions): Facts {
       });
     }
     defsByFile.set(doc.path, defs);
-    facts.symbols.push(...defs);
+    appendAll(facts.symbols, defs);
   }
 
   // 2) 사용처. 감싸는 정의 중 가장 안쪽 것을 from.symbolKey로 둬요.
